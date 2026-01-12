@@ -7,7 +7,7 @@ import { encodeAbiParameters, keccak256 } from 'viem';
 import { baseSepolia } from 'wagmi/chains';
 import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 const BASE_SEPOLIA_CHAIN_ID = 84532;
 const IDENTITY_REGISTRY_ADDRESS = '0x8004AA63c570c570eBF15376c0dB199918BFe9Fb';
 

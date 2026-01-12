@@ -9,7 +9,7 @@ import { IDENTITY_REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI } from '../contracts/M
 import RateAgent from '../components/RateAgent';
 import './Chat.css';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 // Legacy agent configurations (Bob & Ana)
 const legacyAgents: Record<string, { name: string; title: string; avatar: string; description: string }> = {

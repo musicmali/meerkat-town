@@ -4,7 +4,7 @@
 import type { AgentMetadata } from '../types/agentMetadata';
 import { addRegistrationToMetadata } from './generateAgentMetadata';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs';
 
 export interface UploadResponse {
