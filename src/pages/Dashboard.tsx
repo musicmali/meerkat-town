@@ -185,73 +185,6 @@ function Dashboard() {
                     </div>
                 )}
 
-                {/* Legacy Agents Section */}
-                <section className="agents-section">
-                    <h2 className="section-title">Legacy Agents</h2>
-                    <div className="agents-grid">
-                        {legacyAgents.map((agent) => (
-                            <div key={agent.id} className="agent-card">
-                                {/* Large Artwork Section */}
-                                <div className="agent-artwork">
-                                    <img src={agent.avatar} alt={agent.name} className="agent-avatar-large" />
-                                    {agent.reputation && (
-                                        <div className="agent-reputation-badge">
-                                            <span className="reputation-value">{agent.reputation}</span>
-                                            <span className="reputation-text">Score</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Info Section */}
-                                <div className="agent-content">
-                                    <div className="agent-header">
-                                        <div className="agent-header-left">
-                                            <h3 className="agent-name">{agent.name}</h3>
-                                            <p className="agent-title">{agent.title}</p>
-                                        </div>
-                                        {agent.deployedBy && (
-                                            <div className="deployer-badge">
-                                                <span className="deployer-label">By:</span>
-                                                <a
-                                                    href={getBaseScanUrl(agent.deployedBy)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="deployer-address"
-                                                >
-                                                    {formatDeployerAddress(agent.deployedBy)}
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <p className="agent-description">{agent.description}</p>
-
-                                    <div className="agent-tags">
-                                        {agent.specialty.map((tag) => (
-                                            <span key={tag} className="tag">{tag}</span>
-                                        ))}
-                                    </div>
-
-                                    <div className="agent-footer">
-                                        <div className="agent-price">
-                                            <span className="price-amount">{agent.price}</span>
-                                            <span className="price-label">per message</span>
-                                        </div>
-                                        <Link
-                                            to={`/chat/${agent.id}`}
-                                            className={`btn btn-primary ${!isConnected ? 'btn-disabled' : ''}`}
-                                            style={{ padding: 'var(--space-3) var(--space-6)', minWidth: 'auto', height: 'fit-content' }}
-                                            onClick={(e) => !isConnected && e.preventDefault()}
-                                        >
-                                            Start Chat
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
                 {/* Meerkat Agents Section (from ERC-8004 Identity Registry) */}
                 <section className="agents-section">
                     <h2 className="section-title">Meerkat Agents</h2>
@@ -361,6 +294,73 @@ function Dashboard() {
                             })}
                         </div>
                     )}
+                </section>
+
+                {/* Legacy Agents Section */}
+                <section className="agents-section">
+                    <h2 className="section-title">Legacy Agents</h2>
+                    <div className="agents-grid">
+                        {legacyAgents.map((agent) => (
+                            <div key={agent.id} className="agent-card">
+                                {/* Large Artwork Section */}
+                                <div className="agent-artwork">
+                                    <img src={agent.avatar} alt={agent.name} className="agent-avatar-large" />
+                                    {agent.reputation && (
+                                        <div className="agent-reputation-badge">
+                                            <span className="reputation-value">{agent.reputation}</span>
+                                            <span className="reputation-text">Score</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Info Section */}
+                                <div className="agent-content">
+                                    <div className="agent-header">
+                                        <div className="agent-header-left">
+                                            <h3 className="agent-name">{agent.name}</h3>
+                                            <p className="agent-title">{agent.title}</p>
+                                        </div>
+                                        {agent.deployedBy && (
+                                            <div className="deployer-badge">
+                                                <span className="deployer-label">By:</span>
+                                                <a
+                                                    href={getBaseScanUrl(agent.deployedBy)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="deployer-address"
+                                                >
+                                                    {formatDeployerAddress(agent.deployedBy)}
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <p className="agent-description">{agent.description}</p>
+
+                                    <div className="agent-tags">
+                                        {agent.specialty.map((tag) => (
+                                            <span key={tag} className="tag">{tag}</span>
+                                        ))}
+                                    </div>
+
+                                    <div className="agent-footer">
+                                        <div className="agent-price">
+                                            <span className="price-amount">{agent.price}</span>
+                                            <span className="price-label">per message</span>
+                                        </div>
+                                        <Link
+                                            to={`/chat/${agent.id}`}
+                                            className={`btn btn-primary ${!isConnected ? 'btn-disabled' : ''}`}
+                                            style={{ padding: 'var(--space-3) var(--space-6)', minWidth: 'auto', height: 'fit-content' }}
+                                            onClick={(e) => !isConnected && e.preventDefault()}
+                                        >
+                                            Start Chat
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </section>
             </main>
         </div>
