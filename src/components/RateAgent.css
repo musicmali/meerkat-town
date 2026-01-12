@@ -1,0 +1,236 @@
+/* RateAgent Component Styles */
+/* ERC-8004 compliant feedback submission UI */
+
+.rate-agent {
+    background: linear-gradient(145deg, rgba(30, 30, 45, 0.95), rgba(20, 20, 35, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 400px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.rate-agent--success {
+    text-align: center;
+    padding: 40px 24px;
+}
+
+.rate-agent__success-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: white;
+    margin: 0 auto 16px;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.rate-agent__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.rate-agent__header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.rate-agent__payment-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    background: rgba(34, 197, 94, 0.2);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    border-radius: 12px;
+    color: #22c55e;
+}
+
+/* Star Rating */
+.rate-agent__stars {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.rate-agent__star {
+    background: none;
+    border: none;
+    font-size: 32px;
+    color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    line-height: 1;
+}
+
+.rate-agent__star:hover:not(:disabled) {
+    transform: scale(1.1);
+}
+
+.rate-agent__star--filled {
+    color: #fbbf24;
+    text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+}
+
+.rate-agent__star:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.rate-agent__score {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-left: auto;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Form Fields */
+.rate-agent__field {
+    margin-bottom: 16px;
+}
+
+.rate-agent__field label {
+    display: block;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 6px;
+}
+
+.rate-agent__field textarea,
+.rate-agent__field input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    color: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.rate-agent__field textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.rate-agent__field textarea:focus,
+.rate-agent__field input:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+.rate-agent__field textarea::placeholder,
+.rate-agent__field input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.rate-agent__field--inline {
+    display: inline-flex;
+    flex-direction: column;
+    width: calc(50% - 8px);
+    margin-right: 8px;
+}
+
+.rate-agent__field--inline:last-child {
+    margin-right: 0;
+}
+
+/* Advanced Options */
+.rate-agent__advanced-toggle {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px 0;
+    transition: color 0.2s ease;
+}
+
+.rate-agent__advanced-toggle:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.rate-agent__advanced {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Error Message */
+.rate-agent__error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+    color: #ef4444;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+/* Actions */
+.rate-agent__actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.rate-agent__btn {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.rate-agent__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.rate-agent__btn--primary {
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    color: white;
+}
+
+.rate-agent__btn--primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+}
+
+.rate-agent__btn--secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.rate-agent__btn--secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Connect Hint */
+.rate-agent__connect-hint {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 12px;
+}

@@ -1,0 +1,518 @@
+/* ============================================================================
+   DASHBOARD STYLES
+   ============================================================================ */
+
+.dashboard {
+    display: flex;
+    min-height: 100vh;
+    background: var(--bg-light);
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: var(--bg-white);
+    border-right: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+}
+
+.sidebar-header {
+    padding: var(--space-6);
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sidebar-logo {
+    height: 120px;
+    width: auto;
+    object-fit: contain;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: var(--space-4);
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+    margin-bottom: var(--space-1);
+}
+
+.sidebar-link:hover {
+    background: var(--bg-light);
+    color: var(--text-primary);
+}
+
+.sidebar-link.active {
+    background: var(--primary-glow);
+    color: var(--primary);
+}
+
+.sidebar-icon {
+    font-size: 1.25rem;
+}
+
+.sidebar-footer {
+    padding: var(--space-4);
+    border-top: 1px solid var(--border-light);
+}
+
+.wallet-btn {
+    width: 100%;
+}
+
+.wallet-connected {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.wallet-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+}
+
+.wallet-indicator {
+    width: 8px;
+    height: 8px;
+    background: #22C55E;
+    border-radius: 50%;
+}
+
+.wallet-address {
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+/* Main Content */
+.dashboard-main {
+    flex: 1;
+    margin-left: 260px;
+    padding: var(--space-8);
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-8);
+}
+
+.header-stats {
+    display: flex;
+    gap: var(--space-6);
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Notice */
+.notice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bg-warm);
+    border: 1px solid var(--primary-light);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-8);
+    color: var(--primary-dark);
+}
+
+.notice-icon {
+    font-size: 1.25rem;
+}
+
+/* Agents Section */
+.agents-section {
+    margin-bottom: var(--space-8);
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: var(--space-6);
+}
+
+.agents-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-6);
+}
+
+/* Empty Section */
+.empty-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-12) var(--space-6);
+    background: var(--bg-white);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-xl);
+    text-align: center;
+    gap: var(--space-4);
+}
+
+.empty-section p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Agent Card - Premium Horizontal Layout */
+.agent-card {
+    display: flex;
+    flex-direction: row;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-2xl);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.agent-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 20px 40px rgba(249, 115, 22, 0.1),
+        0 8px 16px rgba(0, 0, 0, 0.06);
+    border-color: var(--primary-light);
+}
+
+/* Artwork Section */
+.agent-artwork {
+    position: relative;
+    flex-shrink: 0;
+    width: 280px;
+    background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.agent-artwork::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    background: linear-gradient(to right, transparent, var(--bg-white));
+    pointer-events: none;
+}
+
+.agent-avatar-large {
+    width: 250px;
+    height: 250px;
+    object-fit: cover;
+    border-radius: var(--radius-xl);
+    transition: transform 0.3s ease;
+}
+
+.agent-card:hover .agent-avatar-large {
+    transform: scale(1.05);
+}
+
+.agent-avatar-large.agent-avatar-emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-warm);
+    font-size: 5rem;
+}
+
+/* Reputation Badge on Artwork */
+.agent-reputation-badge {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.reputation-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.reputation-text {
+    font-size: 0.5rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Content Section */
+.agent-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-8);
+    min-width: 0;
+}
+
+.agent-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-3);
+    gap: var(--space-3);
+}
+
+.agent-header-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.agent-name {
+    font-size: 1.375rem;
+    font-weight: 700;
+    margin-bottom: var(--space-1);
+    color: var(--text-primary);
+}
+
+.agent-title {
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.9375rem;
+}
+
+/* Deployer Badge */
+.deployer-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    flex-shrink: 0;
+}
+
+.deployer-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.deployer-address {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    font-family: monospace;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.deployer-address:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.agent-title {
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.9375rem;
+}
+
+.agent-description {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+    line-height: 1.6;
+    font-size: 0.9375rem;
+    flex-grow: 1;
+}
+
+.agent-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.tag {
+    padding: var(--space-1) var(--space-3);
+    background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    border: 1px solid rgba(249, 115, 22, 0.15);
+}
+
+.agent-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-light);
+    margin-top: auto;
+}
+
+.agent-price {
+    display: flex;
+    flex-direction: column;
+}
+
+.price-amount {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.price-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Demo Section */
+.demo-section {
+    margin-top: var(--space-8);
+}
+
+.demo-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    padding: var(--space-6);
+    background: var(--bg-white);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-xl);
+}
+
+.demo-icon {
+    font-size: 2.5rem;
+}
+
+.demo-content {
+    flex: 1;
+}
+
+.demo-content h3 {
+    font-weight: 600;
+    margin-bottom: var(--space-1);
+}
+
+.demo-content p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .agents-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+
+    .dashboard-main {
+        margin-left: 0;
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+        gap: var(--space-4);
+    }
+
+    /* Stack agent cards vertically on mobile */
+    .agent-card {
+        flex-direction: column;
+    }
+
+    .agent-artwork {
+        width: 100%;
+        height: 200px;
+    }
+
+    .agent-artwork::after {
+        display: none;
+    }
+
+    .agent-avatar-large {
+        width: 160px;
+        height: 160px;
+    }
+}
+
+/* Emoji Avatar */
+.agent-avatar-emoji {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-warm);
+    font-size: 2rem;
+}
+
+/* Custom Agent Badge */
+.custom-badge {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 2px 8px;
+    background: var(--gradient-orange);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+}
+
+.custom-agent {
+    border-color: var(--primary-light);
+}

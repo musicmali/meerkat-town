@@ -1,0 +1,123 @@
+/* AgentReputation Component Styles */
+
+.agent-reputation {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Loading State */
+.agent-reputation--loading {
+    opacity: 0.5;
+}
+
+.agent-reputation__loading {
+    color: rgba(255, 255, 255, 0.4);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* No Data State */
+.agent-reputation--no-data {
+    opacity: 0.5;
+}
+
+.agent-reputation__label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Stars */
+.agent-reputation__stars {
+    color: #fbbf24;
+    letter-spacing: 2px;
+    font-size: 14px;
+}
+
+.agent-reputation__stars--large {
+    font-size: 20px;
+}
+
+.agent-reputation__count {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Compact Variant */
+.agent-reputation--compact {
+    background: rgba(251, 191, 36, 0.15);
+    padding: 3px 8px;
+    border-radius: 6px;
+    gap: 4px;
+}
+
+.agent-reputation__star {
+    color: #fbbf24;
+    font-size: 12px;
+}
+
+.agent-reputation__score-compact {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+/* Badge Variant */
+.agent-reputation--badge {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 10px;
+    border-radius: 8px;
+}
+
+/* Full Variant */
+.agent-reputation--full {
+    flex-direction: column;
+    align-items: flex-start;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px;
+    gap: 8px;
+}
+
+.agent-reputation__header {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.agent-reputation__title {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+}
+
+.agent-reputation__score-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+.agent-reputation__stars-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.agent-reputation__count-full {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+}

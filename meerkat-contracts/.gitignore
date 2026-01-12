@@ -1,0 +1,19 @@
+# Dependencies
+/lib
+/node_modules
+
+# Build
+/out
+/cache
+
+# Environment (NEVER commit!)
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# IDE
+.idea
+.vscode

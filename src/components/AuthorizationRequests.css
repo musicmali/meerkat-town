@@ -1,0 +1,197 @@
+/* Authorization Requests Component */
+
+.auth-requests {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+}
+
+.auth-requests-header {
+    margin-bottom: var(--space-6);
+}
+
+.auth-requests-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: var(--space-1);
+}
+
+.auth-requests-header p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Loading & Empty States */
+.auth-requests-loading,
+.auth-requests-empty {
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-secondary);
+}
+
+.auth-requests-empty .empty-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: var(--space-4);
+}
+
+.auth-requests-empty h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+/* Request List */
+.auth-requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Request Card */
+.auth-request-card {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    background: var(--bg-surface);
+}
+
+.request-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+}
+
+.requester-info,
+.agent-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.requester-label,
+.agent-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.requester-address {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: var(--primary);
+}
+
+.agent-id {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Message */
+.request-message {
+    background: var(--bg-card);
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-3);
+}
+
+.message-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: var(--space-1);
+}
+
+.request-message p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0;
+}
+
+/* Meta */
+.request-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* Controls */
+.request-controls {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.control-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.control-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.control-group select {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.control-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Actions */
+.request-actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.request-actions .btn {
+    flex: 1;
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.875rem;
+}
+
+/* Error */
+.auth-error {
+    padding: var(--space-3);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-md);
+    color: #EF4444;
+    font-size: 0.875rem;
+    margin-bottom: var(--space-4);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .request-header {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .request-meta {
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+
+    .request-controls {
+        flex-direction: column;
+    }
+}
