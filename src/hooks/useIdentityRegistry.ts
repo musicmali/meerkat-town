@@ -252,8 +252,8 @@ export async function fetchAgentsByOwner(
         // Get current block number
         const currentBlock = await publicClient.getBlockNumber();
 
-        // Search last 50,000 blocks
-        const fromBlock = currentBlock - BigInt(50000);
+        // Search last 200,000 blocks to capture older transfers (matches fetchMeerkatAgents range)
+        const fromBlock = currentBlock - BigInt(200000);
 
         console.log(`[fetchAgentsByOwner] Searching for transfers to ${ownerAddress}`);
 
