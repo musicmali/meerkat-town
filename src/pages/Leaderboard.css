@@ -371,7 +371,9 @@
         max-width: 100vw;
         margin-left: 0 !important;
         padding: var(--space-4);
-        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        padding: var(--space-4);
+        padding-bottom: 0;
+        /* Let MobileFooter handle the bottom spacing/clearance */
         overflow-x: hidden;
         box-sizing: border-box;
     }

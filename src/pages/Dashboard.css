@@ -116,6 +116,8 @@
     flex: 1;
     margin-left: 260px;
     padding: var(--space-8);
+    display: flex;
+    flex-direction: column;
 }
 
 .dashboard-header {
@@ -1024,6 +1026,8 @@
 /* Mobile: Add padding to main content so it's not hidden behind mobile nav */
 @media (max-width: 768px) {
     .dashboard-main {
-        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        padding: var(--space-4);
+        padding-bottom: 0;
+        /* Let MobileFooter handle the bottom spacing/clearance */
     }
 }

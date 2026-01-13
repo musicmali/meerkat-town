@@ -7,6 +7,7 @@ import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI, EMPTY_BYTES32 } f
 import { getFromCache, setToCache, batchProcess } from '../utils/rpcUtils';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
+import MobileFooter from '../components/MobileFooter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import './Dashboard.css'; // Reuse sidebar styles - import first
 import './Leaderboard.css'; // Page-specific styles - import last to override
@@ -332,6 +333,7 @@ function Leaderboard() {
                         </section>
                     </>
                 )}
+                <MobileFooter />
             </main>
 
             <MobileNav />

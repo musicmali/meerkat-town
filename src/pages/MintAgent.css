@@ -20,6 +20,8 @@
     margin-left: auto;
     margin-right: auto;
     padding-left: calc(250px + 2rem);
+    display: flex;
+    flex-direction: column;
 }
 
 .mint-header {
@@ -645,7 +647,8 @@
         max-width: 100vw;
         padding: 1rem;
         padding-left: 1rem !important;
-        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: 0;
+        /* Let MobileFooter handle the bottom spacing/clearance */
         margin-left: 0 !important;
         box-sizing: border-box;
         overflow-x: hidden;

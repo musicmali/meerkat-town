@@ -6,6 +6,7 @@ import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRe
 import AuthorizationRequests from '../components/AuthorizationRequests';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
+import MobileFooter from '../components/MobileFooter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import './MyAgents.css';
 import '../pages/Dashboard.css'; // Reuse sidebar styles
@@ -203,6 +204,7 @@ function MyAgents() {
                         </div>
                     </>
                 )}
+                <MobileFooter />
             </main>
 
             <MobileNav />

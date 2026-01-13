@@ -9,6 +9,7 @@ import { useRegisterAgent } from '../hooks/useERC8004Registries';
 import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
 import { uploadToIPFS } from '../utils/pinata';
 import MobileNav from '../components/MobileNav';
+import MobileFooter from '../components/MobileFooter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import './MintAgent.css';
 
@@ -740,6 +741,7 @@ function MintAgent() {
                 <section className="agent-selection">
                     {renderStepContent()}
                 </section>
+                <MobileFooter />
             </main>
 
             <MobileNav />

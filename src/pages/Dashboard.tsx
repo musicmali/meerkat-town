@@ -9,6 +9,7 @@ import AgentReputation from '../components/AgentReputation';
 import ScoreBadge from '../components/ScoreBadge';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
+import MobileFooter from '../components/MobileFooter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import './Dashboard.css';
 
@@ -679,6 +680,7 @@ function Dashboard() {
                         ))}
                     </div>
                 </section>
+                <MobileFooter />
             </main>
 
             <MobileNav />
