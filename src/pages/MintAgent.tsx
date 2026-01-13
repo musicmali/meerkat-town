@@ -16,7 +16,7 @@ const TOTAL_MEERKATS = 100;
 
 // Manually used meerkat IDs (exclude even if not detected from blockchain)
 // These might be used for testing or minted before the block search window
-const MANUALLY_USED_MEERKAT_IDS = [52];
+const MANUALLY_USED_MEERKAT_IDS: number[] = [];
 
 // Generate array of meerkat numbers [1, 2, ..., 100]
 const allMeerkatNumbers = Array.from({ length: TOTAL_MEERKATS }, (_, i) => i + 1);
