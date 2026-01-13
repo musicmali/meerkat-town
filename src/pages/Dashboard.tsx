@@ -492,12 +492,12 @@ function Dashboard() {
                                         </div>
                                         <div className="agent-actions">
                                             <a
-                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                href={`https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=${agent.agentId}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn btn-8004scan btn-sm"
                                             >
-                                                View on 8004scan
+                                                View on BaseScan
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                                                     <polyline points="15 3 21 3 21 9" />
@@ -598,12 +598,12 @@ function Dashboard() {
                                                 </div>
                                                 <div className="agent-actions-grid">
                                                     <a
-                                                        href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                        href={`https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=${agent.agentId}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn btn-8004scan"
                                                     >
-                                                        View on 8004scan
+                                                        View on BaseScan
                                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                                                             <polyline points="15 3 21 3 21 9" />

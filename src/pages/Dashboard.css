@@ -968,6 +968,8 @@
     .dashboard-header {
         flex-direction: column;
         gap: var(--space-4);
+        text-align: center;
+        align-items: center;
     }
 
     /* Stack agent cards vertically on mobile */
