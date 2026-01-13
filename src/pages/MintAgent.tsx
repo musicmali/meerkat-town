@@ -130,16 +130,14 @@ function MintAgent() {
         if (isSuccess && mintStage === 'registering') {
             console.log('Agent registered in Identity Registry! TX:', hash);
             const agentId = getAgentIdFromReceipt();
-            if (agentId !== null) {
+            if (agentId !== null && Number(agentId) > 0) {
                 const agentIdNum = Number(agentId);
-                console.log('New Agent ID:', agentIdNum);
+                console.log('New Agent ID from receipt:', agentIdNum);
                 setNewAgentId(agentIdNum);
-
-                // Check if predicted ID matched
-                if (predictedAgentId && predictedAgentId !== agentIdNum) {
-                    console.warn(`Predicted ID ${predictedAgentId} didn't match actual ID ${agentIdNum}`);
-                    setStageError(`Note: Registrations field has ID ${predictedAgentId}, but actual ID is ${agentIdNum}. This is a minor metadata discrepancy.`);
-                }
+            } else if (predictedAgentId) {
+                // Use predicted ID if we couldn't parse from receipt
+                console.log('Using predicted Agent ID:', predictedAgentId);
+                setNewAgentId(predictedAgentId);
             }
             setMintStage('complete');
         }
@@ -612,7 +610,7 @@ function MintAgent() {
                             </div>
                         )}
 
-                        {stageError && (
+                        {stageError && mintStage !== 'complete' && (
                             <p className="error-message" style={{ marginTop: '1rem' }}>
                                 {stageError}
                             </p>
