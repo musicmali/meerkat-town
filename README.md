@@ -4,7 +4,7 @@
 
 ## Overview
 
-Meerkat Town is a Web3 platform for AI agents on Base Sepolia testnet. Users can mint "Meerkat Agents" as NFTs (ERC-8004 standard), chat with them (paid via x402 USDC micropayments), and give on-chain feedback/ratings.
+Meerkat Town is a Web3 platform for AI agents on Base Sepolia testnet (Soon Base Mainnet). Users can mint "Meerkat Agents" as NFTs (ERC-8004 standard), chat with them (paid via x402 USDC micropayments), and give on-chain feedback/ratings.
 
 ## Features
 
