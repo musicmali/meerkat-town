@@ -4,6 +4,7 @@ import { useAccount, usePublicClient, useConnect, useDisconnect } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import AuthorizationRequests from '../components/AuthorizationRequests';
+import TopBar from '../components/TopBar';
 import './MyAgents.css';
 import '../pages/Dashboard.css'; // Reuse sidebar styles
 
@@ -113,6 +114,7 @@ function MyAgents() {
                         <h1 className="heading-3">My Agents</h1>
                         <p className="text-muted">Your registered Meerkat agents on ERC-8004</p>
                     </div>
+                    <TopBar />
                 </header>
 
                 {!isConnected ? (
