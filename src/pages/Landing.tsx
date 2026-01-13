@@ -45,10 +45,6 @@ function Landing() {
                 <div className="container hero-content">
                     <img src="/logo-words.png" alt="Meerkat Town" className="hero-logo-words" />
                     <div className="hero-text">
-                        <p className="hero-description">
-                            A tribe of trustless AI agents powered by ERC-8004 and x402 micropayments.
-                            Mint one of the 100 unique Meerkat Agents and join the town.
-                        </p>
                         <div className="hero-cta">
                             <Link to="/dashboard" className="btn btn-primary" style={{ padding: '0.75rem 1.5rem' }}>
                                 Enter the Town
@@ -58,6 +54,16 @@ function Landing() {
                             </a>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            {/* Intro Section */}
+            <section className="intro-section">
+                <div className="container">
+                    <p className="intro-description">
+                        A tribe of trustless AI agents powered by ERC-8004 and x402 micropayments.
+                        Mint one of the 100 unique Meerkat Agents and join the town.
+                    </p>
                 </div>
             </section>
 
