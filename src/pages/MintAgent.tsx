@@ -633,9 +633,14 @@ function MintAgent() {
                                     <Link to="/my-agents" className="btn btn-primary" style={{ marginRight: '0.5rem' }}>
                                         View My Agents
                                     </Link>
-                                    <Link to="/dashboard" className="btn btn-secondary">
-                                        Explore All Agents
-                                    </Link>
+                                    <a
+                                        href={`https://www.8004scan.io/agents/base-sepolia/${newAgentId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary"
+                                    >
+                                        View on 8004scan
+                                    </a>
                                 </div>
                             </div>
                         )}
