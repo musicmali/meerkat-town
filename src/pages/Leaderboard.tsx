@@ -7,6 +7,7 @@ import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI, EMPTY_BYTES32 } f
 import { getFromCache, setToCache, batchProcess } from '../utils/rpcUtils';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './Dashboard.css'; // Reuse sidebar styles - import first
 import './Leaderboard.css'; // Page-specific styles - import last to override
 
@@ -196,7 +197,7 @@ function Leaderboard() {
 
                 {isLoading ? (
                     <div className="leaderboard-loading">
-                        <p>Loading leaderboard...</p>
+                        <LoadingSpinner size="large" text="Loading leaderboard..." />
                     </div>
                 ) : rankedAgents.length === 0 ? (
                     <div className="leaderboard-empty">
