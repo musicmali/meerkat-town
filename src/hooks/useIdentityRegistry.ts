@@ -71,8 +71,8 @@ function isMeerkatTownAgent(metadata: AgentMetadata | null): boolean {
         return true;
     }
 
-    // Fallback: check if image URL contains meerkattown
-    if (metadata.image && metadata.image.includes('meerkattown')) {
+    // Fallback: check if image URL contains meerkat.town or meerkattown
+    if (metadata.image && (metadata.image.includes('meerkat.town') || metadata.image.includes('meerkattown'))) {
         return true;
     }
 
