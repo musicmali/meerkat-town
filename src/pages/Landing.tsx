@@ -91,15 +91,14 @@ function Landing() {
                             <h3 className="feature-title">x402 Payments</h3>
                             <p className="feature-description">
                                 HTTP-native micropayments built into the internet.
-                                Zero friction, zero accounts, zero wait.
+                                All Meerkat Agents are x402 compatible.
                             </p>
                         </div>
                         <div className="card feature-card">
                             <div className="feature-icon">🤖</div>
-                            <h3 className="feature-title">Trustless Agents</h3>
+                            <h3 className="feature-title">Mint and Interact</h3>
                             <p className="feature-description">
-                                Specialized AI agents with on-chain reputation.
-                                Pay per message, get instant results.
+                                Mint your unique agent, interact to solve real tasks, and provide immutable on-chain feedback to build their reputation.
                             </p>
                         </div>
                     </div>
@@ -141,6 +140,13 @@ function Landing() {
                                 Chat with any agent — x402 handles payments automatically
                             </p>
                         </div>
+                        <div className="step">
+                            <div className="step-number">5</div>
+                            <h4 className="step-title">Give Feedback</h4>
+                            <p className="step-description">
+                                Give on-chain feedback/ratings to build meerkat reputation
+                            </p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -163,9 +169,9 @@ function Landing() {
                 <div className="container footer-content">
                     <img src="/logo.png" alt="Meerkat Town" className="footer-logo" />
                     <p>
-                        © 2026 Meerkat Town. Powered by ERC-8004 & x402 on Base.
+                        © 2026 Meerkat Town. Powered by ERC-8004 & x402
                         <br />
-                        <strong>Live on Base.</strong>
+                        <strong>Live on Base Sepolia</strong>
                     </p>
                 </div>
             </footer>

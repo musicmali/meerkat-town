@@ -631,6 +631,8 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    border-radius: var(--radius-2xl) 0 0 var(--radius-2xl);
+    /* Roundup left corners for desktop */
 }
 
 .agent-artwork::after {

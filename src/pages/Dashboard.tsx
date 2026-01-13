@@ -635,7 +635,12 @@ function Dashboard() {
 
                 {/* Legacy Agents Section */}
                 <section className="agents-section">
-                    <h2 className="section-title">Legacy Agents</h2>
+                    <div className="section-header">
+                        <div>
+                            <h2 className="section-title">Legacy Agents</h2>
+                            <p className="text-muted">Agents created to test x402 payments. Try chat with them!</p>
+                        </div>
+                    </div>
                     <div className="agents-grid">
                         {legacyAgents.map((agent) => (
                             <div key={agent.id} className="agent-card">

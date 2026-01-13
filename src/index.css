@@ -478,7 +478,7 @@ img {
 
 .steps {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: var(--space-8);
 }
 
@@ -487,7 +487,7 @@ img {
   position: relative;
 }
 
-.step-number {
+.landing .step-number {
   width: 48px;
   height: 48px;
   margin: 0 auto var(--space-4);
@@ -499,6 +499,8 @@ img {
   justify-content: center;
   font-weight: 700;
   font-size: 1.25rem;
+  border: none;
+  /* Reset border from potential leaks */
 }
 
 .step-title {
