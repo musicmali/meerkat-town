@@ -80,6 +80,8 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  scroll-padding-top: 110px;
+  /* Offset for fixed navbar */
 }
 
 body {
@@ -417,7 +419,7 @@ img {
   font-size: 1.25rem;
   color: var(--text-secondary);
   max-width: 700px;
-  margin: 0 auto;
+  margin: var(--space-8) auto 0;
   line-height: 1.7;
 }
 
@@ -514,6 +516,99 @@ img {
 }
 
 /* ============================================================================
+   ROADMAP SECTION
+   ============================================================================ */
+
+.roadmap-section {
+  background: var(--bg-white);
+  position: relative;
+  overflow: hidden;
+}
+
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-6);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.roadmap-card {
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  position: relative;
+  transition: all var(--transition-base);
+  height: 100%;
+}
+
+.roadmap-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-light);
+}
+
+.roadmap-card.completed {
+  border-left: 4px solid #F97316;
+  /* Orange for completed */
+}
+
+.roadmap-card.pending {
+  border-left: 4px solid var(--text-muted);
+}
+
+.roadmap-status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-4);
+}
+
+.status-completed {
+  background: rgba(249, 115, 22, 0.1);
+  color: #F97316;
+}
+
+.status-pending {
+  background: rgba(161, 161, 170, 0.1);
+  color: var(--text-secondary);
+}
+
+.roadmap-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+}
+
+.roadmap-desc {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.roadmap-number {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  font-size: 3rem;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.03);
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .roadmap-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
    CTA SECTION
    ============================================================================ */
 
@@ -600,6 +695,11 @@ img {
     display: none;
   }
 
+  .navbar-logo {
+    height: 60px;
+    margin: var(--space-2);
+  }
+
   .mobile-menu-toggle {
     display: block;
   }
@@ -643,7 +743,7 @@ img {
   }
 
   .hero-logo-words {
-    margin-top: 0;
+    margin-top: -40px;
     margin-bottom: auto;
   }
 

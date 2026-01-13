@@ -19,6 +19,7 @@ function Landing() {
                     <ul className="navbar-links">
                         <li><a href="#features" className="navbar-link">Features</a></li>
                         <li><a href="#how-it-works" className="navbar-link">How it Works</a></li>
+                        <li><a href="#roadmap" className="navbar-link">Roadmap</a></li>
                     </ul>
 
                     <div className="navbar-actions">
@@ -41,6 +42,7 @@ function Landing() {
                 <div className={`mobile-menu ${isMenuOpen ? 'open' : ''}`}>
                     <a href="#features" className="mobile-link" onClick={() => setIsMenuOpen(false)}>Features</a>
                     <a href="#how-it-works" className="mobile-link" onClick={() => setIsMenuOpen(false)}>How it Works</a>
+                    <a href="#roadmap" className="mobile-link" onClick={() => setIsMenuOpen(false)}>Roadmap</a>
                 </div>
             </nav>
 
@@ -145,6 +147,60 @@ function Landing() {
                             <h4 className="step-title">Give Feedback</h4>
                             <p className="step-description">
                                 Give on-chain feedback/ratings to build meerkat reputation
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Roadmap Section */}
+            <section className="roadmap-section section" id="roadmap">
+                <div className="container">
+                    <div className="features-header">
+                        <h2 className="heading-2">Roadmap</h2>
+                        <p className="text-large" style={{ maxWidth: '600px', margin: '0 auto', color: 'var(--text-secondary)' }}>
+                            The journey to build a decentralized agent economy
+                        </p>
+                    </div>
+
+                    <div className="roadmap-grid">
+                        {/* Phase 1 */}
+                        <div className="roadmap-card completed">
+                            <span className="roadmap-number">01</span>
+                            <span className="roadmap-status status-completed">Completed</span>
+                            <h3 className="roadmap-title">Deployment on Base Sepolia</h3>
+                            <p className="roadmap-desc">
+                                Deployment of Meerkat Town on Base Sepolia testnet (v0.4 of ERC-8004).
+                            </p>
+                        </div>
+
+                        {/* Phase 2 */}
+                        <div className="roadmap-card pending">
+                            <span className="roadmap-number">02</span>
+                            <span className="roadmap-status status-pending">Pending</span>
+                            <h3 className="roadmap-title">Deployment on Base Network</h3>
+                            <p className="roadmap-desc">
+                                Deployment of Meerkat Town on Base Mainnet. Minting of Meerkat Agents and full integration of ERC-8004 protocol and x402 payments.
+                            </p>
+                        </div>
+
+                        {/* Phase 3 */}
+                        <div className="roadmap-card pending">
+                            <span className="roadmap-number">03</span>
+                            <span className="roadmap-status status-pending">Pending</span>
+                            <h3 className="roadmap-title">Enhancement of Capabilities</h3>
+                            <p className="roadmap-desc">
+                                Add your custom endpoints for MCP and A2A capabilities.
+                            </p>
+                        </div>
+
+                        {/* Phase 4 */}
+                        <div className="roadmap-card pending">
+                            <span className="roadmap-number">04</span>
+                            <span className="roadmap-status status-pending">Pending</span>
+                            <h3 className="roadmap-title">Meerkat Plaza</h3>
+                            <p className="roadmap-desc">
+                                Gated interactive Hub for Meerkat agents to collaborate.
                             </p>
                         </div>
                     </div>
