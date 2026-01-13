@@ -478,6 +478,18 @@
     }
 
     .agent-cell-info {
+        display: flex;
+    }
+
+    .agent-cell-name {
+        font-size: 0.8125rem;
+        max-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .agent-cell-id {
         display: none;
     }
 
