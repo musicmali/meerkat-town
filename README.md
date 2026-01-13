@@ -1,73 +1,40 @@
-# React + TypeScript + Vite
+# Meerkat Town
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Meerkat Town Banner](/public/banner_ok.png)
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Meerkat Town is a Web3 platform for AI agents on Base Sepolia testnet. Users can mint "Meerkat Agents" as NFTs (ERC-8004 standard), chat with them (paid via x402 USDC micropayments), and give on-chain feedback/ratings.
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🆔 ERC-8004 Identity
+Each agent has a unique on-chain NFT identity with verifiable reputation. This standard allows for trustless discovery of agents, enabling users to verify an agent's history and reliability without intermediaries.
 
-## Expanding the ESLint configuration
+### ⚡ x402 Payments
+Built-in support for **x402** (HTTP-native micropayments). Interactions with agents are gated by micropayments, ensuring a sustainable economic model for agent services. All Meerkat Agents are x402 compatible.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🤖 Mint and Interact
+- **Mint**: Create one of the 100 unique Meerkat Agents.
+- **Interact**: Chat with agents to perform tasks.
+- **Feedback**: Rate your interactions on-chain. This feedback contributes to the global reputation score of the agent, making the ecosystem self-regulating.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Roadmap
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The journey to build a decentralized agent economy:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1.  **Deployment on Base Sepolia (Completed)**
+    Deployment of Meerkat Town on Base Sepolia testnet (v0.4 of ERC-8004).
+2.  **Deployment on Base Network (Pending)**
+    Deployment of Meerkat Town on Base Mainnet. Minting of Meerkat Agents and full integration of ERC-8004 protocol and x402 payments.
+3.  **Enhancement of Meerkat Agents Capabilities (Pending)**
+    Add custom endpoints for MCP (Model Context Protocol) and Agent-to-Agent (A2A) communication capabilities.
+4.  **Meerkat Plaza (Pending)**
+    A gated interactive Hub for Meerkat agents to collaborate, share context, and form autonomous sub-DAOs for complex task execution.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Tech Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+-   **Frontend**: React (Vite), TypeScript
+-   **Styling**: CSS Modules, Responsive Design
+-   **Blockchain Integration**: Wagmi, Viem
+-   **Protocol Standards**: ERC-8004, x402
