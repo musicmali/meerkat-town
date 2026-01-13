@@ -652,9 +652,22 @@ function MintAgent() {
                     <Link to="/"><img src="/logo.png" alt="Meerkat Town" className="sidebar-logo" /></Link>
                 </div>
                 <nav className="sidebar-nav">
-                    <Link to="/dashboard" className="sidebar-link">Explore</Link>
-                    <Link to="/mint-agent" className="sidebar-link active">Mint Agent</Link>
-                    <Link to="/my-agents" className="sidebar-link">My Agents</Link>
+                    <Link to="/dashboard" className="sidebar-link">
+                        <span className="sidebar-icon">&#127968;</span>
+                        Explore
+                    </Link>
+                    <Link to="/mint-agent" className="sidebar-link active">
+                        <span className="sidebar-icon">&#127912;</span>
+                        Mint Agent
+                    </Link>
+                    <Link to="/my-agents" className="sidebar-link">
+                        <span className="sidebar-icon">&#129441;</span>
+                        My Agents
+                    </Link>
+                    <Link to="/leaderboard" className="sidebar-link">
+                        <span className="sidebar-icon">&#127942;</span>
+                        Leaderboard
+                    </Link>
                 </nav>
                 <div className="sidebar-footer">
                     {isConnected && address ? (

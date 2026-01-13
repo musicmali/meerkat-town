@@ -77,6 +77,10 @@ function MyAgents() {
                         <span className="sidebar-icon">&#129441;</span>
                         My Agents
                     </Link>
+                    <Link to="/leaderboard" className="sidebar-link">
+                        <span className="sidebar-icon">&#127942;</span>
+                        Leaderboard
+                    </Link>
                 </nav>
 
                 <div className="sidebar-footer">
