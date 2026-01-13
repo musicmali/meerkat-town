@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
@@ -6,8 +6,9 @@ import { getSkillsByCategory, getDomainsByCategory } from '../data/oasfTaxonomy'
 import type { AgentFormData } from '../types/agentMetadata';
 import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata } from '../utils/generateAgentMetadata';
 import { useRegisterAgent } from '../hooks/useERC8004Registries';
-import { predictNextAgentId } from '../hooks/useIdentityRegistry';
+import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
 import { uploadToIPFS } from '../utils/pinata';
+import MobileNav from '../components/MobileNav';
 import './MintAgent.css';
 
 // Total number of available meerkats
@@ -16,12 +17,13 @@ const TOTAL_MEERKATS = 100;
 // Generate array of meerkat numbers [1, 2, ..., 100]
 const allMeerkatNumbers = Array.from({ length: TOTAL_MEERKATS }, (_, i) => i + 1);
 
-// Get a random meerkat number
-const getRandomMeerkat = (exclude?: number): number => {
-    const available = exclude
-        ? allMeerkatNumbers.filter(n => n !== exclude)
-        : allMeerkatNumbers;
-    return available[Math.floor(Math.random() * available.length)];
+// Get a random meerkat number from available pool
+const getRandomMeerkat = (availablePool: number[], exclude?: number): number => {
+    const pool = exclude
+        ? availablePool.filter(n => n !== exclude)
+        : availablePool;
+    if (pool.length === 0) return 1; // Fallback if no meerkats available
+    return pool[Math.floor(Math.random() * pool.length)];
 };
 
 // Get image path for a meerkat number
@@ -47,9 +49,47 @@ function MintAgent() {
     // Current step
     const [currentStep, setCurrentStep] = useState<FormStep>('select');
 
-    // Selected meerkat state
-    const [selectedMeerkat, setSelectedMeerkat] = useState(() => getRandomMeerkat());
+    // Used meerkat tracking - fetch from blockchain
+    const [usedMeerkatIds, setUsedMeerkatIds] = useState<Set<number>>(new Set());
+    const [isLoadingAvailability, setIsLoadingAvailability] = useState(true);
+
+    // Compute available meerkats (exclude used ones)
+    const availableMeerkats = useMemo(() => {
+        return allMeerkatNumbers.filter(n => !usedMeerkatIds.has(n));
+    }, [usedMeerkatIds]);
+
+    // Selected meerkat state - will be updated once availability is loaded
+    const [selectedMeerkat, setSelectedMeerkat] = useState<number>(1);
     const [isShuffling, setIsShuffling] = useState(false);
+
+    // Fetch used meerkat IDs on mount
+    useEffect(() => {
+        async function fetchUsedMeerkats() {
+            setIsLoadingAvailability(true);
+            try {
+                const agents = await fetchMeerkatAgents(publicClient);
+                const usedIds = agents
+                    .map(a => a.metadata?.meerkatId)
+                    .filter((id): id is number => id !== undefined && id >= 1 && id <= 100);
+                console.log('Used meerkat IDs:', usedIds);
+                setUsedMeerkatIds(new Set(usedIds));
+            } catch (error) {
+                console.error('Failed to fetch used meerkats:', error);
+            } finally {
+                setIsLoadingAvailability(false);
+            }
+        }
+        if (publicClient) {
+            fetchUsedMeerkats();
+        }
+    }, [publicClient]);
+
+    // Set initial random meerkat once availability is loaded
+    useEffect(() => {
+        if (!isLoadingAvailability && availableMeerkats.length > 0) {
+            setSelectedMeerkat(getRandomMeerkat(availableMeerkats));
+        }
+    }, [isLoadingAvailability, availableMeerkats]);
 
     // Form data
     const [name, setName] = useState('');
@@ -111,18 +151,19 @@ function MintAgent() {
 
     // Handle shuffle with animation
     const handleShuffle = useCallback(() => {
+        if (availableMeerkats.length === 0) return;
         setIsShuffling(true);
         let shuffleCount = 0;
         const shuffleInterval = setInterval(() => {
-            setSelectedMeerkat(getRandomMeerkat());
+            setSelectedMeerkat(getRandomMeerkat(availableMeerkats));
             shuffleCount++;
             if (shuffleCount >= 8) {
                 clearInterval(shuffleInterval);
-                setSelectedMeerkat(prev => getRandomMeerkat(prev));
+                setSelectedMeerkat(prev => getRandomMeerkat(availableMeerkats, prev));
                 setIsShuffling(false);
             }
         }, 80);
-    }, []);
+    }, [availableMeerkats]);
 
     const handleConnect = () => {
         const connector = connectors[0];
@@ -207,6 +248,48 @@ function MintAgent() {
     const renderStepContent = () => {
         switch (currentStep) {
             case 'select':
+                // Show loading state while fetching availability
+                if (isLoadingAvailability) {
+                    return (
+                        <div className="selection-card">
+                            <div className="agent-image-container">
+                                <div className="loading-placeholder" style={{
+                                    width: '200px',
+                                    height: '200px',
+                                    background: 'var(--surface)',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <span>Loading...</span>
+                                </div>
+                            </div>
+                            <div className="agent-selection-info">
+                                <h2 className="agent-title">Checking availability...</h2>
+                                <p className="agent-subtitle">Loading available Meerkat agents</p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                // Show message if no meerkats available
+                if (availableMeerkats.length === 0) {
+                    return (
+                        <div className="selection-card">
+                            <div className="agent-selection-info">
+                                <h2 className="agent-title">All Meerkats Minted!</h2>
+                                <p className="agent-subtitle">
+                                    All 100 Meerkat agents have been claimed. Check the marketplace for secondary sales!
+                                </p>
+                                <Link to="/dashboard" className="btn btn-primary">
+                                    Explore Existing Agents
+                                </Link>
+                            </div>
+                        </div>
+                    );
+                }
+
                 return (
                     <div className="selection-card">
                         <div className={`agent-image-container ${isShuffling ? 'shuffling' : ''}`}>
@@ -224,10 +307,13 @@ function MintAgent() {
                             <p className="agent-subtitle">
                                 This unique Meerkat is waiting to become your AI agent
                             </p>
+                            <p className="availability-hint" style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                {availableMeerkats.length} of 100 meerkats available
+                            </p>
                             <div className="selection-actions">
                                 <button
                                     onClick={handleShuffle}
-                                    disabled={isShuffling}
+                                    disabled={isShuffling || availableMeerkats.length <= 1}
                                     className="btn btn-secondary btn-shuffle"
                                 >
                                     {isShuffling ? 'Shuffling...' : 'Shuffle Agent'}
@@ -484,9 +570,9 @@ function MintAgent() {
                             >
                                 {mintStage === 'predicting' ? 'Preparing...' :
                                     mintStage === 'uploading' ? 'Uploading to IPFS...' :
-                                    mintStage === 'registering' ? (isConfirming ? 'Confirming...' : 'Registering Agent...') :
-                                    mintStage === 'complete' ? 'Registered!' :
-                                    'Register Agent'}
+                                        mintStage === 'registering' ? (isConfirming ? 'Confirming...' : 'Registering Agent...') :
+                                            mintStage === 'complete' ? 'Registered!' :
+                                                'Register Agent'}
                             </button>
                         </div>
 
@@ -627,6 +713,8 @@ function MintAgent() {
                     {renderStepContent()}
                 </section>
             </main>
+
+            <MobileNav />
         </div>
     );
 }
