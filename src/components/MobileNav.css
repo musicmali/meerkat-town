@@ -94,3 +94,10 @@
     text-transform: none;
     font-size: 0.5625rem;
 }
+
+/* Wallet icon - same alignment as other icons */
+.mobile-nav-wallet .mobile-nav-icon {
+    width: 22px;
+    height: 22px;
+    margin-bottom: 2px;
+}

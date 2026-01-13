@@ -980,6 +980,7 @@
     .agent-artwork {
         width: 100%;
         height: 200px;
+        border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
     }
 
     .agent-artwork::after {
