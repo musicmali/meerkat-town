@@ -611,8 +611,23 @@ img {
   }
 
   .hero-content {
-    justify-content: flex-end;
-    padding-bottom: 15vh;
+    justify-content: space-between;
+    padding-top: var(--space-4);
+    padding-bottom: 0;
+  }
+
+  .hero-text {
+    margin-top: 0;
+    margin-bottom: 40px;
+  }
+
+  .hero-logo-words {
+    margin-top: 0;
+    margin-bottom: auto;
+  }
+
+  .hero-description {
+    margin-bottom: var(--space-4);
   }
 
   .hero-cta {
