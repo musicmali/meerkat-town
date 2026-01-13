@@ -108,6 +108,11 @@ function Dashboard() {
         }
     }, [publicClient]);
 
+    // Set page title
+    useEffect(() => {
+        document.title = 'Explore | Meerkat Town';
+    }, []);
+
     // Load agents (with caching)
     useEffect(() => {
         const loadAgents = async () => {

@@ -67,6 +67,11 @@ function MintAgent() {
     const [selectedMeerkat, setSelectedMeerkat] = useState<number>(1);
     const [isShuffling, setIsShuffling] = useState(false);
 
+    // Set page title
+    useEffect(() => {
+        document.title = 'Mint Agent | Meerkat Town';
+    }, []);
+
     // Fetch used meerkat IDs on mount
     useEffect(() => {
         async function fetchUsedMeerkats() {

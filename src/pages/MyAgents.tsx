@@ -19,6 +19,11 @@ function MyAgents() {
     const [myAgents, setMyAgents] = useState<RegisteredAgent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Set page title
+    useEffect(() => {
+        document.title = 'My Agents | Meerkat Town';
+    }, []);
+
     // Fetch agents owned by connected wallet from Identity Registry
     useEffect(() => {
         const loadMyAgents = async () => {

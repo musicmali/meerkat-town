@@ -28,6 +28,11 @@ function Leaderboard() {
     const [rankedAgents, setRankedAgents] = useState<AgentWithScore[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Set page title
+    useEffect(() => {
+        document.title = 'Leaderboard | Meerkat Town';
+    }, []);
+
     useEffect(() => {
         const loadLeaderboard = async () => {
             if (!publicClient) {

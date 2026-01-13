@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 function Landing() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+        document.title = 'Meerkat Town';
+    }, []);
 
     return (
         <div className="landing">
