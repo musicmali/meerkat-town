@@ -636,12 +636,6 @@ function Dashboard() {
                                 {/* Large Artwork Section */}
                                 <div className="agent-artwork">
                                     <img src={agent.avatar} alt={agent.name} className="agent-avatar-large" />
-                                    {agent.reputation && (
-                                        <div className="agent-reputation-badge">
-                                            <span className="reputation-value">{agent.reputation}</span>
-                                            <span className="reputation-text">Score</span>
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* Info Section */}
@@ -651,19 +645,6 @@ function Dashboard() {
                                             <h3 className="agent-name">{agent.name}</h3>
                                             <p className="agent-title">{agent.title}</p>
                                         </div>
-                                        {agent.deployedBy && (
-                                            <div className="deployer-badge">
-                                                <span className="deployer-label">By:</span>
-                                                <a
-                                                    href={getBaseScanUrl(agent.deployedBy)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="deployer-address"
-                                                >
-                                                    {formatDeployerAddress(agent.deployedBy)}
-                                                </a>
-                                            </div>
-                                        )}
                                     </div>
 
                                     <p className="agent-description">{agent.description}</p>
