@@ -1,10 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
+import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI, EMPTY_BYTES32 } from '../contracts/MeerkatReputationRegistry';
+import { getFromCache, setToCache, clearCache, batchProcess } from '../utils/rpcUtils';
 import AgentReputation from '../components/AgentReputation';
+import ScoreBadge from '../components/ScoreBadge';
+import TopBar from '../components/TopBar';
+import MobileNav from '../components/MobileNav';
 import './Dashboard.css';
+
+type SortOrder = 'newest' | 'score' | 'reviews';
+
+interface AgentWithScore extends RegisteredAgent {
+    score: number;
+    feedbackCount: number;
+}
+
+const AGENTS_CACHE_KEY = 'dashboard_agents';
+const SCORES_CACHE_KEY = 'dashboard_scores';
+const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
 interface Agent {
     id: string;
@@ -55,9 +71,43 @@ function Dashboard() {
 
     // Fetch agents from ERC-8004 Identity Registry
     const publicClient = usePublicClient({ chainId: baseSepolia.id });
-    const [meerkatAgents, setMeerkatAgents] = useState<RegisteredAgent[]>([]);
+    const [meerkatAgents, setMeerkatAgents] = useState<AgentWithScore[]>([]);
     const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+    const [, setIsLoadingScores] = useState(false);
 
+    // View mode toggle for Meerkat Agents (grid or list)
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+    // Sort order for agents
+    const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+
+    // Refresh state
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
+    // Fetch score for a single agent
+    const fetchAgentScore = useCallback(async (agentId: number): Promise<{ score: number; feedbackCount: number }> => {
+        if (!publicClient) return { score: 0, feedbackCount: 0 };
+
+        try {
+            const result = await publicClient.readContract({
+                address: REPUTATION_REGISTRY_ADDRESS,
+                abi: REPUTATION_REGISTRY_ABI,
+                functionName: 'getSummary',
+                args: [BigInt(agentId), [], EMPTY_BYTES32, EMPTY_BYTES32],
+            }) as [bigint, number];
+
+            return {
+                feedbackCount: Number(result[0]),
+                score: result[1],
+            };
+        } catch {
+            return { score: 0, feedbackCount: 0 };
+        }
+    }, [publicClient]);
+
+    // Load agents (with caching)
     useEffect(() => {
         const loadAgents = async () => {
             if (!publicClient) {
@@ -65,19 +115,145 @@ function Dashboard() {
                 return;
             }
 
+            // Try to load from cache first
+            const cachedAgents = getFromCache<AgentWithScore[]>(AGENTS_CACHE_KEY);
+            if (cachedAgents && cachedAgents.length > 0) {
+                console.log('[Dashboard] Using cached agents:', cachedAgents.length);
+                setMeerkatAgents(cachedAgents);
+                setIsLoadingAgents(false);
+                return;
+            }
+
             setIsLoadingAgents(true);
             try {
-                console.log('Fetching Meerkat agents from Identity Registry...');
-                const agents = await fetchMeerkatAgents(publicClient, 50); // Scan first 50 agent IDs
-                console.log('Found Meerkat agents:', agents);
-                setMeerkatAgents(agents);
+                console.log('[Dashboard] Fetching agents from blockchain...');
+                const agents = await fetchMeerkatAgents(publicClient, 50);
+
+                if (agents.length === 0) {
+                    console.log('[Dashboard] No agents found');
+                    setMeerkatAgents([]);
+                    setIsLoadingAgents(false);
+                    return;
+                }
+
+                // First, show agents without scores (faster initial load)
+                const agentsWithDefaultScores: AgentWithScore[] = agents.map(agent => ({
+                    ...agent,
+                    score: 0,
+                    feedbackCount: 0,
+                }));
+                setMeerkatAgents(agentsWithDefaultScores);
+                setIsLoadingAgents(false);
+
+                // Then fetch scores in batches (slower, but won't overload RPC)
+                setIsLoadingScores(true);
+                console.log('[Dashboard] Fetching scores for', agents.length, 'agents...');
+
+                // Check for cached scores
+                const cachedScores = getFromCache<Record<number, { score: number; feedbackCount: number }>>(SCORES_CACHE_KEY);
+
+                const agentsWithScores: AgentWithScore[] = await batchProcess(
+                    agents,
+                    async (agent) => {
+                        // Use cached score if available
+                        if (cachedScores && cachedScores[agent.agentId]) {
+                            return {
+                                ...agent,
+                                ...cachedScores[agent.agentId],
+                            };
+                        }
+                        const scoreData = await fetchAgentScore(agent.agentId);
+                        return {
+                            ...agent,
+                            ...scoreData,
+                        };
+                    },
+                    2, // batch size of 2
+                    300 // 300ms between batches
+                );
+
+                // Cache the results
+                const scoresMap: Record<number, { score: number; feedbackCount: number }> = {};
+                agentsWithScores.forEach(agent => {
+                    scoresMap[agent.agentId] = { score: agent.score, feedbackCount: agent.feedbackCount };
+                });
+                setToCache(SCORES_CACHE_KEY, scoresMap, CACHE_TTL);
+                setToCache(AGENTS_CACHE_KEY, agentsWithScores, CACHE_TTL);
+
+                console.log('[Dashboard] Scores loaded:', agentsWithScores.length);
+                setMeerkatAgents(agentsWithScores);
+                setIsLoadingScores(false);
             } catch (e) {
-                console.error('Failed to fetch agents:', e);
+                console.error('[Dashboard] Failed to fetch agents:', e);
+                setIsLoadingAgents(false);
+                setIsLoadingScores(false);
             }
-            setIsLoadingAgents(false);
         };
+
         loadAgents();
-    }, [publicClient]);
+    }, [publicClient, fetchAgentScore]);
+
+    // Sort agents based on selected order
+    const sortedAgents = useMemo(() => {
+        const sorted = [...meerkatAgents];
+        switch (sortOrder) {
+            case 'score':
+                return sorted.sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return b.feedbackCount - a.feedbackCount;
+                });
+            case 'reviews':
+                return sorted.sort((a, b) => b.feedbackCount - a.feedbackCount);
+            case 'newest':
+            default:
+                // Newest = highest agentId first (most recently minted)
+                return sorted.sort((a, b) => b.agentId - a.agentId);
+        }
+    }, [meerkatAgents, sortOrder]);
+
+    // Refresh agents from backend
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            // Tell backend to refresh its cache from blockchain
+            await fetch(`${BACKEND_URL}/agents/refresh-cache`, { method: 'POST' });
+
+            // Clear local caches
+            clearCache(AGENTS_CACHE_KEY);
+            clearCache(SCORES_CACHE_KEY);
+
+            // Reload agents
+            setIsLoadingAgents(true);
+            const agents = await fetchMeerkatAgents(publicClient, 50);
+
+            const agentsWithDefaultScores: AgentWithScore[] = agents.map(agent => ({
+                ...agent,
+                score: 0,
+                feedbackCount: 0,
+            }));
+            setMeerkatAgents(agentsWithDefaultScores);
+            setIsLoadingAgents(false);
+
+            // Fetch scores in background
+            setIsLoadingScores(true);
+            const agentsWithScores = await batchProcess(
+                agents,
+                async (agent) => {
+                    const scoreData = await fetchAgentScore(agent.agentId);
+                    return { ...agent, ...scoreData };
+                },
+                2,
+                300
+            );
+            setMeerkatAgents(agentsWithScores);
+            setToCache(AGENTS_CACHE_KEY, agentsWithScores, CACHE_TTL);
+        } catch (e) {
+            console.error('[Dashboard] Refresh failed:', e);
+        } finally {
+            setIsRefreshing(false);
+            setIsLoadingScores(false);
+        }
+    };
 
     const formatAddress = (addr: string) => {
         if (addr.length <= 10) return addr;
@@ -127,6 +303,10 @@ function Dashboard() {
                         <span className="sidebar-icon">&#129441;</span>
                         My Agents
                     </Link>
+                    <Link to="/leaderboard" className="sidebar-link">
+                        <span className="sidebar-icon">&#127942;</span>
+                        Leaderboard
+                    </Link>
                 </nav>
 
                 <div className="sidebar-footer">
@@ -159,6 +339,7 @@ function Dashboard() {
                         <h1 className="heading-3">Welcome to Meerkat Town</h1>
                         <p className="text-muted">Choose an AI agent to start chatting</p>
                     </div>
+                    <TopBar />
                 </header>
 
                 {/* Connection Required Notice */}
@@ -187,7 +368,65 @@ function Dashboard() {
 
                 {/* Meerkat Agents Section (from ERC-8004 Identity Registry) */}
                 <section className="agents-section">
-                    <h2 className="section-title">Meerkat Agents</h2>
+                    <div className="section-header">
+                        <h2 className="section-title">Meerkat Agents</h2>
+                        {meerkatAgents.length > 0 && (
+                            <div className="section-controls">
+                                <div className="sort-dropdown">
+                                    <label htmlFor="sort-order">Sort by:</label>
+                                    <select
+                                        id="sort-order"
+                                        value={sortOrder}
+                                        onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+                                        className="sort-select"
+                                    >
+                                        <option value="newest">Newest</option>
+                                        <option value="score">Highest Score</option>
+                                        <option value="reviews">Most Reviews</option>
+                                    </select>
+                                </div>
+                                <div className="view-toggle">
+                                    <button
+                                        className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                                        onClick={() => setViewMode('grid')}
+                                        aria-label="Grid view"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <rect x="1" y="1" width="6" height="6" rx="1" />
+                                            <rect x="9" y="1" width="6" height="6" rx="1" />
+                                            <rect x="1" y="9" width="6" height="6" rx="1" />
+                                            <rect x="9" y="9" width="6" height="6" rx="1" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                                        onClick={() => setViewMode('list')}
+                                        aria-label="List view"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <rect x="1" y="1" width="14" height="3" rx="1" />
+                                            <rect x="1" y="6.5" width="14" height="3" rx="1" />
+                                            <rect x="1" y="12" width="14" height="3" rx="1" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <button
+                                    className={`refresh-btn ${isRefreshing ? 'refreshing' : ''}`}
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing || isLoadingAgents}
+                                    aria-label="Refresh agents"
+                                    title="Refresh agents from blockchain"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                        <path d="M3 3v5h5" />
+                                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                                        <path d="M16 21h5v-5" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     {isLoadingAgents ? (
                         <div className="empty-section">
                             <p>Loading agents from Identity Registry...</p>
@@ -200,15 +439,91 @@ function Dashboard() {
                                 Register Agent
                             </Link>
                         </div>
+                    ) : viewMode === 'list' ? (
+                        <div className="agents-list">
+                            {sortedAgents.map((agent) => {
+                                const meerkatId = agent.metadata?.meerkatId || 1;
+                                const pricePerMessage = agent.metadata?.pricePerMessage || 'Free';
+                                const isFree = pricePerMessage === 'Free' || pricePerMessage === '0';
+                                const domains: string[] = [];
+                                if (agent.metadata?.endpoints) {
+                                    agent.metadata.endpoints.forEach(ep => {
+                                        if (ep.domains) domains.push(...ep.domains);
+                                    });
+                                }
+
+                                return (
+                                    <div key={agent.agentId} className="agent-row">
+                                        <img
+                                            src={`/meerkats/meerkat_${meerkatId.toString().padStart(3, '0')}.png`}
+                                            alt={agent.metadata?.name || `Meerkat #${meerkatId}`}
+                                            className="agent-thumb"
+                                        />
+                                        <div className="agent-info">
+                                            <div className="agent-main">
+                                                <h3>{agent.metadata?.name || `Meerkat Agent #${meerkatId}`}</h3>
+                                                <span className="agent-id">#{meerkatId}</span>
+                                            </div>
+                                            <p className="agent-desc">
+                                                {agent.metadata?.description || 'A unique Meerkat Agent on the ERC-8004 Identity Registry.'}
+                                            </p>
+                                            <div className="agent-meta">
+                                                <span className="meta-item">
+                                                    {isFree ? 'Free to chat' : `$${pricePerMessage}/msg`}
+                                                </span>
+                                                <span className="meta-item">
+                                                    Owner: <a
+                                                        href={`https://sepolia.basescan.org/address/${agent.owner}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="owner-link"
+                                                    >
+                                                        {formatDeployerAddress(agent.owner)}
+                                                    </a>
+                                                </span>
+                                                {[...new Set(domains)].slice(0, 2).map(slug => {
+                                                    const lastPart = slug.split('/').pop() || slug;
+                                                    return lastPart.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                                }).map(tag => (
+                                                    <span key={tag} className="meta-item tag-inline">{tag}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="agent-actions">
+                                            <a
+                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-8004scan btn-sm"
+                                            >
+                                                View on 8004scan
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                                    <polyline points="15 3 21 3 21 9" />
+                                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                                </svg>
+                                            </a>
+                                            <Link to={`/chat/${agent.agentId}`} className="btn btn-primary btn-sm">
+                                                Chat
+                                            </Link>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     ) : (
                         <div className="agents-grid">
-                            {meerkatAgents.map((agent) => {
+                            {sortedAgents.map((agent) => {
                                 const meerkatId = agent.metadata?.meerkatId || 1;
                                 const pricePerMessage = agent.metadata?.pricePerMessage || 'Free';
                                 const isFree = pricePerMessage === 'Free' || pricePerMessage === '0';
 
                                 return (
                                     <div key={agent.agentId} className="agent-card">
+                                        {/* Score Badge - Upper Left of Card */}
+                                        <div className="agent-score-badge">
+                                            <ScoreBadge agentId={agent.agentId} />
+                                        </div>
                                         <div className="agent-artwork">
                                             <img
                                                 src={`/meerkats/meerkat_${meerkatId.toString().padStart(3, '0')}.png`}
@@ -280,20 +595,35 @@ function Dashboard() {
                                                         </>
                                                     )}
                                                 </div>
-                                                <Link
-                                                    to={`/chat/${agent.agentId}`}
-                                                    className="btn btn-primary"
-                                                    style={{ padding: 'var(--space-3) var(--space-6)', minWidth: 'auto', height: 'fit-content' }}
-                                                >
-                                                    Start Chat
-                                                </Link>
+                                                <div className="agent-actions-grid">
+                                                    <a
+                                                        href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="btn btn-8004scan"
+                                                    >
+                                                        View on 8004scan
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                                            <polyline points="15 3 21 3 21 9" />
+                                                            <line x1="10" y1="14" x2="21" y2="3" />
+                                                        </svg>
+                                                    </a>
+                                                    <Link
+                                                        to={`/chat/${agent.agentId}`}
+                                                        className="btn btn-primary"
+                                                    >
+                                                        Start Chat
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
-                    )}
+                    )
+                    }
                 </section>
 
                 {/* Legacy Agents Section */}
@@ -363,6 +693,8 @@ function Dashboard() {
                     </div>
                 </section>
             </main>
+
+            <MobileNav />
         </div>
     );
 }

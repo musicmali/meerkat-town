@@ -1,0 +1,89 @@
+/* Mobile Bottom Navigation */
+.mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-white);
+    border-top: 1px solid var(--border-light);
+    padding: var(--space-2) var(--space-1);
+    padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+    .mobile-nav {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+}
+
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: var(--space-2) var(--space-1);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    min-width: 56px;
+    flex: 1;
+}
+
+.mobile-nav-item:hover,
+.mobile-nav-item:active {
+    color: var(--primary);
+    background: var(--primary-glow);
+}
+
+.mobile-nav-item.active {
+    color: var(--primary);
+}
+
+.mobile-nav-item.active .mobile-nav-icon {
+    transform: scale(1.1);
+}
+
+.mobile-nav-icon {
+    font-size: 1.375rem;
+    line-height: 1;
+    transition: transform var(--transition-fast);
+}
+
+.mobile-nav-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Wallet button */
+.mobile-nav-wallet {
+    background: none;
+    border: none;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(249, 115, 22, 0.3);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.mobile-nav-wallet:active {
+    opacity: 0.7;
+}
+
+.mobile-nav-wallet.connected {
+    color: var(--success, #22C55E);
+}
+
+.mobile-nav-wallet.connected .mobile-nav-label {
+    font-family: monospace;
+    text-transform: none;
+    font-size: 0.5625rem;
+}
