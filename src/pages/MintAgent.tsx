@@ -9,7 +9,6 @@ import { useRegisterAgent } from '../hooks/useERC8004Registries';
 import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
 import { uploadToIPFS } from '../utils/pinata';
 import MobileNav from '../components/MobileNav';
-import TopBar from '../components/TopBar';
 import './MintAgent.css';
 
 // Total number of available meerkats
@@ -688,16 +687,13 @@ function MintAgent() {
 
             <main className="mint-main">
                 <header className="mint-header">
-                    <div>
-                        <h1 className="heading-3">Register Your Meerkat Agent</h1>
-                        <p className="text-muted">
-                            {currentStep === 'select' && 'Choose your unique agent avatar'}
-                            {currentStep === 'details' && 'Define agent identity and description'}
-                            {currentStep === 'skills' && 'Select agent capabilities'}
-                            {currentStep === 'preview' && 'Review and register your agent'}
-                        </p>
-                    </div>
-                    <TopBar />
+                    <h1 className="heading-3">Register Your Meerkat Agent</h1>
+                    <p className="text-muted">
+                        {currentStep === 'select' && 'Choose your unique agent avatar'}
+                        {currentStep === 'details' && 'Define agent identity and description'}
+                        {currentStep === 'skills' && 'Select agent capabilities'}
+                        {currentStep === 'preview' && 'Review and register your agent'}
+                    </p>
                 </header>
 
                 {/* Step indicator */}
