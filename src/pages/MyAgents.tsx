@@ -5,6 +5,7 @@ import { baseSepolia } from 'wagmi/chains';
 import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import AuthorizationRequests from '../components/AuthorizationRequests';
 import TopBar from '../components/TopBar';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './MyAgents.css';
 import '../pages/Dashboard.css'; // Reuse sidebar styles
 
@@ -125,7 +126,7 @@ function MyAgents() {
                     </div>
                 ) : isLoading ? (
                     <div className="loading-state">
-                        <p>Loading your agents...</p>
+                        <LoadingSpinner size="large" text="Loading your agents..." />
                     </div>
                 ) : myAgents.length === 0 ? (
                     <div className="empty-state">

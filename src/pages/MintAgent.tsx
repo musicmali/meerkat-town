@@ -9,6 +9,7 @@ import { useRegisterAgent } from '../hooks/useERC8004Registries';
 import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
 import { uploadToIPFS } from '../utils/pinata';
 import MobileNav from '../components/MobileNav';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './MintAgent.css';
 
 // Total number of available meerkats
@@ -268,7 +269,7 @@ function MintAgent() {
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}>
-                                    <span>Loading...</span>
+                                    <LoadingSpinner size="large" />
                                 </div>
                             </div>
                             <div className="agent-selection-info">

@@ -9,6 +9,7 @@ import AgentReputation from '../components/AgentReputation';
 import ScoreBadge from '../components/ScoreBadge';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './Dashboard.css';
 
 type SortOrder = 'newest' | 'score' | 'reviews';
@@ -429,7 +430,7 @@ function Dashboard() {
                     </div>
                     {isLoadingAgents ? (
                         <div className="empty-section">
-                            <p>Loading agents from Identity Registry...</p>
+                            <LoadingSpinner size="large" text="Loading agents from Identity Registry..." />
                         </div>
                     ) : meerkatAgents.length === 0 ? (
                         <div className="empty-section">
