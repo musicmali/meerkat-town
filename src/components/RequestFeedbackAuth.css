@@ -6,6 +6,8 @@
     padding: var(--space-6);
     max-width: 400px;
     margin: 0 auto;
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-xl);
 }
 
 .request-auth-header {
