@@ -31,8 +31,15 @@
 }
 
 @keyframes scaleIn {
-    from { transform: scale(0); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .rate-agent__header {
@@ -183,6 +190,46 @@
     color: #ef4444;
     font-size: 13px;
     margin-bottom: 16px;
+}
+
+.rate-agent--error {
+    text-align: center;
+    padding: 40px 24px;
+    background: var(--bg-white, #FFFFFF);
+    border-color: var(--border-light, #F4F4F5);
+    box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+}
+
+.rate-agent--error h3 {
+    color: var(--text-primary, #18181B);
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.rate-agent--error p {
+    color: var(--text-secondary, #52525B);
+    margin: 0 0 24px 0;
+    line-height: 1.5;
+}
+
+.rate-agent__error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    filter: none;
+}
+
+.rate-agent--error .rate-agent__btn--secondary {
+    background: var(--bg-light, #FAFAFA);
+    color: var(--text-primary, #18181B);
+    border: 1px solid var(--border, #E4E4E7);
+}
+
+.rate-agent--error .rate-agent__btn--secondary:hover {
+    background: var(--border-light, #F4F4F5);
+    border-color: var(--text-muted, #A1A1AA);
+    transform: translateY(-1px);
 }
 
 /* Actions */
