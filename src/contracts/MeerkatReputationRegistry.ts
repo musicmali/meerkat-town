@@ -19,8 +19,8 @@ export const REPUTATION_REGISTRY_ABI = [
         inputs: [
             { name: 'agentId', type: 'uint256' },
             { name: 'clientAddresses', type: 'address[]' },
-            { name: 'tag1', type: 'string' },
-            { name: 'tag2', type: 'string' },
+            { name: 'tag1', type: 'bytes32' },
+            { name: 'tag2', type: 'bytes32' },
         ],
         outputs: [
             { name: 'count', type: 'uint64' },
@@ -50,16 +50,16 @@ export const REPUTATION_REGISTRY_ABI = [
         inputs: [
             { name: 'agentId', type: 'uint256' },
             { name: 'clientAddresses', type: 'address[]' },
-            { name: 'tag1', type: 'string' },
-            { name: 'tag2', type: 'string' },
+            { name: 'tag1', type: 'bytes32' },
+            { name: 'tag2', type: 'bytes32' },
             { name: 'includeRevoked', type: 'bool' },
         ],
         outputs: [
             { name: 'clientAddresses', type: 'address[]' },
             { name: 'feedbackIndexes', type: 'uint64[]' },
             { name: 'scores', type: 'uint8[]' },
-            { name: 'tag1s', type: 'string[]' },
-            { name: 'tag2s', type: 'string[]' },
+            { name: 'tag1s', type: 'bytes32[]' },
+            { name: 'tag2s', type: 'bytes32[]' },
             { name: 'revokedStatuses', type: 'bool[]' },
         ],
     },

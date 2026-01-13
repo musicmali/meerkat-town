@@ -77,8 +77,8 @@ export function useAgentMetadata(agentId: number, metadataKey: string, enabled =
 export function useAgentReputation(
     agentId: number,
     clientAddresses: `0x${string}`[] = [],
-    tag1 = '',
-    tag2 = '',
+    tag1: `0x${string}` = EMPTY_BYTES32,
+    tag2: `0x${string}` = EMPTY_BYTES32,
     enabled = true
 ) {
     return useReadContract({
