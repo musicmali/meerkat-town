@@ -14,6 +14,10 @@ import './MintAgent.css';
 // Total number of available meerkats
 const TOTAL_MEERKATS = 100;
 
+// Manually used meerkat IDs (exclude even if not detected from blockchain)
+// These might be used for testing or minted before the block search window
+const MANUALLY_USED_MEERKAT_IDS = [52, 57];
+
 // Generate array of meerkat numbers [1, 2, ..., 100]
 const allMeerkatNumbers = Array.from({ length: TOTAL_MEERKATS }, (_, i) => i + 1);
 
@@ -71,8 +75,10 @@ function MintAgent() {
                 const usedIds = agents
                     .map(a => a.metadata?.meerkatId)
                     .filter((id): id is number => id !== undefined && id >= 1 && id <= 100);
-                console.log('Used meerkat IDs:', usedIds);
-                setUsedMeerkatIds(new Set(usedIds));
+                // Combine blockchain-detected IDs with manually excluded IDs
+                const allUsedIds = [...usedIds, ...MANUALLY_USED_MEERKAT_IDS];
+                console.log('Used meerkat IDs:', allUsedIds);
+                setUsedMeerkatIds(new Set(allUsedIds));
             } catch (error) {
                 console.error('Failed to fetch used meerkats:', error);
             } finally {
