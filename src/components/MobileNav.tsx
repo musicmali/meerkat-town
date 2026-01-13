@@ -35,19 +35,19 @@ function MobileNav() {
     return (
         <nav className="mobile-nav">
             <Link to="/dashboard" className={`mobile-nav-item ${isActive('/dashboard') ? 'active' : ''}`}>
-                <span className="mobile-nav-icon">&#127968;</span>
+                <img src="/icons/planet-svgrepo-com.svg" alt="" className="mobile-nav-icon" />
                 <span className="mobile-nav-label">Explore</span>
             </Link>
             <Link to="/mint-agent" className={`mobile-nav-item ${isActive('/mint-agent') ? 'active' : ''}`}>
-                <span className="mobile-nav-icon">&#127912;</span>
+                <img src="/icons/plus-svgrepo-com.svg" alt="" className="mobile-nav-icon" />
                 <span className="mobile-nav-label">Mint</span>
             </Link>
             <Link to="/my-agents" className={`mobile-nav-item ${isActive('/my-agents') ? 'active' : ''}`}>
-                <span className="mobile-nav-icon">&#129441;</span>
+                <img src="/icons/house-chimney-floor-svgrepo-com.svg" alt="" className="mobile-nav-icon" />
                 <span className="mobile-nav-label">My Agents</span>
             </Link>
             <Link to="/leaderboard" className={`mobile-nav-item ${isActive('/leaderboard') ? 'active' : ''}`}>
-                <span className="mobile-nav-icon">&#127942;</span>
+                <img src="/icons/trophy-svgrepo-com.svg" alt="" className="mobile-nav-icon" />
                 <span className="mobile-nav-label">Leaderboard</span>
             </Link>
             <button
@@ -55,7 +55,7 @@ function MobileNav() {
                 onClick={handleWalletClick}
                 className={`mobile-nav-item mobile-nav-wallet ${isConnected ? 'connected' : ''}`}
             >
-                <span className="mobile-nav-icon">{isConnected ? '🟢' : '🔗'}</span>
+                <img src="/icons/wallet-svgrepo-com.svg" alt="" className="mobile-nav-icon" />
                 <span className="mobile-nav-label">
                     {isConnected ? formatAddress(address!) : 'Wallet'}
                 </span>

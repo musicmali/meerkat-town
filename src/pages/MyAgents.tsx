@@ -5,6 +5,7 @@ import { baseSepolia } from 'wagmi/chains';
 import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import AuthorizationRequests from '../components/AuthorizationRequests';
 import TopBar from '../components/TopBar';
+import MobileNav from '../components/MobileNav';
 import LoadingSpinner from '../components/LoadingSpinner';
 import './MyAgents.css';
 import '../pages/Dashboard.css'; // Reuse sidebar styles
@@ -68,19 +69,19 @@ function MyAgents() {
 
                 <nav className="sidebar-nav">
                     <Link to="/dashboard" className="sidebar-link">
-                        <span className="sidebar-icon">&#127968;</span>
+                        <img src="/icons/planet-svgrepo-com.svg" alt="" className="sidebar-icon" />
                         Explore
                     </Link>
                     <Link to="/mint-agent" className="sidebar-link">
-                        <span className="sidebar-icon">&#127912;</span>
+                        <img src="/icons/plus-svgrepo-com.svg" alt="" className="sidebar-icon" />
                         Mint Agent
                     </Link>
                     <Link to="/my-agents" className="sidebar-link active">
-                        <span className="sidebar-icon">&#129441;</span>
+                        <img src="/icons/house-chimney-floor-svgrepo-com.svg" alt="" className="sidebar-icon" />
                         My Agents
                     </Link>
                     <Link to="/leaderboard" className="sidebar-link">
-                        <span className="sidebar-icon">&#127942;</span>
+                        <img src="/icons/trophy-svgrepo-com.svg" alt="" className="sidebar-icon" />
                         Leaderboard
                     </Link>
                 </nav>
@@ -198,6 +199,8 @@ function MyAgents() {
                     </>
                 )}
             </main>
+
+            <MobileNav />
         </div>
     );
 }

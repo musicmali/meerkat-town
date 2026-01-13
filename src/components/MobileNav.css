@@ -51,9 +51,16 @@
 }
 
 .mobile-nav-icon {
-    font-size: 1.375rem;
-    line-height: 1;
-    transition: transform var(--transition-fast);
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    opacity: 0.6;
+    transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.mobile-nav-item:hover .mobile-nav-icon,
+.mobile-nav-item.active .mobile-nav-icon {
+    opacity: 1;
 }
 
 .mobile-nav-label {
