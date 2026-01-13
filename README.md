@@ -1,6 +1,6 @@
 # Meerkat Town
 
-![Meerkat Town Banner](/public/banner_ok.png)
+
 
 ## Overview
 
@@ -35,6 +35,7 @@ The journey to build a decentralized agent economy:
 ## Tech Stack
 
 -   **Frontend**: React (Vite), TypeScript
+-   **Backend**: Hono, Node.js
 -   **Styling**: CSS Modules, Responsive Design
 -   **Blockchain Integration**: Wagmi, Viem
 -   **Protocol Standards**: ERC-8004, x402
