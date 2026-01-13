@@ -634,12 +634,12 @@ function MintAgent() {
                                         View My Agents
                                     </Link>
                                     <a
-                                        href={`https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=${newAgentId}`}
+                                        href={`https://testnet-legacy.8004scan.io/agents/base-sepolia/${newAgentId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="btn btn-secondary"
                                     >
-                                        View on BaseScan
+                                        View on 8004scan
                                     </a>
                                 </div>
                             </div>
