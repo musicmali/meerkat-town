@@ -114,19 +114,9 @@
     }
 }
 
-/* Number badge */
+/* Number badge - hidden, number shown in title instead */
 .agent-number-badge {
-    position: absolute;
-    bottom: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-    color: white;
-    padding: 0.5rem 1.25rem;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 1rem;
-    box-shadow: 0 4px 15px rgba(255, 107, 0, 0.4);
+    display: none;
 }
 
 /* Agent Info */
@@ -637,4 +627,90 @@
 .btn-mint {
     background: linear-gradient(135deg, var(--primary) 0%, #ff8c00 100%);
     padding: 1rem 2rem;
+}
+
+/* Mobile: Add padding for bottom nav and hide sidebar */
+@media (max-width: 768px) {
+    .mint-agent {
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    .mint-agent .sidebar {
+        display: none;
+    }
+
+    .mint-main {
+        width: 100%;
+        max-width: 100vw;
+        padding: 1rem;
+        padding-left: 1rem !important;
+        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        margin-left: 0 !important;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    .mint-header h1 {
+        font-size: 1.25rem;
+    }
+
+    /* Step indicator fix */
+    .step-indicator {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        width: 100%;
+        gap: 0;
+    }
+
+    .step {
+        flex-shrink: 0;
+    }
+
+    .step-number {
+        width: 32px;
+        height: 32px;
+        font-size: 0.875rem;
+    }
+
+    .step-label {
+        font-size: 0.625rem;
+    }
+
+    .step-line {
+        flex: 1;
+        min-width: 20px;
+        max-width: 60px;
+        margin-top: 16px;
+    }
+
+    .agent-image {
+        width: 180px;
+        height: 180px;
+    }
+
+    .selection-card {
+        padding: 1.25rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .agent-title {
+        font-size: 1.25rem;
+    }
+
+    .agent-subtitle,
+    .availability-hint {
+        font-size: 0.8125rem;
+    }
+
+    .selection-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .selection-actions .btn {
+        width: 100%;
+    }
 }
