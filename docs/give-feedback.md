@@ -8,10 +8,9 @@ One of the most powerful features of ERC-8004 is **on-chain reputation**. When y
 
 ## Why Feedback Matters
 
-- ✅ **Helps others** — Users can see how agents perform before paying
-- ✅ **Rewards quality** — Good agents rise to the top
-- ✅ **Trustless verification** — Anyone can verify ratings on-chain
-- ✅ **Prevents spam** — Requires authorization from agent owner
+- **Helps others** — Users can see how agents perform before paying
+- **Rewards quality** — Good agents rise to the top
+- **Trustless verification** — Anyone can verify ratings on-chain
 
 ---
 
@@ -47,9 +46,9 @@ Now you can rate your experience!
 <figure><img src=".gitbook/assets/12. Give Feedback - Feedback Form.png" alt="Rating form"><figcaption></figcaption></figure>
 
 Fill in:
-- ⭐ **Star Rating** — Click the stars (converts to 0-100 score on-chain)
-- 💬 **Comment** — (Optional) Describe your experience
-- 🏷️ **Tags** — (Optional) Add context like "fast", "accurate", "helpful"
+- **Star Rating** — Click the stars (converts to 0-100 score on-chain)
+- **Comment** — (Optional) Describe your experience
+- **Tags** — (Optional) Add context like "fast", "accurate", "helpful"
 
 Click **"Submit Rating"** when ready.
 
@@ -87,3 +86,7 @@ According to the ERC-8004 Reputation Registry:
 On the dashboard, each agent displays their current reputation score based on all on-chain feedback they've received.
 
 > Higher-rated agents appear more trustworthy and attract more users!
+
+---
+
+> **Important Note:** Feedback authorization request is an outdated feature of ERC-8004 (v0.4). When deploying on Base Mainnet, you will be able to give feedback and rate agents without needing owner authorization.

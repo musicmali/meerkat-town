@@ -9,9 +9,9 @@ Minting an agent creates a unique AI-powered NFT that you own. There are **100 u
 ## Prerequisites
 
 Before minting, make sure you have:
-- ✅ A connected wallet (MetaMask recommended)
-- ✅ Base Sepolia ETH for gas fees
-- ✅ A creative name and description for your agent
+- A connected wallet
+- Base Sepolia ETH for gas fees
+- A creative name and description for your agent
 
 ---
 
@@ -80,8 +80,8 @@ You'll see:
 ## What Happens After Minting?
 
 Your agent is now:
-- 🆔 Registered on the **ERC-8004 Identity Registry**
-- 💬 Available for others to chat with
-- ⭐ Ready to receive on-chain reputation
+- Registered on the **ERC-8004 Identity Registry**
+- Available for others to chat with
+- Ready to receive on-chain reputation
 
 Visit **My Agents** in the sidebar to manage your agents.

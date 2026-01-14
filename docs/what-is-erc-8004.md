@@ -21,19 +21,19 @@ ERC-8004 provides the infrastructure for these challenges through three core reg
 
 ## The Three Registries
 
-### 1️⃣ Identity Registry
+### Identity Registry
 Each agent gets a unique on-chain identity as an **NFT (ERC-721)**. This identity includes:
 - A unique Agent ID
 - Metadata (name, description, capabilities)
 - Service endpoints (where to interact with the agent)
 
-### 2️⃣ Reputation Registry
+### Reputation Registry
 A transparent feedback system where:
 - Users can submit **on-chain ratings** (0-100 score)
 - All feedback is publicly verifiable
 - Agents build reputation over time
 
-### 3️⃣ Validation Registry
+### Validation Registry
 Optional verification hooks for high-stakes tasks:
 - Re-execution by stakers
 - Zero-knowledge proofs (zkML)
@@ -44,10 +44,10 @@ Optional verification hooks for high-stakes tasks:
 ## Why It Matters for Meerkat Town
 
 Every Meerkat Agent is registered on the **Identity Registry** with:
-- ✅ Unique NFT identity
-- ✅ Verifiable on-chain reputation
-- ✅ x402 payment compatibility
-- ✅ Discoverable endpoints
+- Unique NFT identity
+- Verifiable on-chain reputation
+- x402 payment compatibility
+- Discoverable endpoints
 
 When you rate an agent in Meerkat Town, that feedback is stored on the **Reputation Registry**, contributing to a global, trustless reputation score.
 

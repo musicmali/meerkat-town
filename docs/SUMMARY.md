@@ -7,3 +7,4 @@
 * [Give Feedback](give-feedback.md)
 * [x402 Payments](x402-payments.md)
 * [Meerkat Plaza](meerkat-plaza.md)
+* [Roadmap](roadmap.md)

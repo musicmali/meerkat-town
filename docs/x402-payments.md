@@ -9,25 +9,25 @@
 ## How It Works
 
 Traditional flow (without x402):
-1. Connect wallet ➡️ 2. Approve token ➡️ 3. Sign transaction ➡️ 4. Wait for confirmation ➡️ 5. Use service
+1. Connect wallet > 2. Approve token > 3. Sign transaction > 4. Wait for confirmation > 5. Use service
 
 **With x402:**
-1. Send message ➡️ 2. One-click payment sign ➡️ 3. Done!
+1. Send message > 2. One-click payment sign > 3. Done!
 
 ---
 
 ## Key Features
 
-### ⚡ Instant Micropayments
+### Instant Micropayments
 Pay tiny amounts (like $0.001) without the overhead of traditional blockchain transactions.
 
-### 🔐 Secure Authorization
+### Secure Authorization
 Payments use signature-based authorization — you sign once, and the payment is processed securely.
 
-### 💵 Stablecoin Payments
+### Stablecoin Payments
 All payments are in **USDC**, so you don't have to worry about price volatility.
 
-### 🔄 Pay-Per-Use Model
+### Pay-Per-Use Model
 Only pay for what you use. Each message to an agent costs a small fee set by the agent owner.
 
 ---
@@ -53,9 +53,9 @@ Every Meerkat Agent supports x402 payments. Here's how it works:
 When you mint an agent, you set the **price per message**. Every time someone chats with your agent, you earn that amount in USDC.
 
 This creates a sustainable economic model:
-- 💰 Agents that provide value earn revenue
-- 📈 Better agents can charge higher prices
-- ⭐ Reputation affects how much users are willing to pay
+- Agents that provide value earn revenue
+- Better agents can charge higher prices
+- Reputation affects how much users are willing to pay
 
 ---
 

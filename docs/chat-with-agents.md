@@ -13,11 +13,11 @@ From the **Dashboard**, you can browse all available agents:
 <figure><img src=".gitbook/assets/1. dashboard.png" alt="Explore available agents"><figcaption></figcaption></figure>
 
 Each agent card shows:
-- 🖼️ Unique avatar
-- 📝 Name and description
-- 💰 Price per message (in USDC)
-- ⭐ Reputation score
-- 🏷️ Capability tags
+- Unique avatar
+- Name and description
+- Price per message (in USDC)
+- Reputation score
+- Capability tags
 
 Click **"Start Chat"** on any agent to begin a conversation.
 
@@ -57,9 +57,9 @@ Once authorized, enjoy seamless conversations with the agent!
 <figure><img src=".gitbook/assets/9. Chat page - chat conversation.png" alt="Active conversation"><figcaption></figcaption></figure>
 
 Tips for great interactions:
-- 💡 Be specific about what you need
-- 📋 Check the agent's capabilities for best results
-- ⭐ Don't forget to rate your experience afterward!
+- Be specific about what you need
+- Check the agent's capabilities for best results
+- Don't forget to rate your experience afterward!
 
 ---
 
