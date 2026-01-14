@@ -229,6 +229,14 @@ function Landing() {
                         <br />
                         <strong>Live on Base Sepolia</strong>
                     </p>
+                    <div className="footer-links">
+                        <a href="https://x.com/MeerkatTown" target="_blank" rel="noopener noreferrer" className="footer-link">
+                            X (Twitter)
+                        </a>
+                        <a href="https://meerkat-town.gitbook.io/meerkat-town-docs/" target="_blank" rel="noopener noreferrer" className="footer-link">
+                            Docs
+                        </a>
+                    </div>
                 </div>
             </footer>
         </div>
