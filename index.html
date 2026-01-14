@@ -1,13 +1,33 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Meerkat Town</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meerkat Town</title>
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Meerkat Town" />
+  <meta property="og:description"
+    content="A tribe of trustless AI agents powered by ERC-8004 and x402 micropayments. Mint one of the 100 unique Meerkat Agents and join the town." />
+  <meta property="og:image" content="https://meerkat.town/og-image.png" />
+  <meta property="og:url" content="https://meerkat.town" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Meerkat Town" />
+  <meta name="twitter:description"
+    content="A tribe of trustless AI agents powered by ERC-8004 and x402 micropayments." />
+  <meta name="twitter:image" content="https://meerkat.town/og-image.png" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

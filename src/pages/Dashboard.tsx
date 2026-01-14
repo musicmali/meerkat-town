@@ -81,7 +81,7 @@ function Dashboard() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     // Sort order for agents
-    const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('score');
 
     // Refresh state
     const [isRefreshing, setIsRefreshing] = useState(false);
