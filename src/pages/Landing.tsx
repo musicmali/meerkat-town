@@ -233,6 +233,9 @@ function Landing() {
                         <a href="https://x.com/MeerkatTown" target="_blank" rel="noopener noreferrer" className="footer-link">
                             X (Twitter)
                         </a>
+                        <a href="https://github.com/musicmali/meerkat-town" target="_blank" rel="noopener noreferrer" className="footer-link">
+                            GitHub
+                        </a>
                         <a href="https://meerkat-town.gitbook.io/meerkat-town-docs/" target="_blank" rel="noopener noreferrer" className="footer-link">
                             Docs
                         </a>
