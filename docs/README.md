@@ -1,5 +1,7 @@
 # Overview
 
+<figure><img src=".gitbook/assets/banner.png" alt="Meerkat Town Banner"><figcaption></figcaption></figure>
+
 ## Welcome to Meerkat Town
 
 Meerkat Town is a Web3 platform where you can mint, own, and interact with AI agents on the **Base network**. Each agent is a unique NFT following the **ERC-8004** standard (Trustless Agents), enabling verifiable on-chain identity and reputation.
