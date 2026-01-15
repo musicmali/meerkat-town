@@ -121,31 +121,34 @@ export async function fetchAgent(
     }
 }
 
+// First Meerkat Town agent ID - search backwards until we find this
+const FIRST_MEERKAT_AGENT_ID = 2212; // Jeremy
+
 /**
  * Fetch Transfer event logs using raw topics and public RPC (bypasses Alchemy limits)
+ * Searches BACKWARDS from toBlock to fromBlock, stopping early if stopAtTokenId is found
  */
-async function fetchTransferLogs(
+async function fetchTransferLogsBackwards(
     fromBlock: bigint,
     toBlock: bigint,
     filterByMint: boolean = true,
-    ownerAddress?: string
+    ownerAddress?: string,
+    stopAtTokenId?: number
 ): Promise<{ tokenId: number; to: string }[]> {
     const CHUNK_SIZE = BigInt(10000); // Public RPC supports larger ranges
     const allTokenIds: { tokenId: number; to: string }[] = [];
+    const foundTokenIds = new Set<number>();
 
-    let currentFrom = fromBlock;
-    while (currentFrom <= toBlock) {
-        const currentTo = currentFrom + CHUNK_SIZE > toBlock ? toBlock : currentFrom + CHUNK_SIZE;
+    // Start from toBlock and work backwards
+    let currentTo = toBlock;
+    while (currentTo >= fromBlock) {
+        const currentFrom = currentTo - CHUNK_SIZE < fromBlock ? fromBlock : currentTo - CHUNK_SIZE;
 
         try {
             // Build topics array
-            // topics[0] = event signature
-            // topics[1] = from address (indexed)
-            // topics[2] = to address (indexed)
-            // topics[3] = tokenId (indexed)
             const topics: (`0x${string}` | null)[] = [
                 TRANSFER_EVENT_SIGNATURE as `0x${string}`,
-                filterByMint ? ZERO_ADDRESS_TOPIC as `0x${string}` : null, // from = 0x0 for mints
+                filterByMint ? ZERO_ADDRESS_TOPIC as `0x${string}` : null,
                 ownerAddress ? `0x000000000000000000000000${ownerAddress.slice(2).toLowerCase()}` as `0x${string}` : null,
             ];
 
@@ -164,15 +167,26 @@ async function fetchTransferLogs(
             for (const log of logs) {
                 if (log.topics && log.topics[3]) {
                     const tokenId = parseInt(log.topics[3], 16);
-                    const to = '0x' + log.topics[2]?.slice(26); // Extract address from topic
+                    const to = '0x' + log.topics[2]?.slice(26);
                     allTokenIds.push({ tokenId, to });
+                    foundTokenIds.add(tokenId);
                 }
+            }
+
+            // Early exit: if we found the target token ID, we have all agents
+            if (stopAtTokenId !== undefined && foundTokenIds.has(stopAtTokenId)) {
+                console.log(`[fetchTransferLogsBackwards] Found target token ${stopAtTokenId}, stopping search`);
+                break;
             }
         } catch (error) {
             console.warn(`Error fetching logs for blocks ${currentFrom}-${currentTo}:`, error);
         }
 
-        currentFrom = currentTo + 1n;
+        // Move backwards
+        currentTo = currentFrom - 1n;
+
+        // Safety: don't go below block 0
+        if (currentTo < 0n) break;
     }
 
     return allTokenIds;
@@ -180,7 +194,7 @@ async function fetchTransferLogs(
 
 /**
  * Fetch all Meerkat Town agents from Identity Registry using event logs
- * Queries Transfer events from address(0) (mints) and filters for Meerkat Town agents
+ * Searches BACKWARDS from current block until finding agent 2212 (Jeremy)
  */
 export async function fetchMeerkatAgents(
     publicClient: ReturnType<typeof usePublicClient>,
@@ -192,16 +206,15 @@ export async function fetchMeerkatAgents(
         // Get current block number using public RPC
         const currentBlock = await publicRpcClient.getBlockNumber();
 
-        // Search last 200,000 blocks to capture older mints (like token ID 2212)
-        const fromBlock = currentBlock - BigInt(200000);
+        console.log(`[fetchMeerkatAgents] Searching backwards from block ${currentBlock} until finding agent ${FIRST_MEERKAT_AGENT_ID}`);
 
-        console.log(`[fetchMeerkatAgents] Searching blocks ${fromBlock > 0n ? fromBlock : 0n} to ${currentBlock}`);
-
-        // Query Transfer events from address(0) (mints) using public RPC
-        const mintEvents = await fetchTransferLogs(
-            fromBlock > 0n ? fromBlock : 0n,
+        // Search backwards from current block to block 0, stopping when we find agent 2212
+        const mintEvents = await fetchTransferLogsBackwards(
+            0n, // Search all the way back if needed
             currentBlock,
-            true // filter by mint (from = 0x0)
+            true, // filter by mint (from = 0x0)
+            undefined,
+            FIRST_MEERKAT_AGENT_ID // Stop when we find Jeremy (agent 2212)
         );
 
         console.log(`[fetchMeerkatAgents] Found ${mintEvents.length} mint events`);
@@ -252,17 +265,15 @@ export async function fetchAgentsByOwner(
         // Get current block number
         const currentBlock = await publicClient.getBlockNumber();
 
-        // Search last 200,000 blocks to capture older transfers (matches fetchMeerkatAgents range)
-        const fromBlock = currentBlock - BigInt(200000);
+        console.log(`[fetchAgentsByOwner] Searching backwards for transfers to ${ownerAddress}`);
 
-        console.log(`[fetchAgentsByOwner] Searching for transfers to ${ownerAddress}`);
-
-        // Query Transfer events where the owner received tokens
-        const transferEvents = await fetchTransferLogs(
-            fromBlock > 0n ? fromBlock : 0n,
+        // Query Transfer events where the owner received tokens (search backwards)
+        const transferEvents = await fetchTransferLogsBackwards(
+            0n, // Search all the way back if needed
             currentBlock,
             false, // Don't filter by mint
-            ownerAddress
+            ownerAddress,
+            FIRST_MEERKAT_AGENT_ID // Stop when we find the first Meerkat agent
         );
 
         console.log(`[fetchAgentsByOwner] Found ${transferEvents.length} transfer events to owner`);
@@ -381,8 +392,8 @@ export async function predictNextAgentId(
         const currentBlock = await publicRpcClient.getBlockNumber();
         const fromBlock = currentBlock - BigInt(10000);
 
-        // Get recent mint events
-        const mintEvents = await fetchTransferLogs(
+        // Get recent mint events (search backwards, just need last 10000 blocks)
+        const mintEvents = await fetchTransferLogsBackwards(
             fromBlock > 0n ? fromBlock : 0n,
             currentBlock,
             true // filter by mint (from = 0x0)
