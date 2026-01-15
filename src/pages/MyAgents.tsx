@@ -190,7 +190,7 @@ function MyAgents() {
                                                 Chat
                                             </Link>
                                             <a
-                                                href={`https://testnet-legacy.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn btn-secondary btn-sm"

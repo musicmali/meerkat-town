@@ -1,7 +1,7 @@
 // ============================================================================
-// CONTRACT ABIs
+// CONTRACT ABIs (v1.1)
 // ============================================================================
-// ABIs extracted from compiled Meerkat contracts
+// ABIs extracted from compiled Meerkat contracts - ERC-8004 v1.1
 // ============================================================================
 
 export const IDENTITY_REGISTRY_ABI = [
@@ -101,9 +101,9 @@ export const REPUTATION_REGISTRY_ABI = [
                 type: 'tuple',
                 components: [
                     { name: 'score', type: 'uint8' },
-                    { name: 'tag1', type: 'bytes32' },
-                    { name: 'tag2', type: 'bytes32' },
-                    { name: 'fileUri', type: 'string' },
+                    { name: 'tag1', type: 'string' },
+                    { name: 'tag2', type: 'string' },
+                    { name: 'feedbackURI', type: 'string' },
                     { name: 'timestamp', type: 'uint64' },
                     { name: 'revoked', type: 'bool' },
                 ],
@@ -127,30 +127,36 @@ export const REPUTATION_REGISTRY_ABI = [
         inputs: [],
         outputs: [{ type: 'address' }],
     },
-    // Write functions
+    // Write functions - v1.1: no feedbackAuth, string tags, endpoint added
     {
-        name: 'giveFeedbackSimple',
+        name: 'giveFeedback',
         type: 'function',
         stateMutability: 'nonpayable',
         inputs: [
             { name: 'agentId', type: 'uint256' },
             { name: 'score', type: 'uint8' },
-            { name: 'tag1', type: 'bytes32' },
-            { name: 'tag2', type: 'bytes32' },
+            { name: 'tag1', type: 'string' },
+            { name: 'tag2', type: 'string' },
+            { name: 'endpoint', type: 'string' },
+            { name: 'feedbackURI', type: 'string' },
+            { name: 'feedbackHash', type: 'bytes32' },
         ],
         outputs: [],
     },
-    // Events
+    // Events - v1.1: includes feedbackIndex and string tags
     {
         name: 'NewFeedback',
         type: 'event',
         inputs: [
             { name: 'agentId', type: 'uint256', indexed: true },
             { name: 'clientAddress', type: 'address', indexed: true },
+            { name: 'feedbackIndex', type: 'uint64', indexed: false },
             { name: 'score', type: 'uint8', indexed: false },
-            { name: 'tag1', type: 'bytes32', indexed: true },
-            { name: 'tag2', type: 'bytes32', indexed: false },
-            { name: 'fileUri', type: 'string', indexed: false },
+            { name: 'indexedTag1', type: 'string', indexed: true },
+            { name: 'tag1', type: 'string', indexed: false },
+            { name: 'tag2', type: 'string', indexed: false },
+            { name: 'endpoint', type: 'string', indexed: false },
+            { name: 'feedbackURI', type: 'string', indexed: false },
         ],
     },
 ] as const;

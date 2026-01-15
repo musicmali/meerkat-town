@@ -412,7 +412,7 @@ Be friendly, helpful, and concise in your responses.`;
                     <div className="chat-rate-prompt">
                         <button
                             onClick={() => setShowRating(true)}
-                            className="btn btn-secondary"
+                            className="btn btn-primary"
                         >
                             ⭐ Rate this agent
                         </button>

@@ -1,18 +1,16 @@
-// RateAgent Component
+// RateAgent Component (v1.1)
 // ERC-8004 compliant feedback submission component with x402 payment proof integration
-// Now includes authorization flow - users must be authorized by agent owner to give feedback
+// v1.1: Direct feedback submission - no authorization required
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useGiveFeedback, createFeedbackData, computeFeedbackHash } from '../hooks/useERC8004Registries';
-import { useFeedbackAuthorization } from '../hooks/useFeedbackAuth';
 import { useAccount } from 'wagmi';
-import RequestFeedbackAuth from './RequestFeedbackAuth';
 import './RateAgent.css';
 
 interface RateAgentProps {
     agentId: number;
     agentName?: string;
-    ownerAddress?: string;  // Agent owner address (required for authorization)
+    ownerAddress?: string;
     onSuccess?: () => void;
     onCancel?: () => void;
     // Optional x402 payment proof from previous interaction
@@ -25,40 +23,19 @@ interface RateAgentProps {
 
 export function RateAgent({ agentId, agentName, ownerAddress, onSuccess, onCancel, paymentProof }: RateAgentProps) {
     const [score, setScore] = useState<number>(80);
-    const [hoverScore, setHoverScore] = useState<number | null>(null);
     const [reasoning, setReasoning] = useState('');
     const [tag1, setTag1] = useState('');
     const [tag2, setTag2] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
-    const [showAuthRequest, setShowAuthRequest] = useState(false);
 
     const { address } = useAccount();
     const { giveFeedback, isPending, isConfirming, isSuccess, error } = useGiveFeedback();
-    const { authorization, checkAuthorization, markAsUsed, isLoading: isCheckingAuth } = useFeedbackAuthorization(agentId);
-
-    // Check authorization status on mount
-    useEffect(() => {
-        if (address && agentId) {
-            checkAuthorization();
-        }
-    }, [address, agentId, checkAuthorization]);
 
     // Check if user is the owner (self-feedback not allowed)
     const isOwner = ownerAddress && address && ownerAddress.toLowerCase() === address.toLowerCase();
 
-    // Convert 5-star rating to 0-100 score
-    const starToScore = (stars: number) => Math.round(stars * 20);
-    const scoreToStar = (score: number) => Math.round(score / 20);
-
-    const currentDisplayScore = hoverScore !== null ? hoverScore : score;
-    const currentStars = scoreToStar(currentDisplayScore);
-
     const handleSubmit = useCallback(async () => {
         if (!address) return;
-        if (!authorization) {
-            setShowAuthRequest(true);
-            return;
-        }
 
         try {
             // Create feedback data for off-chain storage
@@ -74,34 +51,30 @@ export function RateAgent({ agentId, agentName, ownerAddress, onSuccess, onCance
             const feedbackHash = computeFeedbackHash(feedbackData);
 
             // Create feedbackURI as data URI with comment (ERC-8004 format)
-            // This is how comments appear in 8004scan
             const feedbackJson = {
                 comment: reasoning || '',
                 score,
                 tag1: tag1 || '',
                 tag2: tag2 || '',
                 timestamp: Date.now(),
-                version: '1.0',
+                version: '1.1',
             };
             const feedbackURI = reasoning
                 ? `data:application/json;base64,${btoa(JSON.stringify(feedbackJson))}`
                 : undefined;
 
-            // Submit on-chain feedback with stored authorization
+            // v1.1: Direct submission - no authorization required
             await giveFeedback(agentId, score, {
                 tag1: tag1 || undefined,
                 tag2: tag2 || undefined,
                 feedbackURI,
                 feedbackHash,
-                storedAuth: authorization,  // Pass the stored authorization
+                endpoint: '', // Optional endpoint tracking
             });
-
-            // Mark the authorization as used
-            await markAsUsed();
         } catch (e) {
             console.error('Failed to submit feedback:', e);
         }
-    }, [agentId, address, score, reasoning, tag1, tag2, paymentProof, giveFeedback, authorization, markAsUsed]);
+    }, [agentId, address, score, reasoning, tag1, tag2, paymentProof, giveFeedback]);
 
     // Show success state
     if (isSuccess) {
@@ -135,47 +108,6 @@ export function RateAgent({ agentId, agentName, ownerAddress, onSuccess, onCance
         );
     }
 
-    // Show loading while checking auth
-    if (isCheckingAuth) {
-        return (
-            <div className="rate-agent rate-agent--loading">
-                <p>Checking authorization status...</p>
-            </div>
-        );
-    }
-
-    // Show authorization request form if needed
-    if ((showAuthRequest || !authorization) && ownerAddress) {
-        return (
-            <RequestFeedbackAuth
-                agentId={agentId}
-                agentName={agentName || `Agent #${agentId}`}
-                ownerAddress={ownerAddress}
-                onAuthorizationGranted={() => {
-                    checkAuthorization();
-                    setShowAuthRequest(false);
-                }}
-                onCancel={onCancel}
-            />
-        );
-    }
-
-    // Show error if no owner address provided
-    if (!authorization && !ownerAddress) {
-        return (
-            <div className="rate-agent rate-agent--error">
-                <div className="rate-agent__error-icon">⚠️</div>
-                <h3>Cannot Rate Agent</h3>
-                <p>Agent owner information is not available.</p>
-                {onCancel && (
-                    <button className="rate-agent__btn rate-agent__btn--secondary" onClick={onCancel}>
-                        Close
-                    </button>
-                )}
-            </div>
-        );
-    }
-
     return (
         <div className="rate-agent">
             <div className="rate-agent__header">
@@ -187,22 +119,29 @@ export function RateAgent({ agentId, agentName, ownerAddress, onSuccess, onCance
                 )}
             </div>
 
-            {/* Star Rating */}
-            <div className="rate-agent__stars">
-                {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                        key={star}
-                        className={`rate-agent__star ${star <= currentStars ? 'rate-agent__star--filled' : ''}`}
-                        onClick={() => setScore(starToScore(star))}
-                        onMouseEnter={() => setHoverScore(starToScore(star))}
-                        onMouseLeave={() => setHoverScore(null)}
-                        disabled={isPending || isConfirming}
-                        type="button"
-                    >
-                        ★
-                    </button>
-                ))}
-                <span className="rate-agent__score">{currentDisplayScore}/100</span>
+            {/* Score Slider */}
+            <div className="rate-agent__slider-container">
+                <div className="rate-agent__slider-header">
+                    <span className="rate-agent__slider-label">Score</span>
+                    <span className="rate-agent__slider-value">{score}/100</span>
+                </div>
+                <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={score}
+                    onChange={(e) => setScore(Number(e.target.value))}
+                    className="rate-agent__slider"
+                    style={{
+                        background: `linear-gradient(to right, #f97316 0%, #f97316 ${score}%, #E4E4E7 ${score}%, #E4E4E7 100%)`
+                    }}
+                    disabled={isPending || isConfirming}
+                />
+                <div className="rate-agent__slider-labels">
+                    <span>0</span>
+                    <span>50</span>
+                    <span>100</span>
+                </div>
             </div>
 
             {/* Reasoning */}
@@ -237,7 +176,7 @@ export function RateAgent({ agentId, agentName, ownerAddress, onSuccess, onCance
                             value={tag1}
                             onChange={(e) => setTag1(e.target.value)}
                             placeholder="e.g., defi, analytics"
-                            maxLength={32}
+                            maxLength={64}
                             disabled={isPending || isConfirming}
                         />
                     </div>
@@ -249,7 +188,7 @@ export function RateAgent({ agentId, agentName, ownerAddress, onSuccess, onCance
                             value={tag2}
                             onChange={(e) => setTag2(e.target.value)}
                             placeholder="e.g., fast, accurate"
-                            maxLength={32}
+                            maxLength={64}
                             disabled={isPending || isConfirming}
                         />
                     </div>

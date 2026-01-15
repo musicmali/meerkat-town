@@ -2,7 +2,7 @@
 // The Identity Registry uses ERC-721 with URIStorage extension for agent registration
 // Our MeerkatAgents contract serves as the identity source, this registry is for protocol-level integration
 
-export const IDENTITY_REGISTRY_ADDRESS = '0x8004AA63c570c570eBF15376c0dB199918BFe9Fb' as const;
+export const IDENTITY_REGISTRY_ADDRESS = '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const;
 
 export const IDENTITY_REGISTRY_ABI = [
     // ========== READ FUNCTIONS ==========

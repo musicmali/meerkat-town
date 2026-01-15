@@ -640,7 +640,7 @@ function MintAgent() {
                                         View My Agents
                                     </Link>
                                     <a
-                                        href={`https://testnet-legacy.8004scan.io/agents/base-sepolia/${newAgentId}`}
+                                        href={`https://www.8004scan.io/agents/base-sepolia/${newAgentId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="btn btn-secondary"

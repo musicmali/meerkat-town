@@ -113,6 +113,7 @@ export interface FeedbackData {
     reasoning?: string;
     tag1?: string;
     tag2?: string;
+    endpoint?: string;  // v1.1: Optional endpoint URI tracking
 
     // Protocol-specific fields
     skill?: string;           // OASF/A2A skill used

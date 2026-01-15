@@ -647,7 +647,7 @@ input:checked+.slider:before {
 }
 
 .chat-rate-prompt .btn {
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    background: var(--gradient-orange);
     color: white;
     padding: var(--space-3) var(--space-6);
     border-radius: var(--radius-lg);
@@ -659,5 +659,5 @@ input:checked+.slider:before {
 
 .chat-rate-prompt .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 20px rgba(249, 115, 22, 0.3);
 }

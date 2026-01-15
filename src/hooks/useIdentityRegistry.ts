@@ -10,10 +10,12 @@ import type { AgentMetadata } from '../types/agentMetadata';
 const BASE_SEPOLIA_CHAIN_ID = 84532;
 
 // Blacklisted agent IDs (test agents that shouldn't appear in the dashboard)
-const BLACKLISTED_AGENT_IDS = [2210, 2211];
+// v1.1: Fresh contract, no blacklisted agents yet
+const BLACKLISTED_AGENT_IDS: number[] = [];
 
-// Minimum token ID for Meerkat Town agents (skip non-Meerkat tokens below this)
-const MINIMUM_MEERKAT_TOKEN_ID = 2212;
+// Minimum token ID for Meerkat Town agents
+// v1.1: Fresh contract starts from ID 1
+const MINIMUM_MEERKAT_TOKEN_ID = 1;
 
 // ERC-721 Transfer event signature
 const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -122,7 +124,8 @@ export async function fetchAgent(
 }
 
 // First Meerkat Town agent ID - search backwards until we find this
-const FIRST_MEERKAT_AGENT_ID = 2212; // Jeremy
+// v1.1: Fresh contract starts from ID 1
+const FIRST_MEERKAT_AGENT_ID = 1;
 
 /**
  * Fetch Transfer event logs using raw topics and public RPC (bypasses Alchemy limits)

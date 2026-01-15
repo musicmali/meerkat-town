@@ -24,10 +24,10 @@ import {
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
 
-// Contract addresses from deployment
+// Contract addresses from deployment (v1.1)
 export const CONTRACTS = {
-    identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS || '0x374034f1f0D7Bba7e97d7392C5E3917501611fEF') as `0x${string}`,
-    reputationRegistry: (process.env.REPUTATION_REGISTRY_ADDRESS || '0x61ec2b7b8a27cf0ace62830101791cdb46593259') as `0x${string}`,
+    identityRegistry: (process.env.IDENTITY_REGISTRY_ADDRESS || '0x8004A818BFB912233c491871b3d84c89A494BD9e') as `0x${string}`,
+    reputationRegistry: (process.env.REPUTATION_REGISTRY_ADDRESS || '0x8004B663056A597Dffe9eCcC1965A193B7388713') as `0x${string}`,
     mkatToken: (process.env.MKAT_TOKEN_ADDRESS || '0x90cbb2f745efc70020ad44432b34f37fb027af2c') as `0x${string}`,
 };
 

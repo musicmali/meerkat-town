@@ -498,7 +498,7 @@ function Dashboard() {
                                         </div>
                                         <div className="agent-actions">
                                             <a
-                                                href={`https://testnet-legacy.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn btn-8004scan btn-sm"
@@ -604,7 +604,7 @@ function Dashboard() {
                                                 </div>
                                                 <div className="agent-actions-grid">
                                                     <a
-                                                        href={`https://testnet-legacy.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                        href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn btn-8004scan"

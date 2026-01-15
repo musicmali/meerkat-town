@@ -1,10 +1,11 @@
-// ERC-8004 Registry Hooks
+// ERC-8004 Registry Hooks (v1.1)
 // Hooks for interacting with Identity, Reputation, and Validation registries on Base Sepolia
+// v1.1: Simplified feedback submission - no authorization required
 
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { useAccount } from 'wagmi';
-import { useCallback, useState } from 'react';
-import { keccak256, toHex, stringToHex, concat, encodeAbiParameters } from 'viem';
+import { useCallback } from 'react';
+import { keccak256, toHex } from 'viem';
 
 // Import registry ABIs and addresses
 import { IDENTITY_REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
@@ -69,16 +70,17 @@ export function useAgentMetadata(agentId: number, metadataKey: string, enabled =
 
 /**
  * Get agent reputation summary (count and average score)
+ * v1.1: Tags are now strings instead of bytes32
  * @param agentId - The agent's token ID
  * @param clientAddresses - Optional filter by specific client addresses
- * @param tag1 - Optional filter by tag1
- * @param tag2 - Optional filter by tag2
+ * @param tag1 - Optional filter by tag1 (string)
+ * @param tag2 - Optional filter by tag2 (string)
  */
 export function useAgentReputation(
     agentId: number,
     clientAddresses: `0x${string}`[] = [],
-    tag1: `0x${string}` = EMPTY_BYTES32,
-    tag2: `0x${string}` = EMPTY_BYTES32,
+    tag1: string = '',
+    tag2: string = '',
     enabled = true
 ) {
     return useReadContract({
@@ -118,68 +120,14 @@ export function useReputationIdentityRegistry() {
 }
 
 /**
- * Convert a string to bytes32 (padded right with zeros)
- */
-function stringToBytes32(str: string): `0x${string}` {
-    if (!str) return EMPTY_BYTES32;
-    // Convert string to hex, then pad to 32 bytes
-    const hex = stringToHex(str, { size: 32 });
-    return hex;
-}
-
-/**
- * Pack the auth data with signature
- * Uses abi.encode for the auth struct (as per ERC-8004 spec)
- * Format: abi.encodePacked(abi.encode(auth), signature)
- */
-function packFeedbackAuth(
-    agentId: number,
-    clientAddress: `0x${string}`,
-    feedbackIndex: number,
-    timestamp: number,
-    chainId: number,
-    identityRegistry: `0x${string}`,
-    agentOwner: `0x${string}`,
-    signature: `0x${string}`
-): `0x${string}` {
-    // Use abi.encode for the auth struct (each field padded to 32 bytes)
-    const encodedAuth = encodeAbiParameters(
-        [
-            { type: 'uint256' },
-            { type: 'address' },
-            { type: 'uint256' },
-            { type: 'uint256' },
-            { type: 'uint256' },
-            { type: 'address' },
-            { type: 'address' },
-        ],
-        [
-            BigInt(agentId),
-            clientAddress,
-            BigInt(feedbackIndex),
-            BigInt(timestamp),
-            BigInt(chainId),
-            identityRegistry,
-            agentOwner,
-        ]
-    );
-
-    // Concatenate abi.encode(auth) + signature (65 bytes)
-    const authData = concat([encodedAuth, signature]);
-    return authData;
-}
-
-/**
  * Hook to submit feedback for an agent
- * Contract signature: giveFeedback(uint256,uint8,bytes32,bytes32,string,bytes32,bytes)
+ * v1.1: Direct submission - no authorization required
+ * Contract signature: giveFeedback(uint256,uint8,string,string,string,string,bytes32)
  */
 export function useGiveFeedback() {
-    const { writeContract, data: hash, isPending: isWritePending, error: writeError } = useWriteContract();
+    const { writeContract, data: hash, isPending, error } = useWriteContract();
     const { address } = useAccount();
     const publicClient = usePublicClient({ chainId: BASE_SEPOLIA_CHAIN_ID });
-
-    const [isSigningAuth, setIsSigningAuth] = useState(false);
-    const [authError, setAuthError] = useState<Error | null>(null);
 
     const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
         hash,
@@ -191,17 +139,9 @@ export function useGiveFeedback() {
         options?: {
             tag1?: string;
             tag2?: string;
+            endpoint?: string;
             feedbackURI?: string;
             feedbackHash?: `0x${string}`;
-            // Stored authorization from backend (owner's signature)
-            storedAuth?: {
-                signature: string;
-                expiryTimestamp: number;
-                feedbacksAllowed: number;
-                feedbacksUsed: number;
-                feedbackIndex: number;  // The feedback index that was signed
-                ownerAddress: string;
-            };
         }
     ) => {
         if (score < 0 || score > 100) {
@@ -216,95 +156,36 @@ export function useGiveFeedback() {
             throw new Error('Public client not available');
         }
 
-        setAuthError(null);
-        setIsSigningAuth(true);
+        // Check if connected wallet is the agent owner - self-feedback is not allowed
+        const agentOwner = await publicClient.readContract({
+            address: IDENTITY_REGISTRY_ADDRESS,
+            abi: IDENTITY_REGISTRY_ABI,
+            functionName: 'ownerOf',
+            args: [BigInt(agentId)],
+        }) as `0x${string}`;
 
-        try {
-            // Step 1: Verify stored authorization exists
-            if (!options?.storedAuth) {
-                throw new Error('Authorization required. Please request authorization from the agent owner first.');
-            }
-
-            // Step 2: Get the next feedback index for this client from blockchain
-            const lastIndex = await publicClient.readContract({
-                address: REPUTATION_REGISTRY_ADDRESS,
-                abi: REPUTATION_REGISTRY_ABI,
-                functionName: 'getLastIndex',
-                args: [BigInt(agentId), address],
-            }) as bigint;
-            const nextIndex = Number(lastIndex) + 1;
-
-            // Step 3: Verify the stored feedbackIndex matches what the contract expects
-            const storedFeedbackIndex = options.storedAuth.feedbackIndex;
-            if (nextIndex !== storedFeedbackIndex) {
-                throw new Error(`Authorization feedbackIndex mismatch. Expected ${nextIndex}, got ${storedFeedbackIndex}. Please request new authorization.`);
-            }
-
-            // Step 4: Get agent owner from Identity Registry
-            const agentOwner = await publicClient.readContract({
-                address: IDENTITY_REGISTRY_ADDRESS,
-                abi: IDENTITY_REGISTRY_ABI,
-                functionName: 'ownerOf',
-                args: [BigInt(agentId)],
-            }) as `0x${string}`;
-
-            // Check if connected wallet is the agent owner - self-feedback is not allowed
-            const isOwner = agentOwner.toLowerCase() === address.toLowerCase();
-            if (isOwner) {
-                throw new Error('Cannot rate your own agent. Self-feedback is not allowed.');
-            }
-
-            // Use the owner's stored authorization
-            const expiryTimestamp = options.storedAuth.expiryTimestamp;
-            const signature = options.storedAuth.signature as `0x${string}`;
-
-            // Step 5: Pack the full auth using the owner's stored signature
-            // IMPORTANT: Use the storedFeedbackIndex (what was signed), not nextIndex
-            const feedbackAuth = packFeedbackAuth(
-                agentId,
-                address,
-                storedFeedbackIndex,
-                expiryTimestamp,
-                BASE_SEPOLIA_CHAIN_ID,
-                IDENTITY_REGISTRY_ADDRESS,
-                agentOwner,
-                signature
-            );
-
-            setIsSigningAuth(false);
-
-            // Step 6: Convert string tags to bytes32
-            const tag1Bytes = stringToBytes32(options?.tag1 || '');
-            const tag2Bytes = stringToBytes32(options?.tag2 || '');
-            const feedbackURI = options?.feedbackURI || '';
-            const feedbackHash = options?.feedbackHash || EMPTY_BYTES32;
-
-            // Step 7: Submit the feedback transaction
-            writeContract({
-                address: REPUTATION_REGISTRY_ADDRESS,
-                abi: REPUTATION_REGISTRY_ABI,
-                functionName: 'giveFeedback',
-                args: [
-                    BigInt(agentId),
-                    score,
-                    tag1Bytes,
-                    tag2Bytes,
-                    feedbackURI,
-                    feedbackHash,
-                    feedbackAuth,
-                ],
-                chainId: BASE_SEPOLIA_CHAIN_ID,
-            });
-        } catch (e) {
-            setIsSigningAuth(false);
-            setAuthError(e as Error);
-            console.error('Failed to generate feedback auth:', e);
-            throw e;
+        const isOwner = agentOwner.toLowerCase() === address.toLowerCase();
+        if (isOwner) {
+            throw new Error('Cannot rate your own agent. Self-feedback is not allowed.');
         }
-    }, [writeContract, address, publicClient]);
 
-    const isPending = isSigningAuth || isWritePending;
-    const error = authError || writeError;
+        // v1.1: Direct submission with string tags and endpoint
+        writeContract({
+            address: REPUTATION_REGISTRY_ADDRESS,
+            abi: REPUTATION_REGISTRY_ABI,
+            functionName: 'giveFeedback',
+            args: [
+                BigInt(agentId),
+                score,
+                options?.tag1 || '',
+                options?.tag2 || '',
+                options?.endpoint || '',
+                options?.feedbackURI || '',
+                options?.feedbackHash || EMPTY_BYTES32,
+            ],
+            chainId: BASE_SEPOLIA_CHAIN_ID,
+        });
+    }, [writeContract, address, publicClient]);
 
     return {
         giveFeedback,
@@ -315,7 +196,6 @@ export function useGiveFeedback() {
         receipt,
         error,
         clientAddress: address,
-        isSigningAuth,
     };
 }
 
@@ -427,6 +307,7 @@ export function createFeedbackData(
         reasoning?: string;
         tag1?: string;
         tag2?: string;
+        endpoint?: string;
     }
 ): FeedbackData {
     const now = new Date().toISOString();
@@ -440,6 +321,7 @@ export function createFeedbackData(
         reasoning: options?.reasoning,
         tag1: options?.tag1,
         tag2: options?.tag2,
+        endpoint: options?.endpoint,
     };
 
     if (paymentProof) {

@@ -1,7 +1,8 @@
-// ERC-8004 Reputation Registry Contract - Base Sepolia
-// Enables clients to give feedback to agents with scores, tags, and optional payment proofs
+// ERC-8004 Reputation Registry Contract - Base Sepolia (v1.1)
+// Enables clients to give feedback to agents with scores, tags, and optional endpoint tracking
+// v1.1: FeedbackAuth removed, tags changed to strings, endpoint field added
 
-export const REPUTATION_REGISTRY_ADDRESS = '0x8004bd8daB57f14Ed299135749a5CB5c42d341BF' as const;
+export const REPUTATION_REGISTRY_ADDRESS = '0x8004B663056A597Dffe9eCcC1965A193B7388713' as const;
 
 export const REPUTATION_REGISTRY_ABI = [
     // ========== READ FUNCTIONS ==========
@@ -19,8 +20,8 @@ export const REPUTATION_REGISTRY_ABI = [
         inputs: [
             { name: 'agentId', type: 'uint256' },
             { name: 'clientAddresses', type: 'address[]' },
-            { name: 'tag1', type: 'bytes32' },
-            { name: 'tag2', type: 'bytes32' },
+            { name: 'tag1', type: 'string' },
+            { name: 'tag2', type: 'string' },
         ],
         outputs: [
             { name: 'count', type: 'uint64' },
@@ -50,16 +51,16 @@ export const REPUTATION_REGISTRY_ABI = [
         inputs: [
             { name: 'agentId', type: 'uint256' },
             { name: 'clientAddresses', type: 'address[]' },
-            { name: 'tag1', type: 'bytes32' },
-            { name: 'tag2', type: 'bytes32' },
+            { name: 'tag1', type: 'string' },
+            { name: 'tag2', type: 'string' },
             { name: 'includeRevoked', type: 'bool' },
         ],
         outputs: [
             { name: 'clientAddresses', type: 'address[]' },
             { name: 'feedbackIndexes', type: 'uint64[]' },
             { name: 'scores', type: 'uint8[]' },
-            { name: 'tag1s', type: 'bytes32[]' },
-            { name: 'tag2s', type: 'bytes32[]' },
+            { name: 'tag1s', type: 'string[]' },
+            { name: 'tag2s', type: 'string[]' },
             { name: 'revokedStatuses', type: 'bool[]' },
         ],
     },
@@ -94,7 +95,7 @@ export const REPUTATION_REGISTRY_ABI = [
     },
 
     // ========== WRITE FUNCTIONS ==========
-    // Correct signature: giveFeedback(uint256,uint8,bytes32,bytes32,string,bytes32,bytes) = 0x155e5bbd
+    // v1.1 signature: giveFeedback(uint256,uint8,string,string,string,string,bytes32)
     {
         name: 'giveFeedback',
         type: 'function',
@@ -102,11 +103,11 @@ export const REPUTATION_REGISTRY_ABI = [
         inputs: [
             { name: 'agentId', type: 'uint256' },
             { name: 'score', type: 'uint8' },
-            { name: 'tag1', type: 'bytes32' },
-            { name: 'tag2', type: 'bytes32' },
+            { name: 'tag1', type: 'string' },
+            { name: 'tag2', type: 'string' },
+            { name: 'endpoint', type: 'string' },
             { name: 'feedbackURI', type: 'string' },
             { name: 'feedbackHash', type: 'bytes32' },
-            { name: 'feedbackAuth', type: 'bytes' },
         ],
         outputs: [],
     },
@@ -135,6 +136,7 @@ export const REPUTATION_REGISTRY_ABI = [
     },
 
     // ========== EVENTS ==========
+    // v1.1 event includes feedbackIndex and string tags
     {
         name: 'NewFeedback',
         type: 'event',
@@ -143,7 +145,8 @@ export const REPUTATION_REGISTRY_ABI = [
             { name: 'clientAddress', type: 'address', indexed: true },
             { name: 'feedbackIndex', type: 'uint64', indexed: false },
             { name: 'score', type: 'uint8', indexed: false },
-            { name: 'tag1', type: 'string', indexed: true },
+            { name: 'indexedTag1', type: 'string', indexed: true },
+            { name: 'tag1', type: 'string', indexed: false },
             { name: 'tag2', type: 'string', indexed: false },
             { name: 'endpoint', type: 'string', indexed: false },
             { name: 'feedbackURI', type: 'string', indexed: false },
@@ -172,5 +175,5 @@ export const REPUTATION_REGISTRY_ABI = [
     },
 ] as const;
 
-// Helper constants
+// Helper constant for empty bytes32 hash
 export const EMPTY_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
