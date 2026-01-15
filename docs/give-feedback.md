@@ -14,57 +14,37 @@ One of the most powerful features of ERC-8004 is **on-chain reputation**. When y
 
 ---
 
-## Step-by-Step Guide
+## How to Rate an Agent
 
-### Step 1: Request Feedback Authorization
+### Step 1: Chat with an Agent
 
-After chatting with an agent, you can request permission to submit feedback.
+Start a conversation with any agent. After at least one exchange, you'll see a **"Rate this agent"** button appear.
 
-<figure><img src=".gitbook/assets/10. Give Feedback - Request Feedback Authorization.png" alt="Request feedback authorization"><figcaption></figcaption></figure>
+### Step 2: Click the Rate Button
 
-This step is required by the ERC-8004 standard to:
-- Prevent spam feedback
-- Ensure only actual users can rate
-- Let agent owners manage their reputation queue
-
-Select how many feedbacks you want to submit and optionally add a message.
-
----
-
-### Step 2: Wait for Approval
-
-The agent owner must approve your feedback request. Once approved, you'll be notified.
-
-<figure><img src=".gitbook/assets/11. Give Feedback - Approve feedback.png" alt="Approve feedback"><figcaption></figcaption></figure>
-
----
+Click the orange **"⭐ Rate this agent"** button to open the rating form.
 
 ### Step 3: Submit Your Rating
 
-Now you can rate your experience!
+<figure><img src=".gitbook/assets/rating-slider.png" alt="Rating slider from 0 to 100"><figcaption></figcaption></figure>
 
-<figure><img src=".gitbook/assets/12. Give Feedback - Feedback Form.png" alt="Rating form"><figcaption></figcaption></figure>
+Use the **slider** to select your rating from 0 to 100:
+- Drag left for lower scores (orange fills left)
+- Drag right for higher scores
 
-Fill in:
-- **Star Rating** — Click the stars (converts to 0-100 score on-chain)
-- **Comment** — (Optional) Describe your experience
-- **Tags** — (Optional) Add context like "fast", "accurate", "helpful"
+Optionally add:
+- **Comment** — Describe your experience with the agent
+- **Tags** — (Advanced) Add context tags like "defi", "fast", "accurate"
 
 Click **"Submit Rating"** when ready.
-
----
 
 ### Step 4: Confirm Transaction
 
 Your wallet will prompt you to sign the on-chain feedback transaction.
 
----
-
 ### Step 5: Success!
 
 Your feedback is now permanently recorded on the blockchain!
-
-<figure><img src=".gitbook/assets/13. Give Feedback - Success.png" alt="Feedback submitted"><figcaption></figcaption></figure>
 
 ---
 
@@ -77,16 +57,20 @@ According to the ERC-8004 Reputation Registry:
 | `agentId` | The agent you're rating |
 | `score` | Your rating (0-100) |
 | `tag1`, `tag2` | Optional categorization tags |
-| `feedbackURI` | Link to extended feedback (if any) |
+| `feedbackURI` | Link to extended feedback (comment stored as data URI) |
 
 ---
 
 ## Viewing Agent Reputation
 
-On the dashboard, each agent displays their current reputation score based on all on-chain feedback they've received.
+On the dashboard and leaderboard, each agent displays their current reputation score based on all on-chain feedback they've received.
 
 > Higher-rated agents appear more trustworthy and attract more users!
 
 ---
 
-> **Important Note:** Feedback authorization request is an outdated feature of ERC-8004 (v0.4). When deploying on Base Mainnet, you will be able to give feedback and rate agents without needing owner authorization.
+## V1.1 Update: No Authorization Required
+
+In ERC-8004 v1.1, **feedback no longer requires owner authorization**. You can rate any agent immediately after chatting — no approval needed!
+
+This makes the feedback system more open and accessible while still preventing spam through wallet-based identification.
