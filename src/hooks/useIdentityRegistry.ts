@@ -254,57 +254,29 @@ export async function fetchMeerkatAgents(
 }
 
 /**
- * Fetch agents owned by a specific address using event logs
- * Queries Transfer events where the owner received tokens, then verifies current ownership
+ * Fetch agents owned by a specific address
+ * Uses fetchMeerkatAgents and filters by owner - more reliable than event log searching
  */
 export async function fetchAgentsByOwner(
     ownerAddress: string,
     publicClient: ReturnType<typeof usePublicClient>,
-    _maxAgentsToScan: number = 100 // Kept for backwards compatibility but not used
+    maxAgents: number = 100
 ): Promise<RegisteredAgent[]> {
     if (!publicClient || !ownerAddress) return [];
 
     try {
-        // Get current block number
-        const currentBlock = await publicClient.getBlockNumber();
+        console.log(`[fetchAgentsByOwner] Fetching all agents and filtering by owner: ${ownerAddress}`);
 
-        console.log(`[fetchAgentsByOwner] Searching backwards for transfers to ${ownerAddress}`);
+        // Fetch all meerkat agents (same as Dashboard)
+        const allAgents = await fetchMeerkatAgents(publicClient, maxAgents);
 
-        // Query Transfer events where the owner received tokens (search backwards)
-        const transferEvents = await fetchTransferLogsBackwards(
-            0n, // Search all the way back if needed
-            currentBlock,
-            false, // Don't filter by mint
-            ownerAddress,
-            FIRST_MEERKAT_AGENT_ID // Stop when we find the first Meerkat agent
+        // Filter by owner
+        const ownedAgents = allAgents.filter(
+            agent => agent.owner.toLowerCase() === ownerAddress.toLowerCase()
         );
 
-        console.log(`[fetchAgentsByOwner] Found ${transferEvents.length} transfer events to owner`);
-
-        // Extract unique agent IDs
-        const uniqueIds = [...new Set(transferEvents.map(e => e.tokenId))];
-        console.log(`[fetchAgentsByOwner] Unique token IDs:`, uniqueIds);
-
-        // Fetch agent details and verify current ownership
-        const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient));
-        const results = await Promise.all(fetchPromises);
-
-        // Filter for Meerkat Town agents that are still owned by the address (excluding blacklisted)
-        const agents: RegisteredAgent[] = [];
-        for (const agent of results) {
-            if (agent && agent.isMeerkatAgent && agent.owner.toLowerCase() === ownerAddress.toLowerCase()) {
-                // Skip blacklisted agents by ID
-                if (BLACKLISTED_AGENT_IDS.includes(agent.agentId)) {
-                    console.log(`[fetchAgentsByOwner] Skipping blacklisted agent: ${agent.agentId} - ${agent.metadata?.name}`);
-                    continue;
-                }
-                console.log(`[fetchAgentsByOwner] Found owned Meerkat agent: ${agent.agentId} - ${agent.metadata?.name}`);
-                agents.push(agent);
-            }
-        }
-
-        console.log(`[fetchAgentsByOwner] Total owned Meerkat agents: ${agents.length}`);
-        return agents;
+        console.log(`[fetchAgentsByOwner] Found ${ownedAgents.length} agents owned by ${ownerAddress}`);
+        return ownedAgents;
     } catch (error) {
         console.error('[fetchAgentsByOwner] Error:', error);
         return [];

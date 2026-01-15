@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
-import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI, EMPTY_BYTES32 } from '../contracts/MeerkatReputationRegistry';
+import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
 import { getFromCache, setToCache, clearCache, batchProcess } from '../utils/rpcUtils';
 import AgentReputation from '../components/AgentReputation';
 import ScoreBadge from '../components/ScoreBadge';
@@ -20,8 +20,8 @@ interface AgentWithScore extends RegisteredAgent {
     feedbackCount: number;
 }
 
-const AGENTS_CACHE_KEY = 'dashboard_agents';
-const SCORES_CACHE_KEY = 'dashboard_scores';
+const AGENTS_CACHE_KEY = 'dashboard_agents_v2'; // v2: invalidate old cache for v1.1 contracts
+const SCORES_CACHE_KEY = 'dashboard_scores_v2'; // v2: invalidate old cache for v1.1 contracts
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
 interface Agent {
@@ -97,7 +97,7 @@ function Dashboard() {
                 address: REPUTATION_REGISTRY_ADDRESS,
                 abi: REPUTATION_REGISTRY_ABI,
                 functionName: 'getSummary',
-                args: [BigInt(agentId), [], EMPTY_BYTES32, EMPTY_BYTES32],
+                args: [BigInt(agentId), [], '', ''],  // v1.1: strings for tags
             }) as [bigint, number];
 
             return {
