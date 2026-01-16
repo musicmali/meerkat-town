@@ -101,6 +101,13 @@ function MintAgent() {
     useEffect(() => {
         if (!isLoadingAvailability && availableMeerkats.length > 0) {
             setSelectedMeerkat(getRandomMeerkat(availableMeerkats));
+
+            // Preload all available meerkat images for smooth shuffling
+            availableMeerkats.forEach(num => {
+                const img = new Image();
+                img.src = `/meerkats/meerkat_${num.toString().padStart(3, '0')}.png`;
+            });
+            console.log(`[MintAgent] Preloading ${availableMeerkats.length} meerkat images`);
         }
     }, [isLoadingAvailability, availableMeerkats]);
 
