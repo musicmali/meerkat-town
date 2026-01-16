@@ -108,12 +108,17 @@ function MintAgent() {
         if (!isLoadingAvailability && availableMeerkats.length > 0) {
             setSelectedMeerkat(getRandomMeerkat(availableMeerkats));
 
-            // Preload all available meerkat THUMBNAILS for smooth shuffling
+            // Preload all available meerkat images for smooth experience
             availableMeerkats.forEach(num => {
-                const img = new Image();
-                img.src = getMeerkatThumb(num);
+                // Preload thumbnail (for fast shuffle animation)
+                const thumb = new Image();
+                thumb.src = getMeerkatThumb(num);
+
+                // Preload full image (for when shuffle stops)
+                const full = new Image();
+                full.src = getMeerkatImage(num);
             });
-            console.log(`[MintAgent] Preloading ${availableMeerkats.length} meerkat thumbnails`);
+            console.log(`[MintAgent] Preloading ${availableMeerkats.length} meerkat thumbnails + full images`);
         }
     }, [isLoadingAvailability, availableMeerkats]);
 
@@ -186,7 +191,7 @@ function MintAgent() {
                 setSelectedMeerkat(prev => getRandomMeerkat(availableMeerkats, prev));
                 setIsShuffling(false);
             }
-        }, 80);
+        }, 150); // 150ms between each image (slower for visibility)
     }, [availableMeerkats]);
 
     const handleConnect = () => {
