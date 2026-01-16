@@ -365,9 +365,10 @@ export async function predictNextAgentId(
     try {
         // Get current block
         const currentBlock = await publicRpcClient.getBlockNumber();
-        const fromBlock = currentBlock - BigInt(10000);
+        // Base Sepolia has ~2 second blocks, so 200000 blocks = ~5 days
+        const fromBlock = currentBlock - BigInt(200000);
 
-        // Get recent mint events (search backwards, just need last 10000 blocks)
+        // Get recent mint events (search backwards)
         const mintEvents = await fetchTransferLogsBackwards(
             fromBlock > 0n ? fromBlock : 0n,
             currentBlock,
