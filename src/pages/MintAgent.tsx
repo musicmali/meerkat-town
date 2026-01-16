@@ -32,10 +32,16 @@ const getRandomMeerkat = (availablePool: number[], exclude?: number): number => 
     return pool[Math.floor(Math.random() * pool.length)];
 };
 
-// Get image path for a meerkat number
+// Get image path for a meerkat number (full size ~700KB)
 const getMeerkatImage = (num: number): string => {
     const padded = num.toString().padStart(3, '0');
     return `/meerkats/meerkat_${padded}.png`;
+};
+
+// Get thumbnail path for a meerkat number (smaller ~40KB for fast loading)
+const getMeerkatThumb = (num: number): string => {
+    const padded = num.toString().padStart(3, '0');
+    return `/meerkats-thumb/meerkat_${padded}.png`;
 };
 
 // Form steps
@@ -102,12 +108,12 @@ function MintAgent() {
         if (!isLoadingAvailability && availableMeerkats.length > 0) {
             setSelectedMeerkat(getRandomMeerkat(availableMeerkats));
 
-            // Preload all available meerkat images for smooth shuffling
+            // Preload all available meerkat THUMBNAILS for smooth shuffling
             availableMeerkats.forEach(num => {
                 const img = new Image();
-                img.src = `/meerkats/meerkat_${num.toString().padStart(3, '0')}.png`;
+                img.src = getMeerkatThumb(num);
             });
-            console.log(`[MintAgent] Preloading ${availableMeerkats.length} meerkat images`);
+            console.log(`[MintAgent] Preloading ${availableMeerkats.length} meerkat thumbnails`);
         }
     }, [isLoadingAvailability, availableMeerkats]);
 
@@ -312,7 +318,7 @@ function MintAgent() {
                     <div className="selection-card">
                         <div className={`agent-image-container ${isShuffling ? 'shuffling' : ''}`}>
                             <img
-                                src={getMeerkatImage(selectedMeerkat)}
+                                src={isShuffling ? getMeerkatThumb(selectedMeerkat) : getMeerkatImage(selectedMeerkat)}
                                 alt={`Meerkat #${selectedMeerkat}`}
                                 className="agent-image"
                             />
