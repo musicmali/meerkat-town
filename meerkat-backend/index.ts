@@ -1316,28 +1316,48 @@ app.get('/oasf/:agentId', async (c) => {
 
   // Minted agents: fetch from database
   if (meerkatId && meerkatId >= 1 && meerkatId <= 100) {
-    const card = await getAgentCard(meerkatId);
+    try {
+      const card = await getAgentCard(meerkatId);
 
-    if (!card) {
-      return c.json({ error: 'Agent not found' }, 404);
+      if (!card) {
+        return c.json({ error: 'Agent not found' }, 404);
+      }
+
+      // Parse skills if it's a string (JSONB might come as string or object)
+      let skillsArray = card.skills;
+      if (typeof skillsArray === 'string') {
+        try {
+          skillsArray = JSON.parse(skillsArray);
+        } catch {
+          skillsArray = [];
+        }
+      }
+
+      // Ensure skills is an array
+      if (!Array.isArray(skillsArray)) {
+        skillsArray = [];
+      }
+
+      // Convert A2A skills back to OASF format
+      const oasfSkills = skillsArray.map(skill => ({
+        slug: skill.id ? skill.id.replace(/_/g, '/') : 'unknown',
+        name: skill.name || 'Unknown Skill',
+        description: skill.description || '',
+        tags: skill.tags || [],
+      }));
+
+      return c.json({
+        version: 'v0.8.0',
+        agentId: `meerkat-${meerkatId}`,
+        name: card.name,
+        description: card.description,
+        skills: oasfSkills,
+        domains: [],
+      });
+    } catch (error) {
+      console.error('[OASF] Error fetching agent:', error);
+      return c.json({ error: 'Failed to fetch agent skills' }, 500);
     }
-
-    // Convert A2A skills back to OASF format
-    const oasfSkills = card.skills.map(skill => ({
-      slug: skill.id.replace(/_/g, '/'),
-      name: skill.name,
-      description: skill.description,
-      tags: skill.tags,
-    }));
-
-    return c.json({
-      version: 'v0.8.0',
-      agentId: `meerkat-${meerkatId}`,
-      name: card.name,
-      description: card.description,
-      skills: oasfSkills,
-      domains: [],
-    });
   }
 
   return c.json({ error: 'Invalid agent ID' }, 400);
