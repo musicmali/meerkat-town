@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local documentation
+AGENT_ENHANCEMENT_GUIDE.md
