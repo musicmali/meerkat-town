@@ -1145,8 +1145,9 @@ app.post('/mcp/:agentId', async (c) => {
 });
 
 /**
- * MCP Agent Card - A2A protocol compatibility
- * Returns agent metadata in A2A agent card format
+ * A2A Agent Card - Agent discovery endpoint
+ * Returns agent metadata in A2A protocol compliant format
+ * Spec: https://a2a-protocol.org/latest/specification/
  */
 app.get('/agents/:agentId/.well-known/agent-card.json', (c) => {
   const agentId = c.req.param('agentId');
@@ -1156,20 +1157,91 @@ app.get('/agents/:agentId/.well-known/agent-card.json', (c) => {
     return c.json({ error: 'Agent not found' }, 404);
   }
 
+  // Determine agent name and description
+  const agentName = agentId === 'bob'
+    ? 'Bob'
+    : agentId === 'ana'
+      ? 'Ana'
+      : `Meerkat Agent ${agentId}`;
+
+  const agentDescription = agentId === 'bob'
+    ? 'Smart crypto analyst meerkat with glasses. Expert in cryptocurrency market analysis, token fundamentals, DeFi protocols, and on-chain metrics.'
+    : agentId === 'ana'
+      ? 'Cheerful and creative writing assistant meerkat. Expert in content creation, copywriting, blog posts, social media content, and creative storytelling.'
+      : `Custom Meerkat Agent ${agentId} from Meerkat Town - an AI agent on Base network.`;
+
+  // Determine skills based on agent type
+  const agentSkills = agentId === 'bob'
+    ? [
+        {
+          id: 'crypto_analysis',
+          name: 'Cryptocurrency Analysis',
+          description: 'Analyze cryptocurrency markets, tokens, and DeFi protocols',
+          tags: ['crypto', 'defi', 'analysis', 'market']
+        },
+        {
+          id: 'chat',
+          name: 'Chat',
+          description: 'Have a conversation about crypto and blockchain topics',
+          tags: ['conversation', 'nlp']
+        }
+      ]
+    : agentId === 'ana'
+      ? [
+          {
+            id: 'content_creation',
+            name: 'Content Creation',
+            description: 'Create written content including blog posts, articles, and marketing copy',
+            tags: ['writing', 'content', 'creative']
+          },
+          {
+            id: 'chat',
+            name: 'Chat',
+            description: 'Have a conversation about writing and content creation',
+            tags: ['conversation', 'nlp']
+          }
+        ]
+      : [
+          {
+            id: 'chat',
+            name: 'Chat',
+            description: 'Have a conversation with this Meerkat agent',
+            tags: ['conversation', 'nlp']
+          }
+        ];
+
   return c.json({
-    name: `Meerkat Agent ${agentId}`,
-    description: agentId === 'bob'
-      ? 'Smart crypto analyst meerkat with glasses'
-      : agentId === 'ana'
-        ? 'Cheerful and creative writing assistant meerkat'
-        : `Custom Meerkat Agent ${agentId}`,
-    url: `https://meerkat.up.railway.app/mcp/${agentId}`,
-    skills: [
-      'natural_language_processing/natural_language_generation/summarization',
-      'natural_language_processing/information_retrieval_synthesis/question_answering',
-    ],
-    contact: 'support@meerkattown.xyz',
-    x402support: true,
+    // Required fields
+    name: agentName,
+    description: agentDescription,
+    url: `https://meerkat.up.railway.app/agents/${agentId}`,
+    version: '1.0.0',
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    authentication: {
+      schemes: ['x402'],
+      description: 'Payment via x402 USDC micropayments on Base network'
+    },
+    skills: agentSkills,
+
+    // Optional but recommended fields
+    capabilities: {
+      streaming: false,
+      pushNotifications: false,
+      stateTransitionHistory: false
+    },
+    provider: {
+      organization: 'Meerkat Town',
+      url: 'https://meerkat.town'
+    },
+
+    // Custom extension for x402 payment details
+    x402: {
+      supported: true,
+      network: 'eip155:84532',
+      price: '$0.001',
+      currency: 'USDC'
+    }
   });
 });
 
