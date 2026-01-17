@@ -66,24 +66,24 @@ export function generateAgentMetadata(
     formData: AgentFormData,
     agentId?: number
 ): AgentMetadata {
-    // Use agentId if known, otherwise use meerkat number as temp identifier
-    const tempAgentId = agentId !== undefined ? `${agentId}` : `meerkat-${formData.meerkatNumber}`;
+    // Always use meerkat ID format for MCP and A2A endpoints
+    const meerkatAgentId = `meerkat-${formData.meerkatNumber}`;
 
     const endpoints: AgentEndpoint[] = [];
 
-    // MCP Endpoint
+    // MCP Endpoint - uses meerkat ID
     endpoints.push({
         name: 'MCP',
-        endpoint: getMCPEndpoint(tempAgentId),
+        endpoint: getMCPEndpoint(meerkatAgentId),
         version: MCP_VERSION,
         mcpTools: formData.mcpTools || ['chat', 'get_agent_info'],
         mcpPrompts: formData.mcpPrompts || ['greeting', 'help'],
     });
 
-    // A2A Endpoint
+    // A2A Endpoint - uses meerkat ID
     endpoints.push({
         name: 'A2A',
-        endpoint: getA2AEndpoint(tempAgentId),
+        endpoint: getA2AEndpoint(meerkatAgentId),
         version: A2A_VERSION,
         a2aSkills: formData.skills,
     });
