@@ -7,6 +7,31 @@
 import { createPublicClient, http, formatEther, formatUnits } from 'viem';
 import { baseSepolia } from 'viem/chains';
 
+// ============================================================================
+// PRICE CACHE - Avoid CoinGecko rate limits
+// ============================================================================
+interface CachedPrice {
+  data: string;
+  timestamp: number;
+}
+
+const priceCache = new Map<string, CachedPrice>();
+const PRICE_CACHE_TTL = 60 * 1000; // 60 seconds cache
+
+function getCachedPrice(coinId: string): string | null {
+  const cached = priceCache.get(coinId.toLowerCase());
+  if (cached && Date.now() - cached.timestamp < PRICE_CACHE_TTL) {
+    console.log(`[Price Cache] HIT for ${coinId}`);
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedPrice(coinId: string, data: string): void {
+  priceCache.set(coinId.toLowerCase(), { data, timestamp: Date.now() });
+  console.log(`[Price Cache] STORED ${coinId}`);
+}
+
 // Create a public client for Base Sepolia
 const publicClient = createPublicClient({
   chain: baseSepolia,
@@ -61,11 +86,18 @@ export async function handleToolCall(
 
 /**
  * Get cryptocurrency price from CoinGecko (free API)
+ * Uses caching to avoid rate limits
  */
 async function getCryptoPrice(coinId: string): Promise<string> {
   try {
     // Normalize coin ID
     const normalizedId = coinId.toLowerCase().trim();
+
+    // Check cache first
+    const cached = getCachedPrice(normalizedId);
+    if (cached) {
+      return cached;
+    }
 
     const response = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${normalizedId}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
@@ -78,7 +110,7 @@ async function getCryptoPrice(coinId: string): Promise<string> {
 
     if (!response.ok) {
       if (response.status === 429) {
-        return JSON.stringify({ error: 'Rate limited. Please try again in a moment.' });
+        return JSON.stringify({ error: 'Rate limited by CoinGecko. Please try again in a minute.' });
       }
       return JSON.stringify({ error: `API error: ${response.status}` });
     }
@@ -93,13 +125,18 @@ async function getCryptoPrice(coinId: string): Promise<string> {
     }
 
     const priceData = data[normalizedId];
-    return JSON.stringify({
+    const result = JSON.stringify({
       coinId: normalizedId,
       price_usd: priceData.usd,
       change_24h_percent: priceData.usd_24h_change?.toFixed(2),
       market_cap_usd: priceData.usd_market_cap,
       timestamp: new Date().toISOString()
     });
+
+    // Cache the successful result
+    setCachedPrice(normalizedId, result);
+
+    return result;
   } catch (error) {
     return JSON.stringify({
       error: `Failed to fetch price: ${error instanceof Error ? error.message : 'Unknown error'}`
