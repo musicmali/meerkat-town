@@ -1163,7 +1163,7 @@ app.get('/agents/:agentId/.well-known/agent-card.json', (c) => {
       : agentId === 'ana'
         ? 'Cheerful and creative writing assistant meerkat'
         : `Custom Meerkat Agent ${agentId}`,
-    url: `https://api.meerkattown.xyz/mcp/${agentId}`,
+    url: `https://meerkat.up.railway.app/mcp/${agentId}`,
     skills: [
       'natural_language_processing/natural_language_generation/summarization',
       'natural_language_processing/information_retrieval_synthesis/question_answering',

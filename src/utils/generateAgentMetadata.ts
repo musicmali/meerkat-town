@@ -23,7 +23,7 @@ import { IDENTITY_REGISTRY_ADDRESS } from '../contracts/MeerkatIdentityRegistry'
 
 // Base URL for hosted assets
 const MEERKAT_CDN_URL = 'https://www.meerkat.town';
-const MEERKAT_API_URL = 'https://meerkat-town-production.up.railway.app';
+const MEERKAT_API_URL = 'https://meerkat.up.railway.app';
 
 /**
  * Format a wallet address in CAIP-10 format
