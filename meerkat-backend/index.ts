@@ -21,6 +21,11 @@ import postgres from 'postgres';
 import { AGENT_TOOLS, handleToolCall, getToolDescriptions } from './tools';
 import { retrieveContext, formatContextForPrompt, isRAGAvailable, ingestFromDirectory, getIndexStats } from './rag';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 config();
