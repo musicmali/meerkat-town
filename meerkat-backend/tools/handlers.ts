@@ -73,6 +73,9 @@ export async function handleToolCall(
       case 'get_transaction':
         return await getTransaction(args.hash as string);
 
+      case 'search_web':
+        return await searchWeb(args.query as string);
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
     }
@@ -300,6 +303,72 @@ async function getTransaction(hash: string): Promise<string> {
   } catch (error) {
     return JSON.stringify({
       error: `Failed to fetch transaction: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+/**
+ * Search the web using Tavily API
+ */
+async function searchWeb(query: string): Promise<string> {
+  const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+
+  if (!TAVILY_API_KEY) {
+    return JSON.stringify({ error: 'Web search not configured. TAVILY_API_KEY not set.' });
+  }
+
+  try {
+    console.log(`[Web Search] Searching for: ${query}`);
+
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query: query,
+        search_depth: 'basic',
+        include_answer: true,
+        include_raw_content: false,
+        max_results: 5,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Web Search] API error: ${response.status}`, errorText);
+      return JSON.stringify({ error: `Search API error: ${response.status}` });
+    }
+
+    const data = await response.json() as {
+      answer?: string;
+      results?: Array<{
+        title: string;
+        url: string;
+        content: string;
+      }>;
+    };
+
+    // Format results for the LLM
+    const formattedResults = {
+      answer: data.answer || null,
+      sources: data.results?.slice(0, 3).map(r => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.content?.substring(0, 300),
+      })) || [],
+      query: query,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`[Web Search] Found ${formattedResults.sources.length} results`);
+
+    return JSON.stringify(formattedResults);
+  } catch (error) {
+    console.error(`[Web Search] Error:`, error);
+    return JSON.stringify({
+      error: `Web search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
   }
 }

@@ -100,6 +100,23 @@ export const AGENT_TOOLS: ChatCompletionTool[] = [
         required: ['hash']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_web',
+      description: 'Search the web for current information, news, or any topic. Use this when users ask about recent events, news, tutorials, documentation, or anything that requires up-to-date information from the internet.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query to look up on the web'
+          }
+        },
+        required: ['query']
+      }
+    }
   }
 ];
 

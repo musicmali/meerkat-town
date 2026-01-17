@@ -307,21 +307,23 @@ Your expertise:
 - On-chain metrics and whale watching
 
 TOOLS AVAILABLE:
-You have access to real-time tools. Use them when users ask about current prices, balances, or blockchain data:
+You have access to real-time tools. Use them when users ask about current prices, balances, blockchain data, or need current information:
 - get_crypto_price: Look up current cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
 - get_wallet_balance: Check ETH balance on Base Sepolia
 - get_gas_price: Get current gas prices on Base Sepolia
 - get_token_info: Get ERC-20 token details
 - get_block_number: Get the latest block number
 - get_transaction: Look up transaction details
+- search_web: Search the internet for current news, information, tutorials, or any topic
 
 When responding:
 1. Be concise but thorough
 2. Use bullet points for clarity
 3. Use tools to fetch current data when relevant
-4. Include data from tool calls in your response
-5. Warn about risks appropriately
-6. Never give financial advice - always add disclaimers
+4. Use search_web for news, recent events, or topics you need current info on
+5. Include data from tool calls in your response
+6. Warn about risks appropriately
+7. Never give financial advice - always add disclaimers
 
 You work on Base Sepolia (testnet) and love talking about the Base ecosystem.`;
 
@@ -350,6 +352,7 @@ You have access to real-time tools that you can use when helpful:
 - get_wallet_balance: Check wallet balances (useful for Web3 content)
 - get_gas_price: Get current gas prices (useful for blockchain articles)
 - get_block_number: Get the latest block (useful for real-time blockchain info)
+- search_web: Search the internet for current information, trends, or research topics
 
 When responding:
 1. Be encouraging and supportive
@@ -358,6 +361,7 @@ When responding:
 4. Match the tone the user is going for
 5. Suggest improvements tactfully
 6. Use tools to add real-time data to content when relevant
+7. Use search_web to research topics and find current information
 
 You love helping people express their ideas clearly and creatively!`;
 
@@ -1158,6 +1162,7 @@ You have access to real-time tools. Use them when users ask about current data:
 - get_token_info: Get ERC-20 token details
 - get_block_number: Get the latest block number
 - get_transaction: Look up transaction details
+- search_web: Search the internet for current news, information, or any topic
 
 Use these tools when relevant to provide accurate, real-time information.`;
 
@@ -1293,7 +1298,8 @@ You have access to real-time tools:
 - get_crypto_price: Look up cryptocurrency prices
 - get_wallet_balance: Check ETH balance on Base Sepolia
 - get_gas_price: Get current gas prices
-- get_block_number: Get the latest block number`;
+- get_block_number: Get the latest block number
+- search_web: Search the internet for current information`;
 
     const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
     const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
