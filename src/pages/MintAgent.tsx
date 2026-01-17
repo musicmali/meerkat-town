@@ -263,18 +263,23 @@ function MintAgent() {
             );
             console.log('Metadata uploaded to IPFS:', result.ipfsUri);
 
-            // Step 4: Store A2A agent card in database
+            // Step 4: Store A2A agent card in database (non-blocking)
             const formData = getFormData();
-            await storeAgentCard({
-                meerkatId: selectedMeerkat,
-                name: formData.name,
-                description: formData.description,
-                image: getMeerkatImageUrl(selectedMeerkat),
-                skills: formData.skills,
-                price: formData.pricePerMessage || '$0.001',
-                ownerAddress: formData.ownerAddress,
-            });
-            console.log('Agent card stored in database');
+            try {
+                await storeAgentCard({
+                    meerkatId: selectedMeerkat,
+                    name: formData.name,
+                    description: formData.description,
+                    image: getMeerkatImageUrl(selectedMeerkat),
+                    skills: formData.skills,
+                    price: formData.pricePerMessage || '$0.001',
+                    ownerAddress: formData.ownerAddress,
+                });
+                console.log('Agent card stored in database');
+            } catch (cardErr) {
+                // Don't fail minting if agent card storage fails
+                console.warn('Failed to store agent card (non-critical):', cardErr);
+            }
 
             // Step 5: Register in ERC-8004 Identity Registry
             setMintStage('registering');
