@@ -14,7 +14,6 @@ import {
     MCP_VERSION,
     A2A_VERSION,
     OASF_VERSION,
-    OASF_ENDPOINT,
     BASE_SEPOLIA_CHAIN_ID,
 } from '../types/agentMetadata';
 
@@ -56,6 +55,13 @@ export function getA2AEndpoint(agentId: string): string {
 }
 
 /**
+ * Get the OASF endpoint URL for an agent
+ */
+export function getOASFEndpoint(agentId: string): string {
+    return `${MEERKAT_API_URL}/oasf/${agentId}`;
+}
+
+/**
  * Generate ERC-8004 compliant agent metadata from form data
  *
  * @param formData - Agent form data from the mint form
@@ -92,7 +98,7 @@ export function generateAgentMetadata(
     if (formData.skills.length > 0 || formData.domains.length > 0) {
         endpoints.push({
             name: 'OASF',
-            endpoint: OASF_ENDPOINT,
+            endpoint: getOASFEndpoint(meerkatAgentId),
             version: OASF_VERSION,
             skills: formData.skills,
             domains: formData.domains,

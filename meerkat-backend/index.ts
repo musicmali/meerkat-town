@@ -1274,6 +1274,110 @@ const getSystemPrompt = (agentId: string): string | null => {
   return null;
 };
 
+// ============================================================================
+// OASF (Open Agent Skills Framework) ENDPOINT
+// ============================================================================
+
+/**
+ * OASF Endpoint - Returns agent skills and domains in OASF format
+ * GET /oasf/:agentId
+ */
+app.get('/oasf/:agentId', async (c) => {
+  const agentIdParam = c.req.param('agentId');
+
+  // Handle both formats: "72" or "meerkat-72"
+  const isNumericId = /^\d+$/.test(agentIdParam);
+  const isMeerkatFormat = /^meerkat-\d+$/.test(agentIdParam);
+
+  // Extract numeric ID from either format
+  const meerkatId = isMeerkatFormat
+    ? parseInt(agentIdParam.replace('meerkat-', ''))
+    : isNumericId
+      ? parseInt(agentIdParam)
+      : null;
+
+  // Legacy agents (bob/ana)
+  if (agentIdParam === 'bob' || agentIdParam === 'ana') {
+    const skills = agentIdParam === 'bob'
+      ? ['blockchain_and_cryptocurrency/market_analysis', 'blockchain_and_cryptocurrency/defi_protocols']
+      : ['natural_language_processing/content_generation', 'natural_language_processing/text_summarization'];
+
+    return c.json({
+      version: 'v0.8.0',
+      agentId: agentIdParam,
+      skills: skills.map(skill => ({
+        slug: skill,
+        name: skill.split('/').pop()?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        category: skill.split('/')[0]?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      })),
+      domains: [],
+    });
+  }
+
+  // Minted agents: fetch from database
+  if (meerkatId && meerkatId >= 1 && meerkatId <= 100) {
+    const card = await getAgentCard(meerkatId);
+
+    if (!card) {
+      return c.json({ error: 'Agent not found' }, 404);
+    }
+
+    // Convert A2A skills back to OASF format
+    const oasfSkills = card.skills.map(skill => ({
+      slug: skill.id.replace(/_/g, '/'),
+      name: skill.name,
+      description: skill.description,
+      tags: skill.tags,
+    }));
+
+    return c.json({
+      version: 'v0.8.0',
+      agentId: `meerkat-${meerkatId}`,
+      name: card.name,
+      description: card.description,
+      skills: oasfSkills,
+      domains: [],
+    });
+  }
+
+  return c.json({ error: 'Invalid agent ID' }, 400);
+});
+
+/**
+ * MCP Endpoint Info - GET request returns endpoint capabilities
+ * Used by validators and discovery tools to verify the endpoint exists
+ */
+app.get('/mcp/:agentId', async (c) => {
+  const agentId = c.req.param('agentId');
+
+  // Validate agentId exists
+  const systemPrompt = getSystemPrompt(agentId);
+  if (!systemPrompt) {
+    return c.json({ error: `Agent not found: ${agentId}` }, 404);
+  }
+
+  return c.json({
+    name: `Meerkat Agent ${agentId} MCP Server`,
+    version: '1.0.0',
+    protocolVersion: MCP_VERSION,
+    description: `Model Context Protocol endpoint for ${agentId}`,
+    transport: 'streamable-http',
+    methods: ['POST'],
+    capabilities: {
+      tools: true,
+      prompts: true,
+      resources: false,
+    },
+    tools: getAgentTools(agentId).map(t => t.name),
+    prompts: getAgentPrompts(agentId).map(p => p.name),
+    x402: {
+      supported: true,
+      network: BASE_SEPOLIA_NETWORK,
+      price: PRICE_PER_REQUEST,
+    },
+  });
+});
+
 /**
  * MCP Endpoint - JSON-RPC 2.0 over HTTP
  * Handles all MCP protocol methods
