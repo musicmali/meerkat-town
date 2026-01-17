@@ -1292,11 +1292,19 @@ app.post('/mcp/:agentId', async (c) => {
  * For minted agents (numeric IDs): Fetches metadata from IPFS via Identity Registry
  */
 app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
-  const agentId = c.req.param('agentId');
+  const agentIdParam = c.req.param('agentId');
 
-  // Check if this is a legacy agent (bob/ana) or a minted agent (numeric ID)
-  const isLegacyAgent = agentId === 'bob' || agentId === 'ana';
-  const isNumericId = /^\d+$/.test(agentId);
+  // Check if this is a legacy agent (bob/ana) or a minted agent
+  const isLegacyAgent = agentIdParam === 'bob' || agentIdParam === 'ana';
+
+  // Handle both formats: "18" or "meerkat-18"
+  const isNumericId = /^\d+$/.test(agentIdParam);
+  const isMeerkatFormat = /^meerkat-\d+$/.test(agentIdParam);
+
+  // Extract numeric ID from either format
+  const agentId = isMeerkatFormat
+    ? agentIdParam.replace('meerkat-', '')
+    : agentIdParam;
 
   // Legacy agents: use hardcoded data
   if (isLegacyAgent) {
@@ -1331,7 +1339,8 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
   }
 
   // Minted agents: fetch metadata from Identity Registry + IPFS
-  if (isNumericId) {
+  // Supports both "/agents/18" and "/agents/meerkat-18" formats
+  if (isNumericId || isMeerkatFormat) {
     const metadata = await getAgentMetadata(agentId);
 
     if (!metadata) {
