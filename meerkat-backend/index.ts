@@ -19,6 +19,8 @@ import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import postgres from 'postgres';
 import { AGENT_TOOLS, handleToolCall, getToolDescriptions } from './tools';
+import { retrieveContext, formatContextForPrompt, isRAGAvailable, ingestFromDirectory, getIndexStats } from './rag';
+import * as path from 'path';
 
 // Load environment variables
 config();
@@ -465,6 +467,58 @@ async function chatWithTools(
   });
 
   return finalResponse.choices[0].message.content || '';
+}
+
+// ============================================================================
+// RAG-ENHANCED CHAT - Retrieves context before responding
+// ============================================================================
+
+/**
+ * Chat with RAG-enhanced context
+ * Retrieves relevant knowledge base information and injects it into the prompt
+ */
+async function chatWithRAG(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  systemPrompt: string,
+  options: {
+    maxTokens?: number;
+    temperature?: number;
+    maxToolCalls?: number;
+    useRAG?: boolean;
+    category?: string;
+  } = {}
+): Promise<string> {
+  const { useRAG = true, category = 'crypto', ...chatOptions } = options;
+
+  let enhancedPrompt = systemPrompt;
+
+  // Only use RAG if enabled and available
+  if (useRAG) {
+    try {
+      // Get the latest user message for context retrieval
+      const latestUserMessage = messages.filter(m => m.role === 'user').pop();
+
+      if (latestUserMessage) {
+        const context = await retrieveContext(latestUserMessage.content, {
+          topK: 3,
+          minScore: 0.7,
+          category,
+        });
+
+        if (context.content) {
+          const ragContext = formatContextForPrompt(context);
+          enhancedPrompt = systemPrompt + '\n\n' + ragContext;
+          console.log(`[RAG] Added ${context.sources.length} knowledge sources to context`);
+        }
+      }
+    } catch (error) {
+      console.error('[RAG] Error retrieving context:', error);
+      // Continue without RAG context if it fails
+    }
+  }
+
+  // Call the regular chat with tools using enhanced prompt
+  return chatWithTools(messages, enhancedPrompt, chatOptions);
 }
 
 // ============================================================================
@@ -1054,10 +1108,12 @@ app.post('/agents/bob', async (c) => {
     // Add user message to history
     history.push({ role: 'user', content: message });
 
-    // Call OpenAI with function calling
-    const reply = await chatWithTools(history, BOB_SYSTEM_PROMPT, {
+    // Call OpenAI with RAG-enhanced context and function calling
+    const reply = await chatWithRAG(history, BOB_SYSTEM_PROMPT, {
       maxTokens: 1000,
-      temperature: 0.7
+      temperature: 0.7,
+      useRAG: true,
+      category: 'crypto'
     });
 
     // Add assistant response to history
@@ -1106,10 +1162,13 @@ app.post('/agents/ana', async (c) => {
     // Add user message to history
     history.push({ role: 'user', content: message });
 
-    // Call OpenAI with function calling
-    const reply = await chatWithTools(history, ANA_SYSTEM_PROMPT, {
+    // Call OpenAI with RAG-enhanced context and function calling
+    // Ana uses RAG less aggressively (writing assistant may not need crypto knowledge as often)
+    const reply = await chatWithRAG(history, ANA_SYSTEM_PROMPT, {
       maxTokens: 1000,
-      temperature: 0.8
+      temperature: 0.8,
+      useRAG: true,
+      category: 'crypto'
     });
 
     // Add assistant response to history
@@ -1178,10 +1237,12 @@ Use these tools when relevant to provide accurate, real-time information.`;
     // Add user message to history
     history.push({ role: 'user', content: message });
 
-    // Call OpenAI with function calling
-    const reply = await chatWithTools(history, prompt, {
+    // Call OpenAI with RAG-enhanced context and function calling
+    const reply = await chatWithRAG(history, prompt, {
       maxTokens: 1000,
-      temperature: 0.7
+      temperature: 0.7,
+      useRAG: true,
+      category: 'crypto'
     });
 
     // Add assistant response to history
@@ -1227,10 +1288,10 @@ app.post('/demo/bob', async (c) => {
     }
 
     const demoPrompt = BOB_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
-    const reply = await chatWithTools(
+    const reply = await chatWithRAG(
       [{ role: 'user', content: message }],
       demoPrompt,
-      { maxTokens: 500, maxToolCalls: 2 }
+      { maxTokens: 500, maxToolCalls: 2, useRAG: true, category: 'crypto' }
     );
 
     return c.json({
@@ -1258,10 +1319,10 @@ app.post('/demo/ana', async (c) => {
     }
 
     const demoPrompt = ANA_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
-    const reply = await chatWithTools(
+    const reply = await chatWithRAG(
       [{ role: 'user', content: message }],
       demoPrompt,
-      { maxTokens: 500, maxToolCalls: 2 }
+      { maxTokens: 500, maxToolCalls: 2, useRAG: true, category: 'crypto' }
     );
 
     return c.json({
@@ -1304,10 +1365,10 @@ You have access to real-time tools:
     const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
     const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
 
-    const reply = await chatWithTools(
+    const reply = await chatWithRAG(
       [{ role: 'user', content: message }],
       prompt,
-      { maxTokens: 500, maxToolCalls: 2 }
+      { maxTokens: 500, maxToolCalls: 2, useRAG: true, category: 'crypto' }
     );
 
     return c.json({
@@ -1821,6 +1882,70 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
 
   // Unknown agent type
   return c.json({ error: 'Invalid agent ID' }, 400);
+});
+
+// ============================================================================
+// RAG ADMIN ENDPOINTS
+// ============================================================================
+
+/**
+ * Trigger knowledge ingestion
+ * POST /admin/ingest
+ * Headers: { Authorization: "Bearer <ADMIN_SECRET>" }
+ */
+app.post('/admin/ingest', async (c) => {
+  try {
+    // Simple auth check - in production, use proper auth
+    const authHeader = c.req.header('Authorization');
+    const adminSecret = process.env.ADMIN_SECRET || 'meerkat-admin-2024';
+
+    if (authHeader !== `Bearer ${adminSecret}`) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const knowledgeDir = path.join(__dirname, 'knowledge');
+
+    console.log('[Admin] Starting knowledge ingestion...');
+    const chunksIngested = await ingestFromDirectory(knowledgeDir, 'crypto');
+
+    console.log(`[Admin] Ingested ${chunksIngested} chunks`);
+
+    // Get index stats
+    const stats = await getIndexStats();
+
+    return c.json({
+      success: true,
+      chunksIngested,
+      indexStats: stats
+    });
+
+  } catch (error: any) {
+    console.error('[Admin] Ingestion error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get RAG index stats
+ * GET /admin/rag-stats
+ */
+app.get('/admin/rag-stats', async (c) => {
+  try {
+    const available = await isRAGAvailable();
+    if (!available) {
+      return c.json({ error: 'RAG not configured' }, 503);
+    }
+
+    const stats = await getIndexStats();
+    return c.json({
+      available: true,
+      stats
+    });
+
+  } catch (error: any) {
+    console.error('[Admin] Stats error:', error);
+    return c.json({ error: error.message }, 500);
+  }
 });
 
 // ============================================================================
