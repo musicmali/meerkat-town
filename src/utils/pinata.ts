@@ -88,3 +88,40 @@ export async function updateMetadataWithRegistrations(
     // Upload updated metadata to IPFS
     return uploadToIPFS(updatedMetadata, `meerkat-agent-${agentId}-updated`);
 }
+
+/**
+ * Store an A2A agent card in the backend database
+ * Should be called during the minting process
+ */
+export interface StoreAgentCardParams {
+    meerkatId: number;
+    name: string;
+    description: string;
+    image: string;
+    skills: string[];  // OASF skill slugs
+    price: string;
+    ownerAddress: string;
+}
+
+export interface StoreAgentCardResponse {
+    success: boolean;
+    message: string;
+    cardUrl: string;
+}
+
+export async function storeAgentCard(params: StoreAgentCardParams): Promise<StoreAgentCardResponse> {
+    const response = await fetch(`${BACKEND_URL}/agent-cards`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to store agent card');
+    }
+
+    return response.json();
+}

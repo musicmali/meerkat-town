@@ -4,10 +4,10 @@ import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } f
 import { baseSepolia } from 'wagmi/chains';
 import { getSkillsByCategory, getDomainsByCategory } from '../data/oasfTaxonomy';
 import type { AgentFormData } from '../types/agentMetadata';
-import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata } from '../utils/generateAgentMetadata';
+import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata, getMeerkatImageUrl } from '../utils/generateAgentMetadata';
 import { useRegisterAgent } from '../hooks/useERC8004Registries';
 import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
-import { uploadToIPFS } from '../utils/pinata';
+import { uploadToIPFS, storeAgentCard } from '../utils/pinata';
 import MobileNav from '../components/MobileNav';
 import MobileFooter from '../components/MobileFooter';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -263,7 +263,20 @@ function MintAgent() {
             );
             console.log('Metadata uploaded to IPFS:', result.ipfsUri);
 
-            // Step 4: Register in ERC-8004 Identity Registry
+            // Step 4: Store A2A agent card in database
+            const formData = getFormData();
+            await storeAgentCard({
+                meerkatId: selectedMeerkat,
+                name: formData.name,
+                description: formData.description,
+                image: getMeerkatImageUrl(selectedMeerkat),
+                skills: formData.skills,
+                price: formData.pricePerMessage || '$0.001',
+                ownerAddress: formData.ownerAddress,
+            });
+            console.log('Agent card stored in database');
+
+            // Step 5: Register in ERC-8004 Identity Registry
             setMintStage('registering');
             register(result.ipfsUri);
         } catch (err) {

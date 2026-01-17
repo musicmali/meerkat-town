@@ -17,9 +17,104 @@ import { config } from 'dotenv';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';
+import postgres from 'postgres';
 
 // Load environment variables
 config();
+
+// ============================================================================
+// DATABASE (PostgreSQL)
+// ============================================================================
+
+const DATABASE_URL = process.env.DATABASE_URL;
+const sql = DATABASE_URL ? postgres(DATABASE_URL) : null;
+
+// Initialize database tables
+async function initDatabase() {
+  if (!sql) {
+    console.warn('[Database] DATABASE_URL not set, agent cards will not be persisted');
+    return;
+  }
+
+  try {
+    // Create agent_cards table
+    await sql`
+      CREATE TABLE IF NOT EXISTS agent_cards (
+        meerkat_id INTEGER PRIMARY KEY,
+        name VARCHAR(200) NOT NULL,
+        description TEXT NOT NULL,
+        image VARCHAR(500),
+        skills JSONB DEFAULT '[]',
+        price VARCHAR(50) DEFAULT '$0.001',
+        owner_address VARCHAR(42),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    console.log('[Database] agent_cards table ready');
+  } catch (error) {
+    console.error('[Database] Failed to initialize:', error);
+  }
+}
+
+// Initialize database on startup
+initDatabase();
+
+// A2A Agent Card type for database
+interface StoredAgentCard {
+  meerkat_id: number;
+  name: string;
+  description: string;
+  image: string | null;
+  skills: Array<{ id: string; name: string; description: string; tags: string[] }>;
+  price: string;
+  owner_address: string | null;
+}
+
+/**
+ * Store an agent card in the database
+ */
+async function storeAgentCard(card: StoredAgentCard): Promise<boolean> {
+  if (!sql) return false;
+
+  try {
+    await sql`
+      INSERT INTO agent_cards (meerkat_id, name, description, image, skills, price, owner_address, updated_at)
+      VALUES (${card.meerkat_id}, ${card.name}, ${card.description}, ${card.image}, ${JSON.stringify(card.skills)}, ${card.price}, ${card.owner_address}, CURRENT_TIMESTAMP)
+      ON CONFLICT (meerkat_id) DO UPDATE SET
+        name = ${card.name},
+        description = ${card.description},
+        image = ${card.image},
+        skills = ${JSON.stringify(card.skills)},
+        price = ${card.price},
+        owner_address = ${card.owner_address},
+        updated_at = CURRENT_TIMESTAMP
+    `;
+    return true;
+  } catch (error) {
+    console.error('[Database] Failed to store agent card:', error);
+    return false;
+  }
+}
+
+/**
+ * Get an agent card from the database by meerkat ID
+ */
+async function getAgentCard(meerkatId: number): Promise<StoredAgentCard | null> {
+  if (!sql) return null;
+
+  try {
+    const result = await sql<StoredAgentCard[]>`
+      SELECT meerkat_id, name, description, image, skills, price, owner_address
+      FROM agent_cards
+      WHERE meerkat_id = ${meerkatId}
+    `;
+    return result[0] || null;
+  } catch (error) {
+    console.error('[Database] Failed to get agent card:', error);
+    return null;
+  }
+}
 
 // ============================================================================
 // BLOCKCHAIN CLIENT (for fetching agent metadata from Identity Registry)
@@ -478,6 +573,90 @@ app.post('/upload-metadata', async (c) => {
     console.error('Upload error:', error);
     return c.json({ error: error.message }, 500);
   }
+});
+
+// ============================================================================
+// AGENT CARD API (Store A2A agent cards in database)
+// ============================================================================
+
+/**
+ * Store an agent card when minting
+ * POST /agent-cards
+ * Body: { meerkatId, name, description, image, skills, price, ownerAddress }
+ */
+app.post('/agent-cards', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { meerkatId, name, description, image, skills, price, ownerAddress } = body;
+
+    if (!meerkatId || !name || !description) {
+      return c.json({ error: 'meerkatId, name, and description are required' }, 400);
+    }
+
+    if (meerkatId < 1 || meerkatId > 100) {
+      return c.json({ error: 'meerkatId must be between 1 and 100' }, 400);
+    }
+
+    // Convert OASF skills to A2A format
+    const a2aSkills = skills && skills.length > 0
+      ? convertOASFSkillsToA2A(skills)
+      : [];
+
+    // Always add chat skill
+    const hasChat = a2aSkills.some(s => s.id.includes('chat'));
+    if (!hasChat) {
+      a2aSkills.push({
+        id: 'chat',
+        name: 'Chat',
+        description: `Have a conversation with ${name}`,
+        tags: ['conversation', 'nlp']
+      });
+    }
+
+    const success = await storeAgentCard({
+      meerkat_id: meerkatId,
+      name,
+      description,
+      image: image || null,
+      skills: a2aSkills,
+      price: price || '$0.001',
+      owner_address: ownerAddress || null,
+    });
+
+    if (!success) {
+      return c.json({ error: 'Failed to store agent card (database not available)' }, 500);
+    }
+
+    return c.json({
+      success: true,
+      message: `Agent card for meerkat-${meerkatId} stored successfully`,
+      cardUrl: `https://meerkat.up.railway.app/agents/meerkat-${meerkatId}/.well-known/agent-card.json`
+    });
+
+  } catch (error: any) {
+    console.error('Store agent card error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get an agent card by meerkat ID
+ * GET /agent-cards/:meerkatId
+ */
+app.get('/agent-cards/:meerkatId', async (c) => {
+  const meerkatId = parseInt(c.req.param('meerkatId'));
+
+  if (isNaN(meerkatId) || meerkatId < 1 || meerkatId > 100) {
+    return c.json({ error: 'Invalid meerkatId' }, 400);
+  }
+
+  const card = await getAgentCard(meerkatId);
+
+  if (!card) {
+    return c.json({ error: 'Agent card not found' }, 404);
+  }
+
+  return c.json(card);
 });
 
 // ============================================================================
@@ -1338,43 +1517,27 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
     });
   }
 
-  // Minted agents: fetch metadata from Identity Registry + IPFS
-  // Supports both "/agents/18" and "/agents/meerkat-18" formats
+  // Minted agents: fetch from database by meerkat ID
+  // Supports both "/agents/72" and "/agents/meerkat-72" formats
   if (isNumericId || isMeerkatFormat) {
-    const metadata = await getAgentMetadata(agentId);
+    const meerkatId = parseInt(agentId);
 
-    if (!metadata) {
-      return c.json({ error: 'Agent not found or metadata unavailable' }, 404);
+    if (isNaN(meerkatId) || meerkatId < 1 || meerkatId > 100) {
+      return c.json({ error: 'Invalid meerkat ID (must be 1-100)' }, 400);
     }
 
-    // Extract skills from OASF endpoint in metadata
-    let skills: Array<{ id: string; name: string; description: string; tags: string[] }> = [];
-    const oasfEndpoint = metadata.endpoints?.find(e => e.name === 'OASF');
-    if (oasfEndpoint?.skills && oasfEndpoint.skills.length > 0) {
-      skills = convertOASFSkillsToA2A(oasfEndpoint.skills);
-    }
+    // Fetch from database
+    const card = await getAgentCard(meerkatId);
 
-    // Always include chat skill
-    const hasChat = skills.some(s => s.id.includes('chat'));
-    if (!hasChat) {
-      skills.push({
-        id: 'chat',
-        name: 'Chat',
-        description: `Have a conversation with ${metadata.name}`,
-        tags: ['conversation', 'nlp']
-      });
+    if (!card) {
+      return c.json({ error: 'Agent card not found. Agent may not be minted yet.' }, 404);
     }
-
-    // Determine price from metadata
-    const price = metadata.pricePerMessage && metadata.pricePerMessage !== 'Free'
-      ? metadata.pricePerMessage
-      : '$0.001';
 
     return c.json({
-      // Required fields
-      name: metadata.name,
-      description: metadata.description,
-      url: `https://meerkat.up.railway.app/agents/${agentId}`,
+      // Required A2A fields
+      name: card.name,
+      description: card.description,
+      url: `https://meerkat.up.railway.app/agents/meerkat-${meerkatId}`,
       version: '1.0.0',
       defaultInputModes: ['text'],
       defaultOutputModes: ['text'],
@@ -1382,7 +1545,7 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
         schemes: ['x402'],
         description: 'Payment via x402 USDC micropayments on Base network'
       },
-      skills,
+      skills: card.skills,
 
       // Optional but recommended fields
       capabilities: {
@@ -1397,16 +1560,16 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
 
       // Custom extension for x402 payment details
       x402: {
-        supported: metadata.x402support !== false,
+        supported: true,
         network: 'eip155:84532',
-        price,
+        price: card.price,
         currency: 'USDC'
       },
 
       // Meerkat Town specific extension
       meerkat: {
-        id: metadata.meerkatId,
-        image: metadata.image
+        id: meerkatId,
+        image: card.image
       }
     });
   }
