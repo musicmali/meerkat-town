@@ -490,10 +490,9 @@ async function chatWithRAG(
     temperature?: number;
     maxToolCalls?: number;
     useRAG?: boolean;
-    category?: string;
   } = {}
 ): Promise<string> {
-  const { useRAG = true, category = 'crypto', ...chatOptions } = options;
+  const { useRAG = true, ...chatOptions } = options;
 
   let enhancedPrompt = systemPrompt;
 
@@ -504,10 +503,10 @@ async function chatWithRAG(
       const latestUserMessage = messages.filter(m => m.role === 'user').pop();
 
       if (latestUserMessage) {
+        // Search across all knowledge (no category filter)
         const context = await retrieveContext(latestUserMessage.content, {
-          topK: 3,
-          minScore: 0.7,
-          category,
+          topK: 4,
+          minScore: 0.65,
         });
 
         if (context.content) {
@@ -1117,8 +1116,7 @@ app.post('/agents/bob', async (c) => {
     const reply = await chatWithRAG(history, BOB_SYSTEM_PROMPT, {
       maxTokens: 1000,
       temperature: 0.7,
-      useRAG: true,
-      category: 'crypto'
+      useRAG: true
     });
 
     // Add assistant response to history
@@ -1172,8 +1170,7 @@ app.post('/agents/ana', async (c) => {
     const reply = await chatWithRAG(history, ANA_SYSTEM_PROMPT, {
       maxTokens: 1000,
       temperature: 0.8,
-      useRAG: true,
-      category: 'crypto'
+      useRAG: true
     });
 
     // Add assistant response to history
@@ -1246,8 +1243,7 @@ Use these tools when relevant to provide accurate, real-time information.`;
     const reply = await chatWithRAG(history, prompt, {
       maxTokens: 1000,
       temperature: 0.7,
-      useRAG: true,
-      category: 'crypto'
+      useRAG: true
     });
 
     // Add assistant response to history
@@ -1296,7 +1292,7 @@ app.post('/demo/bob', async (c) => {
     const reply = await chatWithRAG(
       [{ role: 'user', content: message }],
       demoPrompt,
-      { maxTokens: 500, maxToolCalls: 2, useRAG: true, category: 'crypto' }
+      { maxTokens: 500, maxToolCalls: 2, useRAG: true }
     );
 
     return c.json({
@@ -1327,7 +1323,7 @@ app.post('/demo/ana', async (c) => {
     const reply = await chatWithRAG(
       [{ role: 'user', content: message }],
       demoPrompt,
-      { maxTokens: 500, maxToolCalls: 2, useRAG: true, category: 'crypto' }
+      { maxTokens: 500, maxToolCalls: 2, useRAG: true }
     );
 
     return c.json({
@@ -1373,7 +1369,7 @@ You have access to real-time tools:
     const reply = await chatWithRAG(
       [{ role: 'user', content: message }],
       prompt,
-      { maxTokens: 500, maxToolCalls: 2, useRAG: true, category: 'crypto' }
+      { maxTokens: 500, maxToolCalls: 2, useRAG: true }
     );
 
     return c.json({
@@ -1911,7 +1907,8 @@ app.post('/admin/ingest', async (c) => {
     const knowledgeDir = path.join(__dirname, 'knowledge');
 
     console.log('[Admin] Starting knowledge ingestion...');
-    const chunksIngested = await ingestFromDirectory(knowledgeDir, 'crypto');
+    // Ingest without category filter - documents will be categorized as 'general'
+    const chunksIngested = await ingestFromDirectory(knowledgeDir);
 
     console.log(`[Admin] Ingested ${chunksIngested} chunks`);
 
