@@ -18,6 +18,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import postgres from 'postgres';
+import { AGENT_TOOLS, handleToolCall, getToolDescriptions } from './tools';
 
 // Load environment variables
 config();
@@ -305,14 +306,24 @@ Your expertise:
 - Technical analysis and chart patterns
 - On-chain metrics and whale watching
 
+TOOLS AVAILABLE:
+You have access to real-time tools. Use them when users ask about current prices, balances, or blockchain data:
+- get_crypto_price: Look up current cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
+- get_wallet_balance: Check ETH balance on Base Sepolia
+- get_gas_price: Get current gas prices on Base Sepolia
+- get_token_info: Get ERC-20 token details
+- get_block_number: Get the latest block number
+- get_transaction: Look up transaction details
+
 When responding:
 1. Be concise but thorough
 2. Use bullet points for clarity
-3. Include relevant data when available
-4. Warn about risks appropriately
-5. Never give financial advice - always add disclaimers
+3. Use tools to fetch current data when relevant
+4. Include data from tool calls in your response
+5. Warn about risks appropriately
+6. Never give financial advice - always add disclaimers
 
-You work on Base Network and love talking about the Base ecosystem.`;
+You work on Base Sepolia (testnet) and love talking about the Base ecosystem.`;
 
 /**
  * ANA - The Writing Assistant Meerkat
@@ -333,17 +344,124 @@ Your expertise:
 - Editing and proofreading
 - Creative storytelling
 
+TOOLS AVAILABLE:
+You have access to real-time tools that you can use when helpful:
+- get_crypto_price: Look up current cryptocurrency prices (useful for crypto-related content)
+- get_wallet_balance: Check wallet balances (useful for Web3 content)
+- get_gas_price: Get current gas prices (useful for blockchain articles)
+- get_block_number: Get the latest block (useful for real-time blockchain info)
+
 When responding:
 1. Be encouraging and supportive
 2. Offer multiple options when appropriate
 3. Explain your creative choices
 4. Match the tone the user is going for
 5. Suggest improvements tactfully
+6. Use tools to add real-time data to content when relevant
 
 You love helping people express their ideas clearly and creatively!`;
 
 // Store conversation history per session
 const conversationHistory: Map<string, Array<{ role: 'user' | 'assistant', content: string }>> = new Map();
+
+// ============================================================================
+// FUNCTION CALLING - Chat with Tools
+// ============================================================================
+
+type ChatMessage = {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  tool_call_id?: string;
+};
+
+/**
+ * Chat with an agent using OpenAI function calling
+ * Handles tool calls automatically and returns the final response
+ */
+async function chatWithTools(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  systemPrompt: string,
+  options: {
+    maxTokens?: number;
+    temperature?: number;
+    maxToolCalls?: number;
+  } = {}
+): Promise<string> {
+  const { maxTokens = 1000, temperature = 0.7, maxToolCalls = 5 } = options;
+
+  // Build messages array with system prompt
+  const allMessages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }> = [
+    { role: 'system', content: systemPrompt },
+    ...messages
+  ];
+
+  let toolCallCount = 0;
+
+  while (toolCallCount < maxToolCalls) {
+    // Make the API call with tools
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: allMessages as any,
+      tools: AGENT_TOOLS,
+      tool_choice: 'auto',
+      max_tokens: maxTokens,
+      temperature,
+    });
+
+    const message = response.choices[0].message;
+
+    // If no tool calls, return the response directly
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      return message.content || '';
+    }
+
+    // Process tool calls
+    console.log(`[Function Calling] Processing ${message.tool_calls.length} tool call(s)`);
+
+    // Add assistant message with tool calls to conversation
+    allMessages.push({
+      role: 'assistant',
+      content: message.content || '',
+      // @ts-ignore - tool_calls is handled by OpenAI SDK
+      tool_calls: message.tool_calls
+    } as any);
+
+    // Execute each tool call and add results
+    for (const toolCall of message.tool_calls) {
+      // Type guard for function tool calls
+      if (toolCall.type !== 'function') continue;
+
+      const toolName = toolCall.function.name;
+      const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+
+      console.log(`[Function Calling] Executing: ${toolName}`, toolArgs);
+
+      // Execute the tool
+      const result = await handleToolCall(toolName, toolArgs);
+
+      console.log(`[Function Calling] Result from ${toolName}:`, result.substring(0, 200));
+
+      // Add tool result to conversation
+      allMessages.push({
+        role: 'tool',
+        content: result,
+        tool_call_id: toolCall.id
+      });
+    }
+
+    toolCallCount++;
+  }
+
+  // If we've hit max tool calls, make one final call without tools
+  const finalResponse = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: allMessages as any,
+    max_tokens: maxTokens,
+    temperature,
+  });
+
+  return finalResponse.choices[0].message.content || '';
+}
 
 // ============================================================================
 // FEEDBACK AUTHORIZATION STORAGE (In-Memory - Replace with DB in production)
@@ -912,6 +1030,7 @@ app.get('/feedback-auth/all', async (c) => {
 
 /**
  * Chat with Bob (Crypto Analyst) - PAID
+ * Now with function calling for real-time data!
  */
 app.post('/agents/bob', async (c) => {
   try {
@@ -931,23 +1050,16 @@ app.post('/agents/bob', async (c) => {
     // Add user message to history
     history.push({ role: 'user', content: message });
 
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: BOB_SYSTEM_PROMPT },
-        ...history
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
+    // Call OpenAI with function calling
+    const reply = await chatWithTools(history, BOB_SYSTEM_PROMPT, {
+      maxTokens: 1000,
+      temperature: 0.7
     });
-
-    const reply = response.choices[0].message.content || 'Bob is thinking...';
 
     // Add assistant response to history
     history.push({ role: 'assistant', content: reply });
 
-    // Keep only last 10 messages
+    // Keep only last 20 messages
     if (history.length > 20) {
       history.splice(0, 2);
     }
@@ -956,7 +1068,6 @@ app.post('/agents/bob', async (c) => {
       agent: 'bob',
       message: reply,
       sessionId,
-      usage: response.usage,
       payment: {
         charged: PRICE_PER_REQUEST,
         network: BASE_SEPOLIA_NETWORK
@@ -971,6 +1082,7 @@ app.post('/agents/bob', async (c) => {
 
 /**
  * Chat with Ana (Writing Assistant) - PAID
+ * Now with function calling for real-time data!
  */
 app.post('/agents/ana', async (c) => {
   try {
@@ -990,23 +1102,16 @@ app.post('/agents/ana', async (c) => {
     // Add user message to history
     history.push({ role: 'user', content: message });
 
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: ANA_SYSTEM_PROMPT },
-        ...history
-      ],
-      max_tokens: 1000,
-      temperature: 0.8,
+    // Call OpenAI with function calling
+    const reply = await chatWithTools(history, ANA_SYSTEM_PROMPT, {
+      maxTokens: 1000,
+      temperature: 0.8
     });
-
-    const reply = response.choices[0].message.content || 'Ana is crafting a response...';
 
     // Add assistant response to history
     history.push({ role: 'assistant', content: reply });
 
-    // Keep only last 10 messages
+    // Keep only last 20 messages
     if (history.length > 20) {
       history.splice(0, 2);
     }
@@ -1015,7 +1120,6 @@ app.post('/agents/ana', async (c) => {
       agent: 'ana',
       message: reply,
       sessionId,
-      usage: response.usage,
       payment: {
         charged: PRICE_PER_REQUEST,
         network: BASE_SEPOLIA_NETWORK
@@ -1031,6 +1135,7 @@ app.post('/agents/ana', async (c) => {
 /**
  * Chat with a Minted Agent - PAID
  * Generic endpoint for any minted agent, accepts systemPrompt from frontend
+ * Now with function calling for real-time data!
  */
 app.post('/agents/:agentId', async (c) => {
   try {
@@ -1042,8 +1147,21 @@ app.post('/agents/:agentId', async (c) => {
       return c.json({ error: 'Message is required' }, 400);
     }
 
-    // Use provided systemPrompt or a default
-    const prompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant on the Base network. Be friendly and concise.`;
+    // Build system prompt with tools documentation
+    const toolsInfo = `
+
+TOOLS AVAILABLE:
+You have access to real-time tools. Use them when users ask about current data:
+- get_crypto_price: Look up cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
+- get_wallet_balance: Check ETH balance on Base Sepolia
+- get_gas_price: Get current gas prices on Base Sepolia
+- get_token_info: Get ERC-20 token details
+- get_block_number: Get the latest block number
+- get_transaction: Look up transaction details
+
+Use these tools when relevant to provide accurate, real-time information.`;
+
+    const prompt = (systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant on the Base network. Be friendly and concise.`) + toolsInfo;
 
     // Get or create conversation history
     const historyKey = `agent-${agentId}-${sessionId}`;
@@ -1055,18 +1173,11 @@ app.post('/agents/:agentId', async (c) => {
     // Add user message to history
     history.push({ role: 'user', content: message });
 
-    // Call OpenAI
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: prompt },
-        ...history
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
+    // Call OpenAI with function calling
+    const reply = await chatWithTools(history, prompt, {
+      maxTokens: 1000,
+      temperature: 0.7
     });
-
-    const reply = response.choices[0].message.content || 'Thinking...';
 
     // Add assistant response to history
     history.push({ role: 'assistant', content: reply });
@@ -1080,7 +1191,6 @@ app.post('/agents/:agentId', async (c) => {
       agent: agentId,
       message: reply,
       sessionId,
-      usage: response.usage,
       payment: {
         charged: PRICE_PER_REQUEST,
         network: BASE_SEPOLIA_NETWORK
@@ -1095,10 +1205,12 @@ app.post('/agents/:agentId', async (c) => {
 
 // ============================================================================
 // FREE DEMO ROUTES (For Testing Without Payment)
+// Now with function calling for real-time data!
 // ============================================================================
 
 /**
  * Demo chat with Bob (no payment, limited)
+ * Supports function calling for testing
  */
 app.post('/demo/bob', async (c) => {
   try {
@@ -1109,18 +1221,16 @@ app.post('/demo/bob', async (c) => {
       return c.json({ error: 'Message is required' }, 400);
     }
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: BOB_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.' },
-        { role: 'user', content: message }
-      ],
-      max_tokens: 200,
-    });
+    const demoPrompt = BOB_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
+    const reply = await chatWithTools(
+      [{ role: 'user', content: message }],
+      demoPrompt,
+      { maxTokens: 500, maxToolCalls: 2 }
+    );
 
     return c.json({
       agent: 'bob',
-      message: response.choices[0].message.content,
+      message: reply,
       demo: true
     });
 
@@ -1131,6 +1241,7 @@ app.post('/demo/bob', async (c) => {
 
 /**
  * Demo chat with Ana (no payment, limited)
+ * Supports function calling for testing
  */
 app.post('/demo/ana', async (c) => {
   try {
@@ -1141,18 +1252,16 @@ app.post('/demo/ana', async (c) => {
       return c.json({ error: 'Message is required' }, 400);
     }
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: ANA_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.' },
-        { role: 'user', content: message }
-      ],
-      max_tokens: 200,
-    });
+    const demoPrompt = ANA_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
+    const reply = await chatWithTools(
+      [{ role: 'user', content: message }],
+      demoPrompt,
+      { maxTokens: 500, maxToolCalls: 2 }
+    );
 
     return c.json({
       agent: 'ana',
-      message: response.choices[0].message.content,
+      message: reply,
       demo: true
     });
 
@@ -1164,6 +1273,7 @@ app.post('/demo/ana', async (c) => {
 /**
  * Generic Demo chat for minted agents (no payment, limited)
  * Accepts a systemPrompt from the frontend to customize the agent's personality
+ * Supports function calling for testing
  */
 app.post('/demo/:agentId', async (c) => {
   try {
@@ -1175,23 +1285,28 @@ app.post('/demo/:agentId', async (c) => {
       return c.json({ error: 'Message is required' }, 400);
     }
 
-    // Use provided systemPrompt or default
-    const prompt = systemPrompt
-      ? systemPrompt + '\n\nThis is a FREE demo. Keep responses short but helpful.'
-      : `You are Meerkat Agent #${agentId}, a helpful AI assistant. This is a FREE demo. Keep responses short but helpful.`;
+    // Build system prompt with tools documentation
+    const toolsInfo = `
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content: message }
-      ],
-      max_tokens: 300,
-    });
+TOOLS AVAILABLE:
+You have access to real-time tools:
+- get_crypto_price: Look up cryptocurrency prices
+- get_wallet_balance: Check ETH balance on Base Sepolia
+- get_gas_price: Get current gas prices
+- get_block_number: Get the latest block number`;
+
+    const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
+    const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
+
+    const reply = await chatWithTools(
+      [{ role: 'user', content: message }],
+      prompt,
+      { maxTokens: 500, maxToolCalls: 2 }
+    );
 
     return c.json({
       agent: agentId,
-      message: response.choices[0].message.content,
+      message: reply,
       demo: true
     });
 
