@@ -15,9 +15,148 @@ import { facilitator as cdpFacilitator } from '@coinbase/x402';
 import OpenAI from 'openai';
 import { config } from 'dotenv';
 import { privateKeyToAccount } from 'viem/accounts';
+import { createPublicClient, http } from 'viem';
+import { baseSepolia } from 'viem/chains';
 
 // Load environment variables
 config();
+
+// ============================================================================
+// BLOCKCHAIN CLIENT (for fetching agent metadata from Identity Registry)
+// ============================================================================
+
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
+});
+
+// ERC-8004 Identity Registry on Base Sepolia
+const IDENTITY_REGISTRY_ADDRESS = '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const;
+
+const IDENTITY_REGISTRY_ABI = [
+  {
+    name: 'tokenURI',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'ownerOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+  },
+] as const;
+
+// Agent metadata cache (5 minute TTL)
+interface CachedMetadata {
+  data: AgentMetadataFromIPFS | null;
+  timestamp: number;
+}
+const metadataCache = new Map<string, CachedMetadata>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Agent metadata types (matching frontend)
+interface AgentEndpoint {
+  name: string;
+  endpoint: string;
+  version?: string;
+  skills?: string[];
+  domains?: string[];
+  a2aSkills?: string[];
+}
+
+interface AgentMetadataFromIPFS {
+  type?: string;
+  name: string;
+  description: string;
+  image?: string;
+  endpoints?: AgentEndpoint[];
+  meerkatId?: number;
+  pricePerMessage?: string;
+  x402support?: boolean;
+}
+
+/**
+ * Fetch metadata from IPFS gateway
+ */
+async function fetchMetadataFromIPFS(ipfsUri: string): Promise<AgentMetadataFromIPFS | null> {
+  try {
+    let url = ipfsUri;
+    if (ipfsUri.startsWith('ipfs://')) {
+      const cid = ipfsUri.replace('ipfs://', '');
+      url = `https://gateway.pinata.cloud/ipfs/${cid}`;
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    return await response.json() as AgentMetadataFromIPFS;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch agent metadata from Identity Registry + IPFS
+ * Uses caching to avoid repeated blockchain/IPFS calls
+ */
+async function getAgentMetadata(agentId: string): Promise<AgentMetadataFromIPFS | null> {
+  // Check cache first
+  const cached = metadataCache.get(agentId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    // Get token URI from Identity Registry
+    const tokenUri = await publicClient.readContract({
+      address: IDENTITY_REGISTRY_ADDRESS,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'tokenURI',
+      args: [BigInt(agentId)],
+    });
+
+    // Fetch metadata from IPFS
+    const metadata = await fetchMetadataFromIPFS(tokenUri);
+
+    // Cache the result
+    metadataCache.set(agentId, { data: metadata, timestamp: Date.now() });
+
+    return metadata;
+  } catch (error) {
+    console.error(`[getAgentMetadata] Error fetching agent ${agentId}:`, error);
+    // Cache null to avoid repeated failed requests
+    metadataCache.set(agentId, { data: null, timestamp: Date.now() });
+    return null;
+  }
+}
+
+/**
+ * Convert OASF skill slugs to A2A skill objects
+ * e.g., "natural_language_processing/text_analysis" -> { id, name, description, tags }
+ */
+function convertOASFSkillsToA2A(oasfSkills: string[]): Array<{ id: string; name: string; description: string; tags: string[] }> {
+  return oasfSkills.map(skill => {
+    const parts = skill.split('/');
+    const id = skill.replace(/\//g, '_');
+    const name = parts[parts.length - 1]
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    // Generate description from skill path
+    const category = parts[0]?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || '';
+    const description = `${name} capabilities in ${category}`;
+
+    // Use path parts as tags
+    const tags = parts.map(p => p.replace(/_/g, '-'));
+
+    return { id, name, description, tags };
+  });
+}
 
 // ============================================================================
 // CONFIGURATION
@@ -1148,101 +1287,123 @@ app.post('/mcp/:agentId', async (c) => {
  * A2A Agent Card - Agent discovery endpoint
  * Returns agent metadata in A2A protocol compliant format
  * Spec: https://a2a-protocol.org/latest/specification/
+ *
+ * For legacy agents (bob, ana): Uses hardcoded metadata
+ * For minted agents (numeric IDs): Fetches metadata from IPFS via Identity Registry
  */
-app.get('/agents/:agentId/.well-known/agent-card.json', (c) => {
+app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
   const agentId = c.req.param('agentId');
-  const systemPrompt = getSystemPrompt(agentId);
 
-  if (!systemPrompt) {
-    return c.json({ error: 'Agent not found' }, 404);
-  }
+  // Check if this is a legacy agent (bob/ana) or a minted agent (numeric ID)
+  const isLegacyAgent = agentId === 'bob' || agentId === 'ana';
+  const isNumericId = /^\d+$/.test(agentId);
 
-  // Determine agent name and description
-  const agentName = agentId === 'bob'
-    ? 'Bob'
-    : agentId === 'ana'
-      ? 'Ana'
-      : `Meerkat Agent ${agentId}`;
+  // Legacy agents: use hardcoded data
+  if (isLegacyAgent) {
+    const agentName = agentId === 'bob' ? 'Bob' : 'Ana';
+    const agentDescription = agentId === 'bob'
+      ? 'Smart crypto analyst meerkat with glasses. Expert in cryptocurrency market analysis, token fundamentals, DeFi protocols, and on-chain metrics.'
+      : 'Cheerful and creative writing assistant meerkat. Expert in content creation, copywriting, blog posts, social media content, and creative storytelling.';
 
-  const agentDescription = agentId === 'bob'
-    ? 'Smart crypto analyst meerkat with glasses. Expert in cryptocurrency market analysis, token fundamentals, DeFi protocols, and on-chain metrics.'
-    : agentId === 'ana'
-      ? 'Cheerful and creative writing assistant meerkat. Expert in content creation, copywriting, blog posts, social media content, and creative storytelling.'
-      : `Custom Meerkat Agent ${agentId} from Meerkat Town - an AI agent on Base network.`;
-
-  // Determine skills based on agent type
-  const agentSkills = agentId === 'bob'
-    ? [
-        {
-          id: 'crypto_analysis',
-          name: 'Cryptocurrency Analysis',
-          description: 'Analyze cryptocurrency markets, tokens, and DeFi protocols',
-          tags: ['crypto', 'defi', 'analysis', 'market']
-        },
-        {
-          id: 'chat',
-          name: 'Chat',
-          description: 'Have a conversation about crypto and blockchain topics',
-          tags: ['conversation', 'nlp']
-        }
-      ]
-    : agentId === 'ana'
+    const agentSkills = agentId === 'bob'
       ? [
-          {
-            id: 'content_creation',
-            name: 'Content Creation',
-            description: 'Create written content including blog posts, articles, and marketing copy',
-            tags: ['writing', 'content', 'creative']
-          },
-          {
-            id: 'chat',
-            name: 'Chat',
-            description: 'Have a conversation about writing and content creation',
-            tags: ['conversation', 'nlp']
-          }
+          { id: 'crypto_analysis', name: 'Cryptocurrency Analysis', description: 'Analyze cryptocurrency markets, tokens, and DeFi protocols', tags: ['crypto', 'defi', 'analysis', 'market'] },
+          { id: 'chat', name: 'Chat', description: 'Have a conversation about crypto and blockchain topics', tags: ['conversation', 'nlp'] }
         ]
       : [
-          {
-            id: 'chat',
-            name: 'Chat',
-            description: 'Have a conversation with this Meerkat agent',
-            tags: ['conversation', 'nlp']
-          }
+          { id: 'content_creation', name: 'Content Creation', description: 'Create written content including blog posts, articles, and marketing copy', tags: ['writing', 'content', 'creative'] },
+          { id: 'chat', name: 'Chat', description: 'Have a conversation about writing and content creation', tags: ['conversation', 'nlp'] }
         ];
 
-  return c.json({
-    // Required fields
-    name: agentName,
-    description: agentDescription,
-    url: `https://meerkat.up.railway.app/agents/${agentId}`,
-    version: '1.0.0',
-    defaultInputModes: ['text'],
-    defaultOutputModes: ['text'],
-    authentication: {
-      schemes: ['x402'],
-      description: 'Payment via x402 USDC micropayments on Base network'
-    },
-    skills: agentSkills,
+    return c.json({
+      name: agentName,
+      description: agentDescription,
+      url: `https://meerkat.up.railway.app/agents/${agentId}`,
+      version: '1.0.0',
+      defaultInputModes: ['text'],
+      defaultOutputModes: ['text'],
+      authentication: { schemes: ['x402'], description: 'Payment via x402 USDC micropayments on Base network' },
+      skills: agentSkills,
+      capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
+      provider: { organization: 'Meerkat Town', url: 'https://meerkat.town' },
+      x402: { supported: true, network: 'eip155:84532', price: '$0.001', currency: 'USDC' }
+    });
+  }
 
-    // Optional but recommended fields
-    capabilities: {
-      streaming: false,
-      pushNotifications: false,
-      stateTransitionHistory: false
-    },
-    provider: {
-      organization: 'Meerkat Town',
-      url: 'https://meerkat.town'
-    },
+  // Minted agents: fetch metadata from Identity Registry + IPFS
+  if (isNumericId) {
+    const metadata = await getAgentMetadata(agentId);
 
-    // Custom extension for x402 payment details
-    x402: {
-      supported: true,
-      network: 'eip155:84532',
-      price: '$0.001',
-      currency: 'USDC'
+    if (!metadata) {
+      return c.json({ error: 'Agent not found or metadata unavailable' }, 404);
     }
-  });
+
+    // Extract skills from OASF endpoint in metadata
+    let skills: Array<{ id: string; name: string; description: string; tags: string[] }> = [];
+    const oasfEndpoint = metadata.endpoints?.find(e => e.name === 'OASF');
+    if (oasfEndpoint?.skills && oasfEndpoint.skills.length > 0) {
+      skills = convertOASFSkillsToA2A(oasfEndpoint.skills);
+    }
+
+    // Always include chat skill
+    const hasChat = skills.some(s => s.id.includes('chat'));
+    if (!hasChat) {
+      skills.push({
+        id: 'chat',
+        name: 'Chat',
+        description: `Have a conversation with ${metadata.name}`,
+        tags: ['conversation', 'nlp']
+      });
+    }
+
+    // Determine price from metadata
+    const price = metadata.pricePerMessage && metadata.pricePerMessage !== 'Free'
+      ? metadata.pricePerMessage
+      : '$0.001';
+
+    return c.json({
+      // Required fields
+      name: metadata.name,
+      description: metadata.description,
+      url: `https://meerkat.up.railway.app/agents/${agentId}`,
+      version: '1.0.0',
+      defaultInputModes: ['text'],
+      defaultOutputModes: ['text'],
+      authentication: {
+        schemes: ['x402'],
+        description: 'Payment via x402 USDC micropayments on Base network'
+      },
+      skills,
+
+      // Optional but recommended fields
+      capabilities: {
+        streaming: false,
+        pushNotifications: false,
+        stateTransitionHistory: false
+      },
+      provider: {
+        organization: 'Meerkat Town',
+        url: 'https://meerkat.town'
+      },
+
+      // Custom extension for x402 payment details
+      x402: {
+        supported: metadata.x402support !== false,
+        network: 'eip155:84532',
+        price,
+        currency: 'USDC'
+      },
+
+      // Meerkat Town specific extension
+      meerkat: {
+        id: metadata.meerkatId,
+        image: metadata.image
+      }
+    });
+  }
+
+  // Unknown agent type
+  return c.json({ error: 'Invalid agent ID' }, 400);
 });
 
 // ============================================================================
