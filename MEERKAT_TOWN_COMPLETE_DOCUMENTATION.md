@@ -991,7 +991,7 @@ Returns A2A agent card.
 {
     "name": "Bob",
     "description": "Crypto Analyst",
-    "url": "https://api.meerkat.town/agents/bob",
+    "url": "https://meerkat.up.railway.app/agents/bob",
     ...
 }
 ```
@@ -1010,7 +1010,7 @@ PORT=3000
 
 #### Frontend (.env)
 ```env
-VITE_BACKEND_URL=https://api.meerkat.town
+VITE_BACKEND_URL=https://meerkat.up.railway.app
 VITE_PINATA_JWT=...
 ```
 
@@ -1044,7 +1044,7 @@ VITE_PINATA_JWT=...
 | Service | URL |
 |---------|-----|
 | Frontend | https://www.meerkat.town |
-| Backend | https://api.meerkat.town |
+| Backend | https://meerkat.up.railway.app |
 | IPFS Gateway | https://gateway.pinata.cloud |
 
 ---
@@ -1086,7 +1086,7 @@ const BASE_SEPOLIA_CHAIN_ID = 84532;
 
 // URLs
 const MEERKAT_CDN_URL = 'https://www.meerkat.town';
-const MEERKAT_API_URL = 'https://api.meerkat.town';
+const MEERKAT_API_URL = 'https://meerkat.up.railway.app';
 
 // ERC-8004 Standards
 const ERC8004_TYPE = 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1';

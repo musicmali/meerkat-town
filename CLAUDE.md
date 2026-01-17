@@ -91,7 +91,7 @@ Single `index.ts` file with:
 - `PINATA_JWT` - Pinata IPFS authentication
 
 ### Frontend (Vite env)
-- `VITE_BACKEND_URL` - Backend API URL (e.g., `https://api.meerkat.town`)
+- `VITE_BACKEND_URL` - Backend API URL (e.g., `https://meerkat.up.railway.app`)
 - `VITE_PINATA_JWT` - Pinata JWT for metadata uploads
 
 ## Key Constants
