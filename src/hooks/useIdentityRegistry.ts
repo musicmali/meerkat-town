@@ -73,8 +73,14 @@ export interface RegisteredAgent {
 
 /**
  * Fetch metadata from IPFS gateway
+ * Uses AbortController to prevent hanging requests and suppresses network errors
  */
 async function fetchMetadataFromIPFS(ipfsUri: string): Promise<AgentMetadata | null> {
+    // Skip invalid URIs silently
+    if (!ipfsUri || (!ipfsUri.startsWith('ipfs://') && !ipfsUri.startsWith('https://'))) {
+        return null;
+    }
+
     try {
         // Convert IPFS URI to HTTP gateway URL
         let url = ipfsUri;
@@ -83,16 +89,32 @@ async function fetchMetadataFromIPFS(ipfsUri: string): Promise<AgentMetadata | n
             url = `https://gateway.pinata.cloud/ipfs/${cid}`;
         }
 
-        const response = await fetch(url);
+        // Skip localhost URLs in production (leftover from development)
+        if (url.includes('localhost') || url.includes('127.0.0.1')) {
+            return null;
+        }
+
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(url, {
+            signal: controller.signal,
+            // Disable cache to avoid stale data
+            cache: 'no-store',
+        });
+
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
-            // Silently return null for 404s (expected for non-Meerkat agents)
+            // Silently return null for non-200 responses
             return null;
         }
 
         const metadata = await response.json();
         return metadata as AgentMetadata;
     } catch {
-        // Silently return null for fetch errors (expected for non-Meerkat agents)
+        // Silently return null for all fetch errors (network, timeout, CORS, etc.)
         return null;
     }
 }

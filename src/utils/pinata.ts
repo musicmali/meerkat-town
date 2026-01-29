@@ -51,7 +51,18 @@ export async function fetchFromIPFS(ipfsUri: string): Promise<AgentMetadata> {
         url = `${IPFS_GATEWAY}/${cid}`;
     }
 
-    const response = await fetch(url);
+    // Skip localhost URLs in production
+    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+        throw new Error('Cannot fetch from localhost');
+    }
+
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
         throw new Error('Failed to fetch metadata from IPFS');
     }
