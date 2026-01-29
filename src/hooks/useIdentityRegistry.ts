@@ -429,71 +429,11 @@ export function useAgentOwner(agentId: number | undefined) {
 }
 
 /**
- * Find the most recent mint event (highest token ID) by scanning backwards from current block
- * Stops as soon as it finds a mint event - that's the most recent one with the highest ID
- */
-async function findMostRecentMint(
-    publicClient: ReturnType<typeof createPublicClient>,
-    registryAddress: `0x${string}`,
-    fromBlock: bigint,
-    toBlock: bigint
-): Promise<number | null> {
-    let currentToBlock = toBlock;
-    const chunkSize = LOG_CHUNK_SIZE;
-
-    console.log(`[findMostRecentMint] Scanning backwards from block ${toBlock} to ${fromBlock}`);
-
-    while (currentToBlock > fromBlock) {
-        const currentFromBlock = currentToBlock - chunkSize > fromBlock
-            ? currentToBlock - chunkSize
-            : fromBlock;
-
-        try {
-            const logs = await publicClient.request({
-                method: 'eth_getLogs',
-                params: [{
-                    address: registryAddress,
-                    topics: [
-                        TRANSFER_EVENT_SIGNATURE,
-                        ZERO_ADDRESS_TOPIC, // from = 0x0 (mint events only)
-                    ],
-                    fromBlock: `0x${currentFromBlock.toString(16)}`,
-                    toBlock: `0x${currentToBlock.toString(16)}`,
-                }],
-            });
-
-            if (Array.isArray(logs) && logs.length > 0) {
-                // Find the highest token ID in this chunk
-                let maxId = 0;
-                for (const log of logs) {
-                    if (log.topics && log.topics.length >= 4) {
-                        const tokenIdHex = log.topics[3];
-                        const tokenId = parseInt(tokenIdHex, 16);
-                        if (!isNaN(tokenId) && tokenId > maxId) {
-                            maxId = tokenId;
-                        }
-                    }
-                }
-                if (maxId > 0) {
-                    console.log(`[findMostRecentMint] Found most recent mint in blocks ${currentFromBlock}-${currentToBlock}: token ID ${maxId}`);
-                    return maxId;
-                }
-            }
-        } catch (error) {
-            console.warn(`[findMostRecentMint] Error scanning blocks ${currentFromBlock}-${currentToBlock}:`, error);
-            // Continue with next chunk
-        }
-
-        currentToBlock = currentFromBlock - 1n;
-    }
-
-    return null;
-}
-
-/**
- * Predict the next agent ID by finding the most recent mint via event logs
+ * Predict the next agent ID by calling totalSupply() on the Identity Registry
  * This is used to include registrations field in metadata BEFORE minting
  * (since this ERC-8004 registry has immutable URIs)
+ *
+ * The Identity Registry uses sequential IDs starting from 1, so next ID = totalSupply + 1
  */
 export async function predictNextAgentId(
     publicClient: ReturnType<typeof usePublicClient>,
@@ -506,29 +446,22 @@ export async function predictNextAgentId(
 
     try {
         const registryAddress = getIdentityRegistryAddress(effectiveChainId);
-        const deploymentBlock = CONTRACT_DEPLOYMENT_BLOCK[effectiveChainId] ?? 0n;
-        const currentBlock = await publicRpcClient.getBlockNumber();
 
-        console.log(`[predictNextAgentId] Chain ${effectiveChainId}: Finding most recent mint from block ${currentBlock} backwards`);
+        console.log(`[predictNextAgentId] Chain ${effectiveChainId}: Calling totalSupply() on ${registryAddress}`);
 
-        // Find the most recent mint by scanning backwards from current block
-        const mostRecentMintId = await findMostRecentMint(
-            publicRpcClient,
-            registryAddress,
-            deploymentBlock,
-            currentBlock
-        );
+        // Call totalSupply() to get the count of minted tokens
+        const totalSupply = await publicRpcClient.readContract({
+            address: registryAddress,
+            abi: IDENTITY_REGISTRY_ABI,
+            functionName: 'totalSupply',
+        }) as bigint;
 
-        if (mostRecentMintId !== null) {
-            console.log(`[predictNextAgentId] Most recent mint ID: ${mostRecentMintId}, next ID: ${mostRecentMintId + 1}`);
-            return mostRecentMintId + 1;
-        }
-
-        // No mints found, start from 1
-        console.log(`[predictNextAgentId] No mints found, returning 1`);
-        return 1;
+        const nextId = Number(totalSupply) + 1;
+        console.log(`[predictNextAgentId] totalSupply: ${totalSupply}, next ID: ${nextId}`);
+        return nextId;
     } catch (error) {
-        console.error('[predictNextAgentId] Error:', error);
+        console.error('[predictNextAgentId] Error calling totalSupply:', error);
+        // Fallback to minimum token ID for the chain
         return MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
     }
 }
