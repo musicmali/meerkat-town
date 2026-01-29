@@ -141,7 +141,7 @@ async function fetchTransferLogsBackwards(
     ownerAddress?: string,
     stopAtTokenId?: number
 ): Promise<{ tokenId: number; to: string }[]> {
-    const CHUNK_SIZE = BigInt(100000); // Alchemy paid plan supports large block ranges
+    const CHUNK_SIZE = BigInt(1000000); // Alchemy paid plan supports large block ranges
     const allTokenIds: { tokenId: number; to: string }[] = [];
     const foundTokenIds = new Set<number>();
 
