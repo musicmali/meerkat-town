@@ -22,6 +22,8 @@ export interface NetworkConfig {
   firstMeerkatAgentId: number | null;
   // Minimum token ID for filtering Meerkat agents (null = show all)
   minimumMeerkatTokenId: number | null;
+  // Block chunk size for eth_getLogs (ETH mainnet: 10,000, Base Sepolia: 1,000,000)
+  blockChunkSize: number;
 }
 
 export const NETWORKS: Record<number, NetworkConfig> = {
@@ -42,6 +44,7 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     alchemyRpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
     firstMeerkatAgentId: null, // TBD when first agent is minted
     minimumMeerkatTokenId: null,
+    blockChunkSize: 10000, // Alchemy limit for ETH mainnet
   },
   84532: {
     // Base Sepolia
@@ -60,6 +63,7 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     alchemyRpcUrl: 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
     firstMeerkatAgentId: 16,
     minimumMeerkatTokenId: 16,
+    blockChunkSize: 1000000, // Alchemy supports large ranges for Base Sepolia
   },
 };
 
@@ -181,6 +185,16 @@ export function getFirstMeerkatAgentId(chainId: number): number | null {
 export function getMinimumMeerkatTokenId(chainId: number): number | null {
   const network = NETWORKS[chainId];
   return network?.minimumMeerkatTokenId ?? null;
+}
+
+/**
+ * Get block chunk size for eth_getLogs queries
+ * ETH mainnet requires 10,000, Base Sepolia supports 1,000,000
+ */
+export function getBlockChunkSize(chainId: number): number {
+  const network = NETWORKS[chainId];
+  // Default to 10,000 (safest for mainnet compatibility)
+  return network?.blockChunkSize ?? 10000;
 }
 
 /**

@@ -10,6 +10,7 @@ import {
     getAlchemyRpcUrl,
     getFirstMeerkatAgentId,
     getMinimumMeerkatTokenId,
+    getBlockChunkSize,
     DEFAULT_CHAIN_ID,
 } from '../config/networks';
 import type { AgentMetadata } from '../types/agentMetadata';
@@ -154,7 +155,8 @@ async function fetchTransferLogsBackwards(
     ownerAddress?: string,
     stopAtTokenId?: number
 ): Promise<{ tokenId: number; to: string }[]> {
-    const CHUNK_SIZE = BigInt(1000000); // Alchemy paid plan supports large block ranges
+    // Use network-specific chunk size (ETH mainnet: 10k, Base Sepolia: 1M)
+    const CHUNK_SIZE = BigInt(getBlockChunkSize(chainId));
     const allTokenIds: { tokenId: number; to: string }[] = [];
     const foundTokenIds = new Set<number>();
     const identityRegistryAddress = getContractAddress(chainId, 'identityRegistry');
