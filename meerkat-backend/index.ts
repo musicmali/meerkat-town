@@ -1818,75 +1818,79 @@ app.get('/.well-known/agent-registration.json', async (c) => {
       console.log('[agent-registration.json] Using cached registrations');
       // Return cached data (skip to return statement below)
     } else {
-      console.log('[agent-registration.json] Fetching registrations from blockchain...');
+      console.log('[agent-registration.json] Fetching registrations from blockchain (parallel)...');
+      const startTime = Date.now();
 
       const registrations: Array<{
         agentId: number;
         agentRegistry: string;
       }> = [];
 
-      // Search for ALL agents on this registry that use Meerkat endpoints
-      // Start from agent 1 and go up to 500
-      // Use a smarter termination: stop after 20 consecutive non-existent agents
+      // Parallel fetching for speed - check agents in batches
+      const BATCH_SIZE = 20; // Check 20 agents at once
       const startId = 1;
-      const maxId = 500; // Upper bound for search
-      let consecutiveNotFound = 0;
-      let lastFoundId = 0;
+      const maxId = 100; // Reasonable upper bound (can increase if needed)
+
+      // Step 1: Batch fetch all tokenURIs in parallel
+      const tokenUriPromises: Promise<{ agentId: number; tokenUri: string | null }>[] = [];
 
       for (let agentId = startId; agentId <= maxId; agentId++) {
-        try {
-          // Get token URI
-          const tokenUri = await publicClient.readContract({
+        tokenUriPromises.push(
+          publicClient.readContract({
             address: IDENTITY_REGISTRY_ADDRESS,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'tokenURI',
             args: [BigInt(agentId)],
-          }) as string;
+          })
+            .then((uri) => ({ agentId, tokenUri: uri as string }))
+            .catch(() => ({ agentId, tokenUri: null }))
+        );
+      }
 
-          // Agent exists on-chain
-          consecutiveNotFound = 0;
-          lastFoundId = agentId;
+      // Wait for all tokenURI fetches (parallel)
+      const tokenUriResults = await Promise.all(tokenUriPromises);
+      const existingAgents = tokenUriResults.filter(r => r.tokenUri !== null);
+      console.log(`[agent-registration.json] Found ${existingAgents.length} agents on-chain in ${Date.now() - startTime}ms`);
 
-          // Fetch metadata to check if it's a Meerkat Town agent or uses our endpoints
-          if (tokenUri && (tokenUri.startsWith('ipfs://') || tokenUri.startsWith('https://'))) {
-            const metadata = await fetchMetadataFromIPFS(tokenUri);
+      // Step 2: Batch fetch metadata from IPFS in parallel
+      const metadataPromises = existingAgents.map(async ({ agentId, tokenUri }) => {
+        if (!tokenUri || (!tokenUri.startsWith('ipfs://') && !tokenUri.startsWith('https://'))) {
+          return null;
+        }
 
-            if (metadata) {
-              // Include agent if:
-              // 1. Has meerkatId (Meerkat Town native agent)
-              // 2. OR has endpoints/services pointing to meerkat.up.railway.app
-              const isMeerkatAgent = metadata.meerkatId && metadata.meerkatId >= 1 && metadata.meerkatId <= 100;
+        const metadata = await fetchMetadataFromIPFS(tokenUri);
+        if (!metadata) return null;
 
-              const services = metadata.services || metadata.endpoints || [];
-              const usesMeerkatDomain = services.some((s: any) =>
-                s.endpoint && s.endpoint.includes('meerkat.up.railway.app')
-              );
+        // Include agent if:
+        // 1. Has meerkatId (Meerkat Town native agent)
+        // 2. OR has endpoints/services pointing to meerkat.up.railway.app
+        const isMeerkatAgent = metadata.meerkatId && metadata.meerkatId >= 1 && metadata.meerkatId <= 100;
+        const services = metadata.services || metadata.endpoints || [];
+        const usesMeerkatDomain = services.some((s: any) =>
+          s.endpoint && s.endpoint.includes('meerkat.up.railway.app')
+        );
 
-              if (isMeerkatAgent || usesMeerkatDomain) {
-                registrations.push({
-                  agentId: agentId,
-                  agentRegistry: agentRegistryCAIP10,
-                });
-                console.log(`[agent-registration.json] Found agent ${agentId}: ${metadata.name || 'Unknown'}`);
-              }
-            }
-          }
-        } catch (error: any) {
-          // Agent doesn't exist or RPC error
-          consecutiveNotFound++;
+        if (isMeerkatAgent || usesMeerkatDomain) {
+          console.log(`[agent-registration.json] Found Meerkat agent ${agentId}: ${metadata.name || 'Unknown'}`);
+          return { agentId, agentRegistry: agentRegistryCAIP10 };
+        }
+        return null;
+      });
 
-          // Stop after 20 consecutive non-existent agents (likely reached the end)
-          if (consecutiveNotFound >= 20 && lastFoundId > 0) {
-            console.log(`[agent-registration.json] Stopping at agent ${agentId} (20 consecutive not found after ${lastFoundId})`);
-            break;
-          }
-          continue;
+      // Wait for all metadata fetches (parallel)
+      const metadataResults = await Promise.all(metadataPromises);
+      for (const result of metadataResults) {
+        if (result) {
+          registrations.push(result);
         }
       }
 
+      // Sort by agentId for consistency
+      registrations.sort((a, b) => a.agentId - b.agentId);
+
       // Cache the results
       registrationsCache = { data: registrations, timestamp: Date.now() };
-      console.log(`[agent-registration.json] Cached ${registrations.length} registrations (last found: ${lastFoundId})`);
+      console.log(`[agent-registration.json] Cached ${registrations.length} registrations in ${Date.now() - startTime}ms`);
     }
 
     const registrations = registrationsCache!.data;
