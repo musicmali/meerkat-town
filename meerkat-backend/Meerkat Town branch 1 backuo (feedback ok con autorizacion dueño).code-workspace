@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../../../Downloads/icons grey"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}

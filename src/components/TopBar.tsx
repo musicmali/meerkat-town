@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount, useDisconnect } from 'wagmi';
-import NetworkSwitcher from './NetworkSwitcher';
 import './TopBar.css';
+
+// v1.1: Removed feedback-auth polling - authorization is no longer required
 
 function TopBar() {
     const { address, isConnected } = useAccount();
@@ -46,9 +47,6 @@ function TopBar() {
 
     return (
         <div className="topbar">
-            {/* Network Switcher */}
-            <NetworkSwitcher />
-
             {/* Notifications */}
             <div className="topbar-item" ref={notificationsRef}>
                 <button

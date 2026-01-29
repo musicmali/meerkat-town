@@ -1,11 +1,10 @@
 import { useCallback, useMemo } from 'react';
 import { useAccount, useChainId } from 'wagmi';
-import { getWalletClient } from 'wagmi/actions';
+import { getWalletClient, switchChain } from 'wagmi/actions';
 import { baseSepolia } from 'wagmi/chains';
 import { config } from '../config/wagmi';
-import { isX402Supported as checkX402Supported } from '../config/networks';
 
-// Base Sepolia network identifier (x402 only supported here)
+// Base mainnet network identifier
 const BASE_SEPOLIA_NETWORK = 'eip155:84532';
 
 // Lazy load x402 to avoid breaking the app if it fails
@@ -31,15 +30,11 @@ export function useX402() {
     const { address, isConnected } = useAccount();
     const chainId = useChainId();
 
-    // Check if x402 is supported on current chain
-    const isX402Supported = useMemo(() => checkX402Supported(chainId), [chainId]);
-
     // Debug log on every render
     console.log('[x402] Hook state:', {
         address,
         isConnected,
         chainId,
-        isX402Supported,
         expectedChainId: baseSepolia.id,
     });
 
@@ -55,15 +50,22 @@ export function useX402() {
             return fetch(url, options);
         }
 
-        // If x402 not supported on current chain, use regular fetch
-        if (!checkX402Supported(chainId)) {
-            console.log('[x402] x402 not supported on chain', chainId, ', using regular fetch');
-            return fetch(url, options);
-        }
-
         try {
-            // Get wallet client for Base Sepolia (the only chain supporting x402)
-            console.log('[x402] Getting wallet client for Base Sepolia...');
+            // Check if we need to switch chains - this will prompt the wallet
+            console.log('[x402] Current chain:', chainId, 'Expected:', baseSepolia.id);
+            if (chainId !== baseSepolia.id) {
+                console.log('[x402] Switching to Base...');
+                try {
+                    await switchChain(config, { chainId: baseSepolia.id });
+                    console.log('[x402] Chain switched successfully!');
+                } catch (switchError: any) {
+                    console.error('[x402] Failed to switch chain:', switchError);
+                    throw new Error(`Please switch to Base Base Sepolia network. ${switchError.message}`);
+                }
+            }
+
+            // Get wallet client for Base
+            console.log('[x402] Getting wallet client for Base...');
             const walletClient = await getWalletClient(config, { chainId: baseSepolia.id });
             console.log('[x402] Got wallet client:', !!walletClient, walletClient?.account?.address);
 
@@ -122,15 +124,14 @@ export function useX402() {
     }, [isConnected, address, chainId]);
 
     const isReady = useMemo(() => {
-        // Only ready if connected and on x402-supported chain
-        const ready = isConnected && !!address && isX402Supported;
-        console.log('[x402] isReady:', ready, 'isX402Supported:', isX402Supported);
+        // Allow even if on wrong chain - we'll switch automatically
+        const ready = isConnected && !!address;
+        console.log('[x402] isReady:', ready);
         return ready;
-    }, [isConnected, address, isX402Supported]);
+    }, [isConnected, address]);
 
     return {
         x402Fetch,
         isReady,
-        isX402Supported,
     };
 }
