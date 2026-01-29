@@ -129,20 +129,24 @@ async function getAgentCard(meerkatId: number): Promise<StoredAgentCard | null> 
 // Multi-network support: Ethereum Mainnet + Base Sepolia
 // ============================================================================
 
+// Alchemy RPC endpoints
+const ALCHEMY_ETH_MAINNET_RPC = 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+
 // Network configurations
 const NETWORKS = {
   1: {
     chainId: 1,
     name: 'Ethereum',
     identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
-    rpcUrl: 'https://eth.drpc.org',
+    rpcUrl: ALCHEMY_ETH_MAINNET_RPC,
     x402Supported: false,
   },
   84532: {
     chainId: 84532,
     name: 'Base Sepolia',
     identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const,
-    rpcUrl: 'https://sepolia.base.org',
+    rpcUrl: ALCHEMY_BASE_SEPOLIA_RPC,
     x402Supported: true,
   },
 } as const;
@@ -150,7 +154,7 @@ const NETWORKS = {
 // Create public clients for each network
 const publicClients = {
   1: createPublicClient({
-    chain: { id: 1, name: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://eth.drpc.org'] } } },
+    chain: { id: 1, name: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ALCHEMY_ETH_MAINNET_RPC] } } },
     transport: http(NETWORKS[1].rpcUrl),
   }),
   84532: createPublicClient({

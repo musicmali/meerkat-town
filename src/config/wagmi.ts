@@ -22,13 +22,15 @@ const orderedChains = DEFAULT_CHAIN_ID === 1
     ? [ethereumMainnet, baseSepoliaChain, ...otherChains] as [chains.Chain, ...chains.Chain[]]
     : [baseSepoliaChain, ethereumMainnet, ...otherChains] as [chains.Chain, ...chains.Chain[]];
 
-// RPC endpoints for supported networks
+// RPC endpoints for supported networks (Alchemy)
+const ALCHEMY_ETH_MAINNET_RPC = 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
 const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
 
 // Create transports for all chains
 const transports = Object.fromEntries(
     orderedChains.map(chain => [
         chain.id,
+        chain.id === 1 ? http(ALCHEMY_ETH_MAINNET_RPC) :
         chain.id === 84532 ? http(ALCHEMY_BASE_SEPOLIA_RPC) : http()
     ])
 ) as Record<number, ReturnType<typeof http>>;

@@ -37,6 +37,10 @@ const FIRST_MEERKAT_AGENT_ID: Record<number, number> = {
 const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
+// Alchemy RPC endpoints for reliable access
+const ALCHEMY_ETH_MAINNET_RPC = 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+
 // Create public RPC client for a specific chain
 function getPublicRpcClient(chainId: number) {
     const chain = CHAIN_CONFIGS[chainId];
@@ -44,15 +48,15 @@ function getPublicRpcClient(chainId: number) {
         // Default to Base Sepolia if chain not found
         return createPublicClient({
             chain: baseSepolia,
-            transport: http('https://sepolia.base.org'),
+            transport: http(ALCHEMY_BASE_SEPOLIA_RPC),
         });
     }
 
-    // Use appropriate RPC endpoint based on chain
-    const rpcUrl = chainId === 84532
-        ? 'https://sepolia.base.org'
-        : chainId === 1
-            ? 'https://eth.drpc.org'  // Free public Ethereum RPC
+    // Use Alchemy RPC endpoints for supported chains
+    const rpcUrl = chainId === 1
+        ? ALCHEMY_ETH_MAINNET_RPC
+        : chainId === 84532
+            ? ALCHEMY_BASE_SEPOLIA_RPC
             : undefined;
 
     return createPublicClient({
