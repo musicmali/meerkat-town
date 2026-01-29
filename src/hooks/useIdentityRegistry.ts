@@ -443,12 +443,18 @@ export async function predictNextAgentId(
 
     const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
     const publicRpcClient = getPublicRpcClient(effectiveChainId);
+    const registryAddress = getIdentityRegistryAddress(effectiveChainId);
+
+    // Log detailed info for debugging
+    console.log(`[predictNextAgentId] ========================================`);
+    console.log(`[predictNextAgentId] Input chainId: ${chainId}`);
+    console.log(`[predictNextAgentId] Effective chainId: ${effectiveChainId}`);
+    console.log(`[predictNextAgentId] Registry address: ${registryAddress}`);
+    console.log(`[predictNextAgentId] Expected ETH Mainnet: 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`);
+    console.log(`[predictNextAgentId] Expected Base Sepolia: 0x8004A818BFB912233c491871b3d84c89A494BD9e`);
+    console.log(`[predictNextAgentId] ========================================`);
 
     try {
-        const registryAddress = getIdentityRegistryAddress(effectiveChainId);
-
-        console.log(`[predictNextAgentId] Chain ${effectiveChainId}: Calling totalSupply() on ${registryAddress}`);
-
         // Call totalSupply() to get the count of minted tokens
         const totalSupply = await publicRpcClient.readContract({
             address: registryAddress,
@@ -457,12 +463,14 @@ export async function predictNextAgentId(
         }) as bigint;
 
         const nextId = Number(totalSupply) + 1;
-        console.log(`[predictNextAgentId] totalSupply: ${totalSupply}, next ID: ${nextId}`);
+        console.log(`[predictNextAgentId] SUCCESS: totalSupply=${totalSupply}, nextId=${nextId}`);
         return nextId;
     } catch (error) {
-        console.error('[predictNextAgentId] Error calling totalSupply:', error);
+        console.error('[predictNextAgentId] ERROR calling totalSupply:', error);
         // Fallback to minimum token ID for the chain
-        return MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
+        const fallback = MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
+        console.log(`[predictNextAgentId] Using fallback: ${fallback}`);
+        return fallback;
     }
 }
 
