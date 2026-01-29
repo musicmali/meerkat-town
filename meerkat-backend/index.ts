@@ -141,6 +141,7 @@ const NETWORKS = {
     identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
     rpcUrl: ALCHEMY_ETH_MAINNET_RPC,
     x402Supported: false,
+    deploymentBlock: 21887265n,  // Identity Registry deployment block
   },
   84532: {
     chainId: 84532,
@@ -148,8 +149,14 @@ const NETWORKS = {
     identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const,
     rpcUrl: ALCHEMY_BASE_SEPOLIA_RPC,
     x402Supported: true,
+    deploymentBlock: 20550000n,  // Approximate deployment block
   },
 } as const;
+
+// Event log constants for fetching mints
+const LOG_CHUNK_SIZE = 2000n;  // Alchemy paid tier supports 2000+ blocks
+const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 // Create public clients for each network
 const publicClients = {
@@ -236,6 +243,66 @@ interface AgentMetadataFromIPFS {
 function getServicesFromMetadata(metadata: AgentMetadataFromIPFS | null): AgentService[] {
   if (!metadata) return [];
   return metadata.services || metadata.endpoints || [];
+}
+
+/**
+ * Fetch Transfer event logs to find minted tokens
+ * Returns array of token IDs that have been minted
+ */
+async function fetchMintedTokenIds(
+  client: any,  // Public client for the chain
+  registryAddress: `0x${string}`,
+  fromBlock: bigint,
+  toBlock: bigint,
+  maxAgents: number = 500
+): Promise<number[]> {
+  const agentIds: Set<number> = new Set();
+  let currentToBlock = toBlock;
+
+  console.log(`[fetchMintedTokenIds] Scanning from block ${fromBlock} to ${toBlock}`);
+
+  while (currentToBlock > fromBlock && agentIds.size < maxAgents) {
+    const currentFromBlock = currentToBlock - LOG_CHUNK_SIZE > fromBlock
+      ? currentToBlock - LOG_CHUNK_SIZE
+      : fromBlock;
+
+    try {
+      const logs = await client.request({
+        method: 'eth_getLogs',
+        params: [{
+          address: registryAddress,
+          topics: [
+            TRANSFER_EVENT_SIGNATURE,
+            ZERO_ADDRESS_TOPIC,  // from = 0x0 (mint events only)
+          ],
+          fromBlock: `0x${currentFromBlock.toString(16)}`,
+          toBlock: `0x${currentToBlock.toString(16)}`,
+        }],
+      });
+
+      if (Array.isArray(logs)) {
+        for (const log of logs) {
+          // Token ID is in topics[3] for standard ERC-721 Transfer events
+          if (log.topics && log.topics.length >= 4) {
+            const tokenIdHex = log.topics[3];
+            const tokenId = parseInt(tokenIdHex, 16);
+            if (!isNaN(tokenId) && tokenId > 0) {
+              agentIds.add(tokenId);
+            }
+          }
+        }
+      }
+
+      console.log(`[fetchMintedTokenIds] Scanned blocks ${currentFromBlock}-${currentToBlock}, found ${agentIds.size} mints so far`);
+    } catch (error) {
+      console.warn(`[fetchMintedTokenIds] Error scanning blocks ${currentFromBlock}-${currentToBlock}:`, error);
+      // Continue with next chunk even if this one failed
+    }
+
+    currentToBlock = currentFromBlock - 1n;
+  }
+
+  return Array.from(agentIds).sort((a, b) => a - b);
 }
 
 /**
@@ -1858,7 +1925,7 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 
       // Fetch from all supported networks in parallel
       const networkPromises = Object.values(NETWORKS).map(async (network) => {
-        const { chainId, identityRegistry } = network;
+        const { chainId, identityRegistry, deploymentBlock } = network;
         const client = publicClients[chainId as keyof typeof publicClients];
         if (!client) return [];
 
@@ -1867,27 +1934,44 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 
         console.log(`[agent-registration.json] Checking ${network.name} (chainId: ${chainId})...`);
 
-        // Step 1: Batch fetch all tokenURIs in parallel
-        const maxId = 100;
-        const tokenUriPromises: Promise<{ agentId: number; tokenUri: string | null }>[] = [];
-
-        for (let agentId = 1; agentId <= maxId; agentId++) {
-          tokenUriPromises.push(
-            client.readContract({
-              address: identityRegistry,
-              abi: IDENTITY_REGISTRY_ABI,
-              functionName: 'tokenURI',
-              args: [BigInt(agentId)],
-            })
-              .then((uri) => ({ agentId, tokenUri: uri as string }))
-              .catch(() => ({ agentId, tokenUri: null }))
-          );
+        // Step 1: Get current block and fetch all minted token IDs via event logs
+        let currentBlock: bigint;
+        try {
+          currentBlock = await client.getBlockNumber();
+        } catch (error) {
+          console.error(`[agent-registration.json] Failed to get block number for ${network.name}:`, error);
+          return [];
         }
 
-        // Wait for all tokenURI fetches (parallel)
+        const mintedIds = await fetchMintedTokenIds(
+          client,
+          identityRegistry,
+          deploymentBlock,
+          currentBlock,
+          500  // Max agents to scan
+        );
+
+        console.log(`[agent-registration.json] Found ${mintedIds.length} minted tokens on ${network.name} via event logs`);
+
+        if (mintedIds.length === 0) {
+          return [];
+        }
+
+        // Step 2: Batch fetch tokenURIs for minted tokens
+        const tokenUriPromises = mintedIds.map(agentId =>
+          client.readContract({
+            address: identityRegistry,
+            abi: IDENTITY_REGISTRY_ABI,
+            functionName: 'tokenURI',
+            args: [BigInt(agentId)],
+          })
+            .then((uri) => ({ agentId, tokenUri: uri as string }))
+            .catch(() => ({ agentId, tokenUri: null }))
+        );
+
         const tokenUriResults = await Promise.all(tokenUriPromises);
         const existingAgents = tokenUriResults.filter(r => r.tokenUri !== null);
-        console.log(`[agent-registration.json] Found ${existingAgents.length} agents on ${network.name}`);
+        console.log(`[agent-registration.json] Retrieved ${existingAgents.length} token URIs on ${network.name}`);
 
         // Step 2: Batch fetch metadata from IPFS in parallel
         const metadataPromises = existingAgents.map(async ({ agentId, tokenUri }) => {
