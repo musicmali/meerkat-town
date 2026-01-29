@@ -97,12 +97,11 @@ export function generateAgentMetadata(
     });
 
     // A2A Service - uses meerkat ID
-    // Use just the skill name (not full path) for OASF compliance
     services.push({
         name: 'A2A',
         endpoint: getA2AEndpoint(meerkatAgentId),
         version: A2A_VERSION,
-        a2aSkills: formData.skills.map(getOASFName),
+        a2aSkills: formData.skills,
     });
 
     // OASF Service (skills & domains)
