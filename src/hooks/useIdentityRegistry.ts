@@ -33,6 +33,18 @@ const FIRST_MEERKAT_AGENT_ID: Record<number, number> = {
     84532: 16,  // Base Sepolia
 };
 
+// Contract deployment blocks per network (to limit search range)
+const CONTRACT_DEPLOYMENT_BLOCK: Record<number, bigint> = {
+    1: BigInt(21500000),    // ETH Mainnet - approximate deployment block (Jan 2025)
+    84532: BigInt(5000000), // Base Sepolia - approximate deployment block
+};
+
+// Chunk size for eth_getLogs per network (Alchemy free tier: max 10 blocks for mainnet)
+const LOG_CHUNK_SIZE: Record<number, bigint> = {
+    1: BigInt(2000),       // ETH Mainnet - use 2000 blocks (Alchemy allows larger for getLogs)
+    84532: BigInt(10000),  // Base Sepolia - larger chunks allowed
+};
+
 // ERC-721 Transfer event signature
 const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -168,8 +180,9 @@ export async function fetchAgent(
 }
 
 /**
- * Fetch Transfer event logs using raw topics and public RPC (bypasses Alchemy limits)
+ * Fetch Transfer event logs using raw topics and public RPC
  * Searches BACKWARDS from toBlock to fromBlock, stopping early if stopAtTokenId is found
+ * Uses network-specific chunk sizes to respect RPC limits
  */
 async function fetchTransferLogsBackwards(
     fromBlock: bigint,
@@ -179,7 +192,8 @@ async function fetchTransferLogsBackwards(
     ownerAddress?: string,
     stopAtTokenId?: number
 ): Promise<{ tokenId: number; to: string }[]> {
-    const CHUNK_SIZE = BigInt(10000); // Public RPC supports larger ranges
+    // Use network-specific chunk size
+    const CHUNK_SIZE = LOG_CHUNK_SIZE[chainId] ?? BigInt(2000);
     const allTokenIds: { tokenId: number; to: string }[] = [];
     const foundTokenIds = new Set<number>();
 
@@ -188,8 +202,12 @@ async function fetchTransferLogsBackwards(
 
     // Start from toBlock and work backwards
     let currentTo = toBlock;
-    while (currentTo >= fromBlock) {
+    let requestCount = 0;
+    const MAX_REQUESTS = 50; // Limit total requests to avoid excessive API calls
+
+    while (currentTo >= fromBlock && requestCount < MAX_REQUESTS) {
         const currentFrom = currentTo - CHUNK_SIZE < fromBlock ? fromBlock : currentTo - CHUNK_SIZE;
+        requestCount++;
 
         try {
             // Build topics array
@@ -199,7 +217,6 @@ async function fetchTransferLogsBackwards(
                 ownerAddress ? `0x000000000000000000000000${ownerAddress.slice(2).toLowerCase()}` as `0x${string}` : null,
             ];
 
-            // Use public RPC client (not Alchemy) to avoid block range limits
             const logs = await publicRpcClient.request({
                 method: 'eth_getLogs',
                 params: [{
@@ -227,6 +244,8 @@ async function fetchTransferLogsBackwards(
             }
         } catch (error) {
             console.warn(`Error fetching logs for blocks ${currentFrom}-${currentTo}:`, error);
+            // On error, try with smaller chunk or skip
+            break;
         }
 
         // Move backwards
@@ -240,12 +259,13 @@ async function fetchTransferLogsBackwards(
 }
 
 /**
- * Fetch all Meerkat Town agents from Identity Registry using event logs
- * Searches BACKWARDS from current block until finding the first agent
+ * Fetch all Meerkat Town agents from Identity Registry
+ * For ETH Mainnet: Uses direct contract reads (avoids getLogs block limits)
+ * For Base Sepolia: Uses event logs for efficiency
  */
 export async function fetchMeerkatAgents(
     publicClient: ReturnType<typeof usePublicClient>,
-    _maxAgentsToScan: number = 100, // Kept for backwards compatibility but not used
+    maxAgentsToScan: number = 100,
     chainId?: number
 ): Promise<RegisteredAgent[]> {
     if (!publicClient) return [];
@@ -256,28 +276,55 @@ export async function fetchMeerkatAgents(
     const minTokenId = MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
     const blacklist = BLACKLISTED_AGENT_IDS[effectiveChainId] ?? [];
 
+    let uniqueIds: number[] = [];
+
     try {
-        // Get current block number using public RPC
-        const currentBlock = await publicRpcClient.getBlockNumber();
+        // ETH Mainnet: Use direct contract reads (Alchemy free tier has very limited getLogs)
+        if (effectiveChainId === 1) {
+            console.log(`[fetchMeerkatAgents] Chain 1: Using direct contract reads to find agents`);
 
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Searching backwards from block ${currentBlock} until finding agent ${firstAgentId}`);
+            // Try to read tokenURI for agent IDs 1 to maxAgentsToScan
+            const registryAddress = getIdentityRegistryAddress(effectiveChainId);
 
-        // Search backwards from current block to block 0, stopping when we find first agent
-        const mintEvents = await fetchTransferLogsBackwards(
-            0n, // Search all the way back if needed
-            currentBlock,
-            effectiveChainId,
-            true, // filter by mint (from = 0x0)
-            undefined,
-            firstAgentId
-        );
+            for (let id = 1; id <= maxAgentsToScan; id++) {
+                try {
+                    await publicRpcClient.readContract({
+                        address: registryAddress,
+                        abi: IDENTITY_REGISTRY_ABI,
+                        functionName: 'tokenURI',
+                        args: [BigInt(id)],
+                    });
+                    // If we get here, the token exists
+                    uniqueIds.push(id);
+                } catch {
+                    // Token doesn't exist, continue
+                }
+            }
 
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Found ${mintEvents.length} mint events`);
+            console.log(`[fetchMeerkatAgents] Chain 1: Found ${uniqueIds.length} existing agents`);
+        } else {
+            // Base Sepolia: Use event logs (more efficient)
+            const currentBlock = await publicRpcClient.getBlockNumber();
+            const deploymentBlock = CONTRACT_DEPLOYMENT_BLOCK[effectiveChainId] ?? BigInt(0);
 
-        // Extract unique agent IDs and filter to only Meerkat Town tokens
-        const uniqueIds = [...new Set(mintEvents.map(e => e.tokenId))]
-            .filter(id => id >= minTokenId);
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Meerkat token IDs (>= ${minTokenId}):`, uniqueIds);
+            console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Searching backwards from block ${currentBlock} to ${deploymentBlock}`);
+
+            const mintEvents = await fetchTransferLogsBackwards(
+                deploymentBlock,
+                currentBlock,
+                effectiveChainId,
+                true, // filter by mint (from = 0x0)
+                undefined,
+                firstAgentId
+            );
+
+            console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Found ${mintEvents.length} mint events`);
+
+            uniqueIds = [...new Set(mintEvents.map(e => e.tokenId))]
+                .filter(id => id >= minTokenId);
+        }
+
+        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Token IDs to fetch:`, uniqueIds);
 
         // Fetch agent details for each minted token
         const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient, effectiveChainId));
@@ -433,13 +480,33 @@ export async function predictNextAgentId(
     const publicRpcClient = getPublicRpcClient(effectiveChainId);
 
     try {
-        // Get current block
+        const registryAddress = getIdentityRegistryAddress(effectiveChainId);
+
+        // ETH Mainnet: Use direct contract reads
+        if (effectiveChainId === 1) {
+            // Find the highest existing agent ID by checking sequentially
+            let maxId = 0;
+            for (let id = 1; id <= 100; id++) {
+                try {
+                    await publicRpcClient.readContract({
+                        address: registryAddress,
+                        abi: IDENTITY_REGISTRY_ABI,
+                        functionName: 'tokenURI',
+                        args: [BigInt(id)],
+                    });
+                    maxId = id;
+                } catch {
+                    // Token doesn't exist
+                }
+            }
+            return maxId + 1;
+        }
+
+        // Base Sepolia: Use event logs
         const currentBlock = await publicRpcClient.getBlockNumber();
-        // Base Sepolia has ~2 second blocks, Mainnet ~12 second blocks
-        const blockRange = effectiveChainId === 1 ? BigInt(50000) : BigInt(200000);
+        const blockRange = BigInt(200000);
         const fromBlock = currentBlock - blockRange;
 
-        // Get recent mint events (search backwards)
         const mintEvents = await fetchTransferLogsBackwards(
             fromBlock > 0n ? fromBlock : 0n,
             currentBlock,
