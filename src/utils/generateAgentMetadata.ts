@@ -112,6 +112,12 @@ export function generateAgentMetadata(
         endpoint: formatCAIP10Address(formData.ownerAddress),
     });
 
+    // Web endpoint (Meerkat Town website)
+    services.push({
+        name: 'web',
+        endpoint: 'https://meerkat.town',
+    });
+
     // Build registrations array for bidirectional verification
     // Links off-chain metadata to on-chain NFT identity
     const registrations: AgentRegistration[] | undefined = agentId !== undefined ? [
@@ -137,7 +143,7 @@ export function generateAgentMetadata(
         registrations,
 
         // Optional ERC-8004 fields
-        supportedTrust: ['reputation'],
+        supportedTrust: ['reputation', 'crypto-economic', 'tee-attestation'],
         active: true,
         x402support: true, // Always enabled for all Meerkat Town agents
         updatedAt: Math.floor(Date.now() / 1000),
