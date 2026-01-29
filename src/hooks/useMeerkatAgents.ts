@@ -245,10 +245,7 @@ export async function fetchMintedAgents(
             if (metadataUri && metadataUri.startsWith('ipfs://')) {
                 const gatewayUrl = metadataUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                 const metadataResult = await withRetry(async () => {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    const response = await fetch(gatewayUrl, { signal: controller.signal });
-                    clearTimeout(timeoutId);
+                    const response = await fetch(gatewayUrl);
                     if (response.ok) {
                         return await response.json();
                     }
