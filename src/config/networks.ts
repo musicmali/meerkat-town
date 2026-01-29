@@ -42,8 +42,8 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     reputationVersion: 'v1.2',
     scan8004Url: 'https://www.8004scan.io/agents/mainnet',
     alchemyRpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
-    firstMeerkatAgentId: null, // TBD when first agent is minted
-    minimumMeerkatTokenId: null,
+    firstMeerkatAgentId: 12276, // First Meerkat agent minted on mainnet
+    minimumMeerkatTokenId: 12276,
     blockChunkSize: 10000, // Alchemy limit for ETH mainnet
   },
   84532: {
