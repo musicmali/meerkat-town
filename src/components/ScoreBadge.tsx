@@ -1,8 +1,10 @@
 // ScoreBadge Component
 // Displays agent score in a circular orange badge
-// Final spec: getSummary returns [count, averageValue, valueDecimals]
+// Supports both v1.1 (Base Sepolia) and v1.2 (Mainnet) formats
 
-import { useAgentReputation } from '../hooks/useERC8004Registries';
+import { useChainId } from 'wagmi';
+import { useAgentReputation, parseReputationSummary } from '../hooks/useERC8004Registries';
+import { isSupportedNetwork, DEFAULT_CHAIN_ID } from '../config/networks';
 import './ScoreBadge.css';
 
 interface ScoreBadgeProps {
@@ -11,6 +13,8 @@ interface ScoreBadgeProps {
 }
 
 export function ScoreBadge({ agentId, className = '' }: ScoreBadgeProps) {
+    const chainId = useChainId();
+    const effectiveChainId = isSupportedNetwork(chainId) ? chainId : DEFAULT_CHAIN_ID;
     const { data, isLoading, error } = useAgentReputation(agentId);
 
     // Always show the badge
@@ -18,8 +22,7 @@ export function ScoreBadge({ agentId, className = '' }: ScoreBadgeProps) {
     let hasScore = false;
 
     if (!isLoading && !error && data) {
-        const [count, averageScore] = data as [bigint, number];
-        const feedbackCount = Number(count);
+        const { count: feedbackCount, score: averageScore } = parseReputationSummary(data, effectiveChainId);
 
         if (feedbackCount > 0) {
             score = String(averageScore);

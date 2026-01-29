@@ -1,8 +1,10 @@
 // AgentReputation Component
 // Displays ERC-8004 agent reputation summary (average value and feedback count)
-// Final spec: getSummary returns [count, averageValue, valueDecimals]
+// Supports both v1.1 (Base Sepolia) and v1.2 (Mainnet) formats
 
-import { useAgentReputation } from '../hooks/useERC8004Registries';
+import { useChainId } from 'wagmi';
+import { useAgentReputation, parseReputationSummary } from '../hooks/useERC8004Registries';
+import { isSupportedNetwork, DEFAULT_CHAIN_ID } from '../config/networks';
 import './AgentReputation.css';
 
 interface AgentReputationProps {
@@ -18,6 +20,8 @@ export function AgentReputation({
     showCount = true,
     className = ''
 }: AgentReputationProps) {
+    const chainId = useChainId();
+    const effectiveChainId = isSupportedNetwork(chainId) ? chainId : DEFAULT_CHAIN_ID;
     const { data, isLoading, error } = useAgentReputation(agentId);
 
     // Handle loading state
@@ -34,8 +38,8 @@ export function AgentReputation({
         return null; // Silently hide if can't load reputation
     }
 
-    const [count, averageScore] = data as [bigint, number];
-    const feedbackCount = Number(count);
+    // Parse reputation data based on network version
+    const { count: feedbackCount, score: averageScore } = parseReputationSummary(data, effectiveChainId);
 
     // No feedback yet
     if (feedbackCount === 0) {

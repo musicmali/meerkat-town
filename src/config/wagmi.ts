@@ -1,6 +1,7 @@
 import { http, createConfig } from 'wagmi';
 import * as chains from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
+import { SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './networks';
 
 // Get all available chains from wagmi
 const allChains = Object.values(chains).filter(
@@ -11,15 +12,20 @@ const allChains = Object.values(chains).filter(
         'name' in chain
 ) as chains.Chain[];
 
-// Base Sepolia should be first (our main chain for x402)
+// Order chains: Meerkat Town supported chains first, then others
+const ethereumMainnet = allChains.find(c => c.id === 1) || chains.mainnet;
 const baseSepoliaChain = allChains.find(c => c.id === 84532) || chains.baseSepolia;
-const otherChains = allChains.filter(c => c.id !== 84532);
-const orderedChains = [baseSepoliaChain, ...otherChains] as [chains.Chain, ...chains.Chain[]];
+const otherChains = allChains.filter(c => !SUPPORTED_CHAIN_IDS.includes(c.id as 1 | 84532));
 
-// Alchemy RPC for Base Sepolia (faster & more reliable)
+// Default chain should be first (Ethereum Mainnet is the new default)
+const orderedChains = DEFAULT_CHAIN_ID === 1
+    ? [ethereumMainnet, baseSepoliaChain, ...otherChains] as [chains.Chain, ...chains.Chain[]]
+    : [baseSepoliaChain, ethereumMainnet, ...otherChains] as [chains.Chain, ...chains.Chain[]];
+
+// RPC endpoints for supported networks
 const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
 
-// Create transports for all chains (use Alchemy for Base Sepolia)
+// Create transports for all chains
 const transports = Object.fromEntries(
     orderedChains.map(chain => [
         chain.id,
@@ -38,6 +44,11 @@ export const config = createConfig({
 
 // Export chain info for use in components
 export const SUPPORTED_CHAINS = {
+    mainnet: {
+        id: chains.mainnet.id,
+        name: 'Ethereum',
+        network: 'eip155:1',
+    },
     baseSepolia: {
         id: chains.baseSepolia.id,
         name: 'Base Sepolia',
@@ -45,15 +56,9 @@ export const SUPPORTED_CHAINS = {
     },
 };
 
-// Default chain is Base Sepolia
-export const DEFAULT_CHAIN = chains.baseSepolia;
+// Default chain is now Ethereum Mainnet
+export const DEFAULT_CHAIN = DEFAULT_CHAIN_ID === 1 ? chains.mainnet : chains.baseSepolia;
 
-// ERC-8004 Registry Addresses on Base Sepolia
-export const ERC8004_REGISTRIES = {
-    identityRegistry: '0x8004AA63c570c570eBF15376c0dB199918BFe9Fb',
-    reputationRegistry: '0x8004bd8daB57f14Ed299135749a5CB5c42d341BF',
-    validationRegistry: '0x8004C269D0A5647E51E121FeB226200ECE932d55',
-    chainId: 84532,  // Base Sepolia
-    network: 'eip155:84532',
-} as const;
+// Re-export network utilities from networks.ts
+export { SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './networks';
 

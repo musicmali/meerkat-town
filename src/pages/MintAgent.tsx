@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useAccount, useConnect, useChainId, usePublicClient } from 'wagmi';
 import { getSkillsByCategory, getDomainsByCategory } from '../data/oasfTaxonomy';
 import type { AgentFormData } from '../types/agentMetadata';
 import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata, getMeerkatImageUrl } from '../utils/generateAgentMetadata';
 import { useRegisterAgent } from '../hooks/useERC8004Registries';
 import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
 import { uploadToIPFS, storeAgentCard } from '../utils/pinata';
+import { isSupportedNetwork, DEFAULT_CHAIN_ID, isX402Supported, getNetworkName, getBlockExplorerTxUrl, get8004ScanAgentUrl } from '../config/networks';
 import MobileNav from '../components/MobileNav';
 import MobileFooter from '../components/MobileFooter';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -54,9 +54,14 @@ function MintAgent() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending: isConnectPending } = useConnect();
     const chainId = useChainId();
-    const { switchChain, isPending: isSwitching } = useSwitchChain();
-    const isCorrectChain = chainId === baseSepolia.id;
-    const publicClient = usePublicClient({ chainId: baseSepolia.id });
+
+    // Multi-network support
+    const effectiveChainId = isSupportedNetwork(chainId) ? chainId : DEFAULT_CHAIN_ID;
+    const isOnSupportedNetwork = isSupportedNetwork(chainId);
+    const x402Available = isX402Supported(effectiveChainId);
+    const networkName = getNetworkName(effectiveChainId);
+
+    const publicClient = usePublicClient({ chainId: effectiveChainId });
 
     // Current step
     const [currentStep, setCurrentStep] = useState<FormStep>('select');
@@ -84,13 +89,13 @@ function MintAgent() {
         async function fetchUsedMeerkats() {
             setIsLoadingAvailability(true);
             try {
-                const agents = await fetchMeerkatAgents(publicClient);
+                const agents = await fetchMeerkatAgents(publicClient, 100, effectiveChainId);
                 const usedIds = agents
                     .map(a => a.metadata?.meerkatId)
                     .filter((id): id is number => id !== undefined && id >= 1 && id <= 100);
                 // Combine blockchain-detected IDs with manually excluded IDs
                 const allUsedIds = [...usedIds, ...MANUALLY_USED_MEERKAT_IDS];
-                console.log('Used meerkat IDs:', allUsedIds);
+                console.log(`[MintAgent] Used meerkat IDs on ${networkName}:`, allUsedIds);
                 setUsedMeerkatIds(new Set(allUsedIds));
             } catch (error) {
                 console.error('Failed to fetch used meerkats:', error);
@@ -101,7 +106,7 @@ function MintAgent() {
         if (publicClient) {
             fetchUsedMeerkats();
         }
-    }, [publicClient]);
+    }, [publicClient, effectiveChainId, networkName]);
 
     // Set initial random meerkat once availability is loaded
     useEffect(() => {
@@ -201,10 +206,6 @@ function MintAgent() {
         }
     };
 
-    const handleSwitchToBase = () => {
-        switchChain({ chainId: baseSepolia.id });
-    };
-
     const formatAddress = (addr: string) => {
         return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
     };
@@ -246,8 +247,8 @@ function MintAgent() {
 
             // Step 1: Predict the next agent ID
             setMintStage('predicting');
-            console.log('Predicting next agent ID...');
-            const nextId = await predictNextAgentId(publicClient);
+            console.log(`[MintAgent] Predicting next agent ID on ${networkName}...`);
+            const nextId = await predictNextAgentId(publicClient, effectiveChainId);
             console.log('Predicted next agent ID:', nextId);
             setPredictedAgentId(nextId);
 
@@ -367,7 +368,7 @@ function MintAgent() {
                                 </button>
                                 <button
                                     className="btn btn-primary btn-continue"
-                                    disabled={!isConnected || !isCorrectChain}
+                                    disabled={!isConnected || !isOnSupportedNetwork}
                                     onClick={() => goToStep('details')}
                                 >
                                     Continue with this Agent
@@ -425,12 +426,19 @@ function MintAgent() {
                                 </button>
                                 <button
                                     className={`pricing-btn ${!isFree ? 'active' : ''}`}
-                                    onClick={() => setIsFree(false)}
+                                    onClick={() => x402Available && setIsFree(false)}
+                                    disabled={!x402Available}
+                                    title={!x402Available ? 'x402 payments only available on Base Sepolia' : ''}
                                 >
-                                    Paid (x402)
+                                    Paid (x402) {!x402Available && '(Base only)'}
                                 </button>
                             </div>
-                            {!isFree && (
+                            {!x402Available && (
+                                <div className="form-hint" style={{ color: '#f97316', marginTop: '0.5rem' }}>
+                                    x402 payments coming soon on {networkName}. Switch to Base Sepolia to enable paid agents.
+                                </div>
+                            )}
+                            {!isFree && x402Available && (
                                 <div className="price-input-wrapper">
                                     <input
                                         type="number"
@@ -446,7 +454,7 @@ function MintAgent() {
                             )}
                             <span className="form-hint">
                                 {isFree
-                                    ? 'Anyone can chat with your agent for free (x402 still enabled for future features)'
+                                    ? 'Anyone can chat with your agent for free'
                                     : `Users pay $${pricePerMessage} USDC per message via x402`}
                             </span>
                         </div>
@@ -454,9 +462,11 @@ function MintAgent() {
                             <label className="form-label">Payment Wallet</label>
                             <div className="wallet-display">
                                 <span className="wallet-badge">{address ? formatAddress(address) : 'Not connected'}</span>
-                                <span className="wallet-network">Base Sepolia</span>
+                                <span className="wallet-network">{networkName}</span>
                             </div>
-                            <span className="form-hint">x402 payments will be sent to this address</span>
+                            <span className="form-hint">
+                                {x402Available ? 'x402 payments will be sent to this address' : 'Agent will be registered on this network'}
+                            </span>
                         </div>
                         <div className="form-actions">
                             <button className="btn btn-secondary" onClick={() => goToStep('select')}>
@@ -585,7 +595,11 @@ function MintAgent() {
                             </div>
                             <div className="summary-item">
                                 <span className="summary-label">x402 Support</span>
-                                <span className="summary-value">Enabled</span>
+                                <span className="summary-value">{x402Available ? 'Enabled' : 'Not available'}</span>
+                            </div>
+                            <div className="summary-item">
+                                <span className="summary-label">Network</span>
+                                <span className="summary-value">{networkName}</span>
                             </div>
                         </div>
 
@@ -644,7 +658,7 @@ function MintAgent() {
                                         {mintStage === 'registering' ? '...' : mintStage === 'complete' ? '✓' : 'o'} 3. Register in Identity Registry
                                     </span>
                                     {hash && (
-                                        <a href={`https://sepolia.basescan.org/tx/${hash}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
+                                        <a href={getBlockExplorerTxUrl(effectiveChainId, hash)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
                                             View TX
                                         </a>
                                     )}
@@ -675,14 +689,16 @@ function MintAgent() {
                                     <Link to="/my-agents" className="btn btn-primary" style={{ marginRight: '0.5rem' }}>
                                         View My Agents
                                     </Link>
-                                    <a
-                                        href={`https://www.8004scan.io/agents/base-sepolia/${newAgentId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-secondary"
-                                    >
-                                        View on 8004scan
-                                    </a>
+                                    {newAgentId && (
+                                        <a
+                                            href={get8004ScanAgentUrl(effectiveChainId, newAgentId)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-secondary"
+                                        >
+                                            View on 8004scan
+                                        </a>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -765,12 +781,9 @@ function MintAgent() {
                     </div>
                 </div>
 
-                {isConnected && !isCorrectChain && (
+                {isConnected && !isOnSupportedNetwork && (
                     <div className="notice notice-warning">
-                        <span>Please switch to Base Sepolia network</span>
-                        <button onClick={handleSwitchToBase} disabled={isSwitching} className="btn btn-primary" style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}>
-                            {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
-                        </button>
+                        <span>Please switch to a supported network using the network switcher. Currently registering on {getNetworkName(DEFAULT_CHAIN_ID)}.</span>
                     </div>
                 )}
 

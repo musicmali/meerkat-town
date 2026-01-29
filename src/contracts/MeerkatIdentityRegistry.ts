@@ -1,8 +1,18 @@
-// ERC-8004 Identity Registry Contract - Base Sepolia
+// ERC-8004 Identity Registry Contract - Multi-Network Support
 // The Identity Registry uses ERC-721 with URIStorage extension for agent registration
-// Our MeerkatAgents contract serves as the identity source, this registry is for protocol-level integration
+// Supports Ethereum Mainnet and Base Sepolia
 
+import { getContractAddress } from '../config/networks';
+
+// Base Sepolia address (for backwards compatibility)
 export const IDENTITY_REGISTRY_ADDRESS = '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const;
+
+/**
+ * Get identity registry address for a specific chain
+ */
+export function getIdentityRegistryAddress(chainId: number): `0x${string}` {
+    return getContractAddress(chainId, 'identityRegistry');
+}
 
 export const IDENTITY_REGISTRY_ABI = [
     // ========== READ FUNCTIONS ==========

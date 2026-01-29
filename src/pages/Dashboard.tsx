@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useAccount, useConnect, useDisconnect, useChainId, usePublicClient } from 'wagmi';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
-import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
+import { getReputationABI, getReputationRegistryAddress, parseReputationSummary } from '../hooks/useERC8004Registries';
 import { getFromCache, setToCache, clearCache, batchProcess } from '../utils/rpcUtils';
+import { isSupportedNetwork, DEFAULT_CHAIN_ID, getBlockExplorerAddressUrl, get8004ScanAgentUrl, getNetworkName } from '../config/networks';
 import AgentReputation from '../components/AgentReputation';
 import ScoreBadge from '../components/ScoreBadge';
 import TopBar from '../components/TopBar';
@@ -20,8 +20,9 @@ interface AgentWithScore extends RegisteredAgent {
     feedbackCount: number;
 }
 
-const AGENTS_CACHE_KEY = 'dashboard_agents_v2'; // v2: invalidate old cache for v1.1 contracts
-const SCORES_CACHE_KEY = 'dashboard_scores_v2'; // v2: invalidate old cache for v1.1 contracts
+// Cache keys are now chain-specific (v3: multi-network support)
+const getAgentsCacheKey = (chainId: number) => `dashboard_agents_v3_${chainId}`;
+const getScoresCacheKey = (chainId: number) => `dashboard_scores_v3_${chainId}`;
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
 interface Agent {
@@ -67,12 +68,13 @@ function Dashboard() {
     const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
     const chainId = useChainId();
-    const { switchChain, isPending: isSwitching } = useSwitchChain();
 
-    const isCorrectChain = chainId === baseSepolia.id;
+    // Use current chain if supported, otherwise default
+    const effectiveChainId = isSupportedNetwork(chainId) ? chainId : DEFAULT_CHAIN_ID;
+    const isOnSupportedNetwork = isSupportedNetwork(chainId);
 
-    // Fetch agents from ERC-8004 Identity Registry
-    const publicClient = usePublicClient({ chainId: baseSepolia.id });
+    // Fetch agents from ERC-8004 Identity Registry for the current chain
+    const publicClient = usePublicClient({ chainId: effectiveChainId });
     const [meerkatAgents, setMeerkatAgents] = useState<AgentWithScore[]>([]);
     const [isLoadingAgents, setIsLoadingAgents] = useState(true);
     const [, setIsLoadingScores] = useState(false);
@@ -88,26 +90,28 @@ function Dashboard() {
 
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
-    // Fetch score for a single agent
+    // Fetch score for a single agent (network-aware)
     const fetchAgentScore = useCallback(async (agentId: number): Promise<{ score: number; feedbackCount: number }> => {
         if (!publicClient) return { score: 0, feedbackCount: 0 };
 
         try {
+            const reputationAddress = getReputationRegistryAddress(effectiveChainId);
+            const reputationABI = getReputationABI(effectiveChainId);
+
             const result = await publicClient.readContract({
-                address: REPUTATION_REGISTRY_ADDRESS,
-                abi: REPUTATION_REGISTRY_ABI,
+                address: reputationAddress,
+                abi: reputationABI,
                 functionName: 'getSummary',
                 args: [BigInt(agentId), [], '', ''],
-            }) as [bigint, number];
+            }) as readonly unknown[];
 
-            return {
-                feedbackCount: Number(result[0]),
-                score: result[1],
-            };
+            // Parse based on network version (v1.1 vs v1.2)
+            const { count, score } = parseReputationSummary(result, effectiveChainId);
+            return { feedbackCount: count, score };
         } catch {
             return { score: 0, feedbackCount: 0 };
         }
-    }, [publicClient]);
+    }, [publicClient, effectiveChainId]);
 
     // Set page title
     useEffect(() => {
@@ -123,7 +127,7 @@ function Dashboard() {
             }
 
             // Try to load from cache first
-            const cachedAgents = getFromCache<AgentWithScore[]>(AGENTS_CACHE_KEY);
+            const cachedAgents = getFromCache<AgentWithScore[]>(getAgentsCacheKey(effectiveChainId));
             if (cachedAgents && cachedAgents.length > 0) {
                 console.log('[Dashboard] Using cached agents:', cachedAgents.length);
                 setMeerkatAgents(cachedAgents);
@@ -133,8 +137,8 @@ function Dashboard() {
 
             setIsLoadingAgents(true);
             try {
-                console.log('[Dashboard] Fetching agents from blockchain...');
-                const agents = await fetchMeerkatAgents(publicClient, 50);
+                console.log(`[Dashboard] Fetching agents from ${getNetworkName(effectiveChainId)}...`);
+                const agents = await fetchMeerkatAgents(publicClient, 50, effectiveChainId);
 
                 if (agents.length === 0) {
                     console.log('[Dashboard] No agents found');
@@ -157,7 +161,7 @@ function Dashboard() {
                 console.log('[Dashboard] Fetching scores for', agents.length, 'agents...');
 
                 // Check for cached scores
-                const cachedScores = getFromCache<Record<number, { score: number; feedbackCount: number }>>(SCORES_CACHE_KEY);
+                const cachedScores = getFromCache<Record<number, { score: number; feedbackCount: number }>>(getScoresCacheKey(effectiveChainId));
 
                 const agentsWithScores: AgentWithScore[] = await batchProcess(
                     agents,
@@ -184,8 +188,8 @@ function Dashboard() {
                 agentsWithScores.forEach(agent => {
                     scoresMap[agent.agentId] = { score: agent.score, feedbackCount: agent.feedbackCount };
                 });
-                setToCache(SCORES_CACHE_KEY, scoresMap, CACHE_TTL);
-                setToCache(AGENTS_CACHE_KEY, agentsWithScores, CACHE_TTL);
+                setToCache(getScoresCacheKey(effectiveChainId), scoresMap, CACHE_TTL);
+                setToCache(getAgentsCacheKey(effectiveChainId), agentsWithScores, CACHE_TTL);
 
                 console.log('[Dashboard] Scores loaded:', agentsWithScores.length);
                 setMeerkatAgents(agentsWithScores);
@@ -198,7 +202,7 @@ function Dashboard() {
         };
 
         loadAgents();
-    }, [publicClient, fetchAgentScore]);
+    }, [publicClient, fetchAgentScore, effectiveChainId]);
 
     // Sort agents based on selected order
     const sortedAgents = useMemo(() => {
@@ -226,12 +230,12 @@ function Dashboard() {
             await fetch(`${BACKEND_URL}/agents/refresh-cache`, { method: 'POST' });
 
             // Clear local caches
-            clearCache(AGENTS_CACHE_KEY);
-            clearCache(SCORES_CACHE_KEY);
+            clearCache(getAgentsCacheKey(effectiveChainId));
+            clearCache(getScoresCacheKey(effectiveChainId));
 
             // Reload agents
             setIsLoadingAgents(true);
-            const agents = await fetchMeerkatAgents(publicClient, 50);
+            const agents = await fetchMeerkatAgents(publicClient, 50, effectiveChainId);
 
             const agentsWithDefaultScores: AgentWithScore[] = agents.map(agent => ({
                 ...agent,
@@ -253,7 +257,7 @@ function Dashboard() {
                 300
             );
             setMeerkatAgents(agentsWithScores);
-            setToCache(AGENTS_CACHE_KEY, agentsWithScores, CACHE_TTL);
+            setToCache(getAgentsCacheKey(effectiveChainId), agentsWithScores, CACHE_TTL);
         } catch (e) {
             console.error('[Dashboard] Refresh failed:', e);
         } finally {
@@ -272,8 +276,12 @@ function Dashboard() {
         return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
     };
 
-    const getBaseScanUrl = (addr: string) => {
-        return `https://sepolia.basescan.org/address/${addr}`;
+    const getExplorerUrl = (addr: string) => {
+        return getBlockExplorerAddressUrl(effectiveChainId, addr);
+    };
+
+    const get8004Url = (agentId: number) => {
+        return get8004ScanAgentUrl(effectiveChainId, agentId);
     };
 
     const handleConnect = () => {
@@ -281,10 +289,6 @@ function Dashboard() {
         if (connector) {
             connect({ connector });
         }
-    };
-
-    const handleSwitchToBase = () => {
-        switchChain({ chainId: baseSepolia.id });
     };
 
     return (
@@ -357,19 +361,11 @@ function Dashboard() {
                     </div>
                 )}
 
-                {/* Wrong Network Notice */}
-                {isConnected && !isCorrectChain && (
+                {/* Unsupported Network Notice */}
+                {isConnected && !isOnSupportedNetwork && (
                     <div className="notice" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: '#EF4444' }}>
                         <span className="notice-icon">&#9888;</span>
-                        <span>Please switch to Base Sepolia network to use Meerkat Town.</span>
-                        <button
-                            onClick={handleSwitchToBase}
-                            disabled={isSwitching}
-                            className="btn btn-primary"
-                            style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}
-                        >
-                            {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
-                        </button>
+                        <span>Please switch to a supported network using the network switcher above. Showing agents from {getNetworkName(DEFAULT_CHAIN_ID)}.</span>
                     </div>
                 )}
 
@@ -480,7 +476,7 @@ function Dashboard() {
                                                 </span>
                                                 <span className="meta-item">
                                                     Owner: <a
-                                                        href={`https://sepolia.basescan.org/address/${agent.owner}`}
+                                                        href={getExplorerUrl(agent.owner)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="owner-link"
@@ -498,7 +494,7 @@ function Dashboard() {
                                         </div>
                                         <div className="agent-actions">
                                             <a
-                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                href={get8004Url(agent.agentId)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn btn-8004scan btn-sm"
@@ -551,7 +547,7 @@ function Dashboard() {
                                                 <div className="deployer-badge">
                                                     <span className="deployer-label">Owner:</span>
                                                     <a
-                                                        href={getBaseScanUrl(agent.owner)}
+                                                        href={getExplorerUrl(agent.owner)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="deployer-address"
@@ -604,7 +600,7 @@ function Dashboard() {
                                                 </div>
                                                 <div className="agent-actions-grid">
                                                     <a
-                                                        href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                        href={get8004Url(agent.agentId)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn btn-8004scan"

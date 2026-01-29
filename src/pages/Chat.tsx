@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useAccount, useConnect, useChainId, usePublicClient } from 'wagmi';
 import ReactMarkdown from 'react-markdown';
 import { useX402 } from '../hooks/useX402';
 import { fetchAgent } from '../hooks/useIdentityRegistry';
-import { IDENTITY_REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import { getIdentityRegistryAddress, IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import { isSupportedNetwork, DEFAULT_CHAIN_ID, isX402Supported, getNetworkName } from '../config/networks';
 import RateAgent from '../components/RateAgent';
 import './Chat.css';
 
@@ -52,15 +52,16 @@ function Chat() {
     // Wallet connection
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending: isConnectPending } = useConnect();
-    const publicClient = usePublicClient({ chainId: baseSepolia.id });
 
-    // Chain management
+    // Chain management - support multiple networks
     const chainId = useChainId();
-    const { switchChain } = useSwitchChain();
-    const isCorrectChain = chainId === baseSepolia.id;
+    const effectiveChainId = isSupportedNetwork(chainId) ? chainId : DEFAULT_CHAIN_ID;
+    const x402Available = isX402Supported(effectiveChainId);
+
+    const publicClient = usePublicClient({ chainId: effectiveChainId });
 
     // x402 payment support
-    const { x402Fetch, isReady: isX402Ready } = useX402();
+    const { x402Fetch, isReady: isX402Ready, isX402Supported: hookX402Supported } = useX402();
 
     // Dynamic agent state
     const [agent, setAgent] = useState<AgentInfo | null>(null);
@@ -103,7 +104,7 @@ function Chat() {
                         return;
                     }
 
-                    const found = await fetchAgent(numericAgentId, publicClient);
+                    const found = await fetchAgent(numericAgentId, publicClient, effectiveChainId);
 
                     if (found && found.isMeerkatAgent) {
                         const meerkatId = found.metadata?.meerkatId || 1;
@@ -124,8 +125,9 @@ function Chat() {
                         // Fetch the agent owner from Identity Registry
                         let ownerAddress: string | undefined;
                         try {
+                            const identityAddress = getIdentityRegistryAddress(effectiveChainId);
                             const owner = await publicClient.readContract({
-                                address: IDENTITY_REGISTRY_ADDRESS,
+                                address: identityAddress,
                                 abi: IDENTITY_REGISTRY_ABI,
                                 functionName: 'ownerOf',
                                 args: [BigInt(numericAgentId)],
@@ -136,8 +138,9 @@ function Chat() {
                         }
 
                         // Build system prompt from metadata
+                        const networkName = getNetworkName(effectiveChainId);
                         const systemPrompt = `You are ${found.metadata?.name || 'a Meerkat Agent'}, a helpful AI assistant.
-Description: ${found.metadata?.description || 'A unique Meerkat Agent on the Base Sepolia network.'}
+Description: ${found.metadata?.description || `A unique Meerkat Agent on ${networkName}.`}
 Expertise: ${domains.join(', ') || 'General assistance'}
 Be friendly, helpful, and concise in your responses.`;
 
@@ -170,7 +173,7 @@ Be friendly, helpful, and concise in your responses.`;
         };
 
         loadAgent();
-    }, [agentId, publicClient]);
+    }, [agentId, publicClient, effectiveChainId]);
 
 
     // Scroll to bottom on new message
@@ -196,10 +199,6 @@ Be friendly, helpful, and concise in your responses.`;
         }
     };
 
-    const handleSwitchChain = () => {
-        switchChain({ chainId: baseSepolia.id });
-    };
-
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
 
@@ -220,18 +219,19 @@ Be friendly, helpful, and concise in your responses.`;
         }
 
         try {
-            // Use paid mode when wallet connected and on correct chain
+            // Use paid mode when wallet connected and on x402-supported network
             // Legacy agents (bob, ana) and paid minted agents all require payment
             const isLegacyAgent = agentId === 'bob' || agentId === 'ana';
             const isFreeAgent = agent?.pricePerMessage === 'Free';
             const shouldCharge = (isLegacyAgent || agent?.isMintedAgent) && !isFreeAgent;
-            const useX402 = shouldCharge && isConnected && isX402Ready && isCorrectChain;
+            // x402 only available on Base Sepolia currently
+            const useX402Payment = shouldCharge && isConnected && isX402Ready && x402Available && hookX402Supported;
 
             // Choose endpoint: paid or demo
-            const endpoint = useX402 ? `/agents/${agentId}` : `/demo/${agentId}`;
+            const endpoint = useX402Payment ? `/agents/${agentId}` : `/demo/${agentId}`;
 
             // Use x402Fetch for paid mode, regular fetch for demo
-            const fetchFn = useX402 ? x402Fetch : fetch;
+            const fetchFn = useX402Payment ? x402Fetch : fetch;
 
             const response = await fetchFn(`${API_URL}${endpoint}`, {
                 method: 'POST',
@@ -322,15 +322,9 @@ Be friendly, helpful, and concise in your responses.`;
                     </div>
                 </div>
                 <div className="chat-header-right">
-                    {/* Wrong chain warning */}
-                    {isConnected && !isCorrectChain && (
-                        <button onClick={handleSwitchChain} className="btn btn-warning btn-small">
-                            ⚠️ Switch to Base Sepolia
-                        </button>
-                    )}
                     {/* Price badge */}
                     <span className="price-badge">
-                        {agent.pricePerMessage === 'Free' ? 'Free' : `${agent.pricePerMessage || '$0.001'} / msg`}
+                        {agent.pricePerMessage === 'Free' || !x402Available ? 'Free' : `${agent.pricePerMessage || '$0.001'} / msg`}
                     </span>
                     {isConnected && address ? (
                         <div className="wallet-badge connected">
@@ -360,16 +354,11 @@ Be friendly, helpful, and concise in your responses.`;
                                 ? 'Ask me about crypto markets, DeFi protocols, or any blockchain project!'
                                 : 'I can help with writing, content creation, copywriting, and more!'}
                         </p>
-                        {isConnected && !isCorrectChain && (
-                            <p className="demo-notice" style={{ color: '#EF4444' }}>
-                                ⚠️ Please switch to Base Base Sepolia network to use paid mode.
-                            </p>
-                        )}
-                        {isConnected && isCorrectChain && (
-                            <p className="demo-notice">
-                                {agent.pricePerMessage === 'Free'
-                                    ? '🆓 This agent is free to chat with!'
-                                    : `💰 Each message costs ${agent.pricePerMessage || '$0.001'} USDC via x402`}
+                        {isConnected && (
+                            <p className="chat-notice">
+                                {x402Available && agent.pricePerMessage !== 'Free'
+                                    ? `💰 Each message costs ${agent.pricePerMessage || '$0.001'} USDC via x402`
+                                    : '🆓 This agent is free to chat with!'}
                             </p>
                         )}
                     </div>
@@ -457,7 +446,7 @@ Be friendly, helpful, and concise in your responses.`;
                     </button>
                 </div>
                 <p className="chat-disclaimer">
-                    {agent.pricePerMessage === 'Free'
+                    {agent.pricePerMessage === 'Free' || !x402Available
                         ? 'This agent is free to chat with.'
                         : `Each message costs ${agent.pricePerMessage || '$0.001'} USDC via x402 on Base.`}
                 </p>
