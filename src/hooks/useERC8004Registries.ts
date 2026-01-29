@@ -1,6 +1,7 @@
-// ERC-8004 Registry Hooks (v1.1)
+// ERC-8004 Registry Hooks (v1.2 - Final Spec)
 // Hooks for interacting with Identity, Reputation, and Validation registries on Base Sepolia
-// v1.1: Simplified feedback submission - no authorization required
+// v1.2 (Final): score (uint8) replaced with value (int128) + valueDecimals (uint8)
+//              Supports decimals, negative numbers, and values > 100
 
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { useAccount } from 'wagmi';
@@ -69,12 +70,12 @@ export function useAgentMetadata(agentId: number, metadataKey: string, enabled =
 // ============================================================================
 
 /**
- * Get agent reputation summary (count and average score)
- * v1.1: Tags are now strings instead of bytes32
+ * Get agent reputation summary (count and average value)
+ * Final spec: Returns count, averageValue (int128), and valueDecimals (uint8)
  * @param agentId - The agent's token ID
  * @param clientAddresses - Optional filter by specific client addresses
- * @param tag1 - Optional filter by tag1 (string)
- * @param tag2 - Optional filter by tag2 (string)
+ * @param tag1 - Optional filter by tag1 (e.g., "starred", "uptime", "successRate")
+ * @param tag2 - Optional filter by tag2 (e.g., time window: "day", "week", "month")
  */
 export function useAgentReputation(
     agentId: number,
@@ -123,6 +124,8 @@ export function useReputationIdentityRegistry() {
  * Hook to submit feedback for an agent
  * v1.1: Direct submission - no authorization required
  * Contract signature: giveFeedback(uint256,uint8,string,string,string,string,bytes32)
+ *
+ * NOTE: When ERC-8004 final contracts are deployed, update to use value/valueDecimals
  */
 export function useGiveFeedback() {
     const { writeContract, data: hash, isPending, error } = useWriteContract();
@@ -317,7 +320,9 @@ export function createFeedbackData(
         agentId,
         clientAddress: formatCAIP10(clientAddress),
         createdAt: now,
-        score,
+        value: score,
+        valueDecimals: 0,
+        score, // Legacy field
         reasoning: options?.reasoning,
         tag1: options?.tag1,
         tag2: options?.tag2,

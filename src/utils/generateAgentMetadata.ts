@@ -5,7 +5,7 @@
 import type {
     AgentMetadata,
     AgentFormData,
-    AgentEndpoint,
+    AgentService,
     AgentRegistration,
 } from '../types/agentMetadata';
 
@@ -72,13 +72,14 @@ export function generateAgentMetadata(
     formData: AgentFormData,
     agentId?: number
 ): AgentMetadata {
-    // Always use meerkat ID format for MCP and A2A endpoints
+    // Always use meerkat ID format for MCP and A2A services
     const meerkatAgentId = `meerkat-${formData.meerkatNumber}`;
 
-    const endpoints: AgentEndpoint[] = [];
+    // ERC-8004 final spec uses "services" instead of "endpoints"
+    const services: AgentService[] = [];
 
-    // MCP Endpoint - uses meerkat ID
-    endpoints.push({
+    // MCP Service - uses meerkat ID
+    services.push({
         name: 'MCP',
         endpoint: getMCPEndpoint(meerkatAgentId),
         version: MCP_VERSION,
@@ -86,17 +87,17 @@ export function generateAgentMetadata(
         mcpPrompts: formData.mcpPrompts || ['greeting', 'help'],
     });
 
-    // A2A Endpoint - uses meerkat ID
-    endpoints.push({
+    // A2A Service - uses meerkat ID
+    services.push({
         name: 'A2A',
         endpoint: getA2AEndpoint(meerkatAgentId),
         version: A2A_VERSION,
         a2aSkills: formData.skills,
     });
 
-    // OASF Endpoint (skills & domains)
+    // OASF Service (skills & domains)
     if (formData.skills.length > 0 || formData.domains.length > 0) {
-        endpoints.push({
+        services.push({
             name: 'OASF',
             endpoint: getOASFEndpoint(meerkatAgentId),
             version: OASF_VERSION,
@@ -106,7 +107,7 @@ export function generateAgentMetadata(
     }
 
     // Agent Wallet (payment address on Base Sepolia)
-    endpoints.push({
+    services.push({
         name: 'agentWallet',
         endpoint: formatCAIP10Address(formData.ownerAddress),
     });
@@ -131,8 +132,8 @@ export function generateAgentMetadata(
         description: formData.description,
         image: getMeerkatImageUrl(formData.meerkatNumber),
 
-        // Recommended ERC-8004 fields
-        endpoints,
+        // Recommended ERC-8004 fields (final spec uses "services")
+        services,
         registrations,
 
         // Optional ERC-8004 fields
@@ -194,15 +195,16 @@ export function validateAgentMetadata(metadata: AgentMetadata): { valid: boolean
         errors.push('Image is required');
     }
 
-    // Recommended fields
-    if (!metadata.endpoints || metadata.endpoints.length === 0) {
-        errors.push('At least one endpoint is required');
+    // Recommended fields - support both "services" (new) and "endpoints" (legacy)
+    const servicesList = metadata.services || metadata.endpoints || [];
+    if (servicesList.length === 0) {
+        errors.push('At least one service is required');
     }
 
     // Check for agentWallet (required for x402 support)
-    const hasWallet = metadata.endpoints?.some(e => e.name === 'agentWallet');
+    const hasWallet = servicesList.some(s => s.name === 'agentWallet');
     if (!hasWallet) {
-        errors.push('agentWallet endpoint is required');
+        errors.push('agentWallet service is required');
     }
 
     // Meerkat Town specific
@@ -228,4 +230,12 @@ export function formatMetadataJSON(metadata: AgentMetadata): string {
  */
 export function isAgentFree(metadata: AgentMetadata): boolean {
     return metadata.pricePerMessage === 'Free' || metadata.pricePerMessage === '0' || !metadata.pricePerMessage;
+}
+
+/**
+ * Get services from metadata (supports both "services" and legacy "endpoints")
+ * Use this helper when reading agent metadata for backwards compatibility
+ */
+export function getServicesFromMetadata(metadata: AgentMetadata): AgentService[] {
+    return metadata.services || metadata.endpoints || [];
 }

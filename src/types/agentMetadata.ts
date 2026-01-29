@@ -1,7 +1,8 @@
 // ERC-8004 Agent Metadata Types
-// Based on https://best-practices.8004scan.io/docs/01-agent-metadata-standard.html
+// Based on https://eips.ethereum.org/EIPS/eip-8004
+// Updated for ERC-8004 final spec: endpoints → services, score → value/valueDecimals
 
-export interface AgentEndpoint {
+export interface AgentService {
     name: string;
     endpoint: string;
     version?: string;
@@ -18,6 +19,9 @@ export interface AgentEndpoint {
     description?: string;
 }
 
+// Backwards compatibility alias
+export type AgentEndpoint = AgentService;
+
 export interface AgentRegistration {
     agentId: number;
     agentRegistry: string; // CAIP-10 format: eip155:chainId:contractAddress
@@ -31,7 +35,10 @@ export interface AgentMetadata {
     image: string;
 
     // Recommended fields (ERC-8004)
-    endpoints: AgentEndpoint[];
+    // Note: "services" is the new field name per final ERC-8004 spec
+    // "endpoints" kept for backwards compatibility with existing agents
+    services?: AgentService[];
+    endpoints?: AgentEndpoint[];  // @deprecated - use services
     registrations?: AgentRegistration[];
 
     // Optional fields (ERC-8004)
@@ -107,13 +114,22 @@ export interface FeedbackData {
     agentId: number;
     clientAddress: string;    // CAIP-10 format
     createdAt: string;        // ISO 8601
-    score: number;            // 0-100
+
+    // Value fields (ERC-8004 final spec)
+    // value + valueDecimals represent a signed fixed-point number
+    // e.g., value=8750, valueDecimals=2 = 87.50
+    // Supports negatives, decimals, and values > 100
+    value: number;            // int128 - the raw value
+    valueDecimals: number;    // uint8 (0-18) - decimal places
+
+    // @deprecated - use value/valueDecimals
+    score?: number;           // Legacy 0-100 score for backwards compatibility
 
     // Recommended fields
     reasoning?: string;
-    tag1?: string;
-    tag2?: string;
-    endpoint?: string;  // v1.1: Optional endpoint URI tracking
+    tag1?: string;            // e.g., "starred", "uptime", "successRate", "responseTime"
+    tag2?: string;            // Secondary tag or time window (e.g., "day", "week", "month")
+    endpoint?: string;        // Optional endpoint/service URI tracking
 
     // Protocol-specific fields
     skill?: string;           // OASF/A2A skill used

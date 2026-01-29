@@ -97,7 +97,7 @@ function Dashboard() {
                 address: REPUTATION_REGISTRY_ADDRESS,
                 abi: REPUTATION_REGISTRY_ABI,
                 functionName: 'getSummary',
-                args: [BigInt(agentId), [], '', ''],  // v1.1: strings for tags
+                args: [BigInt(agentId), [], '', ''],
             }) as [bigint, number];
 
             return {
@@ -453,11 +453,11 @@ function Dashboard() {
                                 const pricePerMessage = agent.metadata?.pricePerMessage || 'Free';
                                 const isFree = pricePerMessage === 'Free' || pricePerMessage === '0';
                                 const domains: string[] = [];
-                                if (agent.metadata?.endpoints) {
-                                    agent.metadata.endpoints.forEach(ep => {
-                                        if (ep.domains) domains.push(...ep.domains);
-                                    });
-                                }
+                                // Support both "services" (new) and "endpoints" (legacy)
+                                const servicesList = agent.metadata?.services || agent.metadata?.endpoints || [];
+                                servicesList.forEach(svc => {
+                                    if (svc.domains) domains.push(...svc.domains);
+                                });
 
                                 return (
                                     <div key={agent.agentId} className="agent-row">
@@ -568,11 +568,11 @@ function Dashboard() {
                                             <div className="agent-tags" style={{ marginBottom: 'auto', paddingBottom: 'var(--space-4)' }}>
                                                 {(() => {
                                                     const domains: string[] = [];
-                                                    if (agent.metadata?.endpoints) {
-                                                        agent.metadata.endpoints.forEach(ep => {
-                                                            if (ep.domains) domains.push(...ep.domains);
-                                                        });
-                                                    }
+                                                    // Support both "services" (new) and "endpoints" (legacy)
+                                                    const servicesList = agent.metadata?.services || agent.metadata?.endpoints || [];
+                                                    servicesList.forEach(svc => {
+                                                        if (svc.domains) domains.push(...svc.domains);
+                                                    });
                                                     // Take top 3 unique domains and format them
                                                     return [...new Set(domains)]
                                                         .slice(0, 3)

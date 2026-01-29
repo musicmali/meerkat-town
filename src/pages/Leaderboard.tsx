@@ -72,7 +72,7 @@ function Leaderboard() {
                                 address: REPUTATION_REGISTRY_ADDRESS,
                                 abi: REPUTATION_REGISTRY_ABI,
                                 functionName: 'getSummary',
-                                args: [BigInt(agent.agentId), [], '', ''],  // v1.1: strings for tags
+                                args: [BigInt(agent.agentId), [], '', ''],
                             }) as [bigint, number];
 
                             return {

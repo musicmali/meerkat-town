@@ -1,5 +1,6 @@
 // AgentReputation Component
-// Displays ERC-8004 agent reputation summary (average score and feedback count)
+// Displays ERC-8004 agent reputation summary (average value and feedback count)
+// Final spec: getSummary returns [count, averageValue, valueDecimals]
 
 import { useAgentReputation } from '../hooks/useERC8004Registries';
 import './AgentReputation.css';

@@ -109,17 +109,17 @@ function Chat() {
                         const meerkatId = found.metadata?.meerkatId || 1;
 
                         // Extract domains for description
+                        // Support both "services" (new) and "endpoints" (legacy)
                         const domains: string[] = [];
-                        if (found.metadata?.endpoints) {
-                            found.metadata.endpoints.forEach(ep => {
-                                if (ep.domains) {
-                                    ep.domains.forEach(d => {
-                                        const lastPart = d.split('/').pop() || d;
-                                        domains.push(lastPart.replace(/_/g, ' '));
-                                    });
-                                }
-                            });
-                        }
+                        const servicesList = found.metadata?.services || found.metadata?.endpoints || [];
+                        servicesList.forEach(svc => {
+                            if (svc.domains) {
+                                svc.domains.forEach(d => {
+                                    const lastPart = d.split('/').pop() || d;
+                                    domains.push(lastPart.replace(/_/g, ' '));
+                                });
+                            }
+                        });
 
                         // Fetch the agent owner from Identity Registry
                         let ownerAddress: string | undefined;

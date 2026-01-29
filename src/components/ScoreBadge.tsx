@@ -1,5 +1,6 @@
 // ScoreBadge Component
 // Displays agent score in a circular orange badge
+// Final spec: getSummary returns [count, averageValue, valueDecimals]
 
 import { useAgentReputation } from '../hooks/useERC8004Registries';
 import './ScoreBadge.css';
@@ -17,7 +18,6 @@ export function ScoreBadge({ agentId, className = '' }: ScoreBadgeProps) {
     let hasScore = false;
 
     if (!isLoading && !error && data) {
-        // Data is returned as tuple [count: bigint, averageScore: number]
         const [count, averageScore] = data as [bigint, number];
         const feedbackCount = Number(count);
 

@@ -161,8 +161,17 @@ interface CachedMetadata {
 const metadataCache = new Map<string, CachedMetadata>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Registrations cache for ERC-8004 endpoint verification (10 minute TTL)
+interface CachedRegistrations {
+  data: Array<{ agentId: number; agentRegistry: string }>;
+  timestamp: number;
+}
+let registrationsCache: CachedRegistrations | null = null;
+const REGISTRATIONS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
 // Agent metadata types (matching frontend)
-interface AgentEndpoint {
+// ERC-8004 final spec: "endpoints" renamed to "services"
+interface AgentService {
   name: string;
   endpoint: string;
   version?: string;
@@ -171,15 +180,28 @@ interface AgentEndpoint {
   a2aSkills?: string[];
 }
 
+// Backwards compatibility alias
+type AgentEndpoint = AgentService;
+
 interface AgentMetadataFromIPFS {
   type?: string;
   name: string;
   description: string;
   image?: string;
-  endpoints?: AgentEndpoint[];
+  // ERC-8004 final spec uses "services", but we support both for backwards compatibility
+  services?: AgentService[];
+  endpoints?: AgentEndpoint[]; // @deprecated - use services
   meerkatId?: number;
   pricePerMessage?: string;
   x402support?: boolean;
+}
+
+/**
+ * Helper to get services from metadata (supports both "services" and legacy "endpoints")
+ */
+function getServicesFromMetadata(metadata: AgentMetadataFromIPFS | null): AgentService[] {
+  if (!metadata) return [];
+  return metadata.services || metadata.endpoints || [];
 }
 
 /**
@@ -1765,6 +1787,140 @@ app.post('/mcp/:agentId', async (c) => {
       jsonrpc: '2.0',
       error: { code: -32603, message: error.message },
       id: null,
+    }, 500);
+  }
+});
+
+// ============================================================================
+// ERC-8004 ENDPOINT DOMAIN VERIFICATION
+// ============================================================================
+
+/**
+ * Agent Registration Discovery - ERC-8004 Endpoint Domain Verification
+ * Returns registrations list for all Meerkat Town agents hosted on this domain
+ *
+ * This allows explorers (like 8004scan) to verify that endpoints are controlled
+ * by the agent owners. Per ERC-8004 spec:
+ * "An agent MAY optionally prove control of an HTTPS endpoint-domain by publishing
+ * https://{endpoint-domain}/.well-known/agent-registration.json"
+ *
+ * @see https://eips.ethereum.org/EIPS/eip-8004#endpoint-domain-verification-optional
+ */
+app.get('/.well-known/agent-registration.json', async (c) => {
+  try {
+    // Chain info for CAIP-10 format
+    const chainId = 84532; // Base Sepolia
+    const identityRegistry = IDENTITY_REGISTRY_ADDRESS;
+    const agentRegistryCAIP10 = `eip155:${chainId}:${identityRegistry}`;
+
+    // Check cache first
+    if (registrationsCache && Date.now() - registrationsCache.timestamp < REGISTRATIONS_CACHE_TTL) {
+      console.log('[agent-registration.json] Using cached registrations');
+      // Return cached data (skip to return statement below)
+    } else {
+      console.log('[agent-registration.json] Fetching registrations from blockchain...');
+
+      const registrations: Array<{
+        agentId: number;
+        agentRegistry: string;
+      }> = [];
+
+      // Fetch agent metadata to find Meerkat Town agents
+      // Start from agent 16 (first Meerkat agent) and go up to 200
+      // Stop early if we get consecutive errors (means we've reached the end)
+      const startId = 16;
+      const maxId = 200; // Upper bound for search
+      let consecutiveErrors = 0;
+
+      for (let agentId = startId; agentId <= maxId; agentId++) {
+        try {
+          // Get token URI
+          const tokenUri = await publicClient.readContract({
+            address: IDENTITY_REGISTRY_ADDRESS,
+            abi: IDENTITY_REGISTRY_ABI,
+            functionName: 'tokenURI',
+            args: [BigInt(agentId)],
+          }) as string;
+
+          consecutiveErrors = 0; // Reset on success
+
+          // Quick check: if IPFS URI exists, fetch metadata
+          if (tokenUri && (tokenUri.startsWith('ipfs://') || tokenUri.startsWith('https://'))) {
+            // Fetch metadata to verify it's a Meerkat Town agent
+            const metadata = await fetchMetadataFromIPFS(tokenUri);
+
+            if (metadata && metadata.meerkatId && metadata.meerkatId >= 1 && metadata.meerkatId <= 100) {
+              registrations.push({
+                agentId: agentId,
+                agentRegistry: agentRegistryCAIP10,
+              });
+            }
+          }
+        } catch {
+          consecutiveErrors++;
+          // If we get 5 consecutive errors, assume we've reached the end
+          if (consecutiveErrors >= 5) {
+            console.log(`[agent-registration.json] Stopping search at agent ${agentId} (5 consecutive errors)`);
+            break;
+          }
+          continue;
+        }
+      }
+
+      // Cache the results
+      registrationsCache = { data: registrations, timestamp: Date.now() };
+      console.log(`[agent-registration.json] Cached ${registrations.length} registrations`);
+    }
+
+    const registrations = registrationsCache!.data;
+
+    // Return ERC-8004 compliant registration file
+    return c.json({
+      // Standard ERC-8004 registration type
+      type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+
+      // Domain info
+      name: 'Meerkat Town',
+      description: 'Web3 AI agent marketplace on Base. Mint AI agents as NFTs, chat with them via x402 USDC micropayments, and provide on-chain reputation feedback.',
+      image: 'https://www.meerkat.town/logo.png',
+
+      // All Meerkat Town agents registered on this domain
+      registrations: registrations,
+
+      // Services available on this domain
+      services: [
+        {
+          name: 'A2A',
+          endpoint: 'https://meerkat.up.railway.app/agents/{agentId}/.well-known/agent-card.json',
+          version: '0.3.0',
+          description: 'A2A protocol agent cards for all Meerkat agents',
+        },
+        {
+          name: 'MCP',
+          endpoint: 'https://meerkat.up.railway.app/mcp/{agentId}',
+          version: '2025-06-18',
+          description: 'MCP JSON-RPC endpoint for AI agent interactions',
+        },
+      ],
+
+      // Trust mechanisms supported
+      supportedTrust: ['reputation'],
+
+      // Domain is active
+      active: true,
+
+      // x402 payment support
+      x402support: true,
+
+      // Last updated timestamp
+      updatedAt: Math.floor(Date.now() / 1000),
+    });
+
+  } catch (error: any) {
+    console.error('[agent-registration.json] Error:', error);
+    return c.json({
+      error: 'Failed to generate registration file',
+      message: error.message,
     }, 500);
   }
 });

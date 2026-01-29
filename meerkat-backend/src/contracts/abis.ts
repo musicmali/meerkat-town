@@ -2,6 +2,7 @@
 // CONTRACT ABIs (v1.1)
 // ============================================================================
 // ABIs extracted from compiled Meerkat contracts - ERC-8004 v1.1
+// NOTE: When final ERC-8004 contracts are deployed, update score → value/valueDecimals
 // ============================================================================
 
 export const IDENTITY_REGISTRY_ABI = [

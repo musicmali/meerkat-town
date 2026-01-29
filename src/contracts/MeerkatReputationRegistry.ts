@@ -1,6 +1,10 @@
 // ERC-8004 Reputation Registry Contract - Base Sepolia (v1.1)
 // Enables clients to give feedback to agents with scores, tags, and optional endpoint tracking
 // v1.1: FeedbackAuth removed, tags changed to strings, endpoint field added
+//
+// NOTE: When ERC-8004 final contracts are deployed, update this file:
+// - score (uint8) will become value (int128) + valueDecimals (uint8)
+// - getSummary will return [count, averageValue, valueDecimals] instead of [count, averageScore]
 
 export const REPUTATION_REGISTRY_ADDRESS = '0x8004B663056A597Dffe9eCcC1965A193B7388713' as const;
 

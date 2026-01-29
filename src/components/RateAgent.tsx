@@ -1,6 +1,6 @@
-// RateAgent Component (v1.1)
+// RateAgent Component (v1.2 - Final Spec)
 // ERC-8004 compliant feedback submission component with x402 payment proof integration
-// v1.1: Direct feedback submission - no authorization required
+// v1.2 (Final): Uses value/valueDecimals instead of score
 
 import { useState, useCallback } from 'react';
 import { useGiveFeedback, createFeedbackData, computeFeedbackHash } from '../hooks/useERC8004Registries';
