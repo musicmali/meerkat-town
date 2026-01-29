@@ -429,7 +429,69 @@ export function useAgentOwner(agentId: number | undefined) {
 }
 
 /**
- * Predict the next agent ID by checking recent registrations via event logs
+ * Find the most recent mint event (highest token ID) by scanning backwards from current block
+ * Stops as soon as it finds a mint event - that's the most recent one with the highest ID
+ */
+async function findMostRecentMint(
+    publicClient: ReturnType<typeof createPublicClient>,
+    registryAddress: `0x${string}`,
+    fromBlock: bigint,
+    toBlock: bigint
+): Promise<number | null> {
+    let currentToBlock = toBlock;
+    const chunkSize = LOG_CHUNK_SIZE;
+
+    console.log(`[findMostRecentMint] Scanning backwards from block ${toBlock} to ${fromBlock}`);
+
+    while (currentToBlock > fromBlock) {
+        const currentFromBlock = currentToBlock - chunkSize > fromBlock
+            ? currentToBlock - chunkSize
+            : fromBlock;
+
+        try {
+            const logs = await publicClient.request({
+                method: 'eth_getLogs',
+                params: [{
+                    address: registryAddress,
+                    topics: [
+                        TRANSFER_EVENT_SIGNATURE,
+                        ZERO_ADDRESS_TOPIC, // from = 0x0 (mint events only)
+                    ],
+                    fromBlock: `0x${currentFromBlock.toString(16)}`,
+                    toBlock: `0x${currentToBlock.toString(16)}`,
+                }],
+            });
+
+            if (Array.isArray(logs) && logs.length > 0) {
+                // Find the highest token ID in this chunk
+                let maxId = 0;
+                for (const log of logs) {
+                    if (log.topics && log.topics.length >= 4) {
+                        const tokenIdHex = log.topics[3];
+                        const tokenId = parseInt(tokenIdHex, 16);
+                        if (!isNaN(tokenId) && tokenId > maxId) {
+                            maxId = tokenId;
+                        }
+                    }
+                }
+                if (maxId > 0) {
+                    console.log(`[findMostRecentMint] Found most recent mint in blocks ${currentFromBlock}-${currentToBlock}: token ID ${maxId}`);
+                    return maxId;
+                }
+            }
+        } catch (error) {
+            console.warn(`[findMostRecentMint] Error scanning blocks ${currentFromBlock}-${currentToBlock}:`, error);
+            // Continue with next chunk
+        }
+
+        currentToBlock = currentFromBlock - 1n;
+    }
+
+    return null;
+}
+
+/**
+ * Predict the next agent ID by finding the most recent mint via event logs
  * This is used to include registrations field in metadata BEFORE minting
  * (since this ERC-8004 registry has immutable URIs)
  */
@@ -447,42 +509,24 @@ export async function predictNextAgentId(
         const deploymentBlock = CONTRACT_DEPLOYMENT_BLOCK[effectiveChainId] ?? 0n;
         const currentBlock = await publicRpcClient.getBlockNumber();
 
-        // Scan recent blocks for mint events to find the highest agent ID
-        // Use a limited range for speed (last 10000 blocks should be enough for recent mints)
-        const scanStartBlock = currentBlock - 10000n > deploymentBlock
-            ? currentBlock - 10000n
-            : deploymentBlock;
+        console.log(`[predictNextAgentId] Chain ${effectiveChainId}: Finding most recent mint from block ${currentBlock} backwards`);
 
-        console.log(`[predictNextAgentId] Scanning blocks ${scanStartBlock} to ${currentBlock} for mints`);
-
-        const allMintedIds = await fetchTransferLogsBackwards(
+        // Find the most recent mint by scanning backwards from current block
+        const mostRecentMintId = await findMostRecentMint(
             publicRpcClient,
             registryAddress,
-            scanStartBlock,
-            currentBlock,
-            1000 // Get up to 1000 recent mints
+            deploymentBlock,
+            currentBlock
         );
 
-        if (allMintedIds.length === 0) {
-            // If no mints found in recent blocks, scan from deployment
-            const fullScanIds = await fetchTransferLogsBackwards(
-                publicRpcClient,
-                registryAddress,
-                deploymentBlock,
-                currentBlock,
-                10000
-            );
-            if (fullScanIds.length > 0) {
-                const maxId = Math.max(...fullScanIds);
-                console.log(`[predictNextAgentId] Full scan found max ID: ${maxId}`);
-                return maxId + 1;
-            }
-            return 1;
+        if (mostRecentMintId !== null) {
+            console.log(`[predictNextAgentId] Most recent mint ID: ${mostRecentMintId}, next ID: ${mostRecentMintId + 1}`);
+            return mostRecentMintId + 1;
         }
 
-        const maxId = Math.max(...allMintedIds);
-        console.log(`[predictNextAgentId] Found max ID: ${maxId}`);
-        return maxId + 1;
+        // No mints found, start from 1
+        console.log(`[predictNextAgentId] No mints found, returning 1`);
+        return 1;
     } catch (error) {
         console.error('[predictNextAgentId] Error:', error);
         return MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
