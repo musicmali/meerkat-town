@@ -21,10 +21,13 @@ const MINIMUM_MEERKAT_TOKEN_ID = 16;
 const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-// Public RPC client for log queries (Alchemy free tier has 10 block limit for logs)
+// Alchemy RPC for fast log queries (paid plan supports large block ranges)
+const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+
+// RPC client for log queries - using Alchemy for speed
 const publicRpcClient = createPublicClient({
     chain: baseSepolia,
-    transport: http('https://sepolia.base.org'),
+    transport: http(ALCHEMY_BASE_SEPOLIA_RPC),
 });
 
 // Interface for a registered agent
@@ -138,7 +141,7 @@ async function fetchTransferLogsBackwards(
     ownerAddress?: string,
     stopAtTokenId?: number
 ): Promise<{ tokenId: number; to: string }[]> {
-    const CHUNK_SIZE = BigInt(10000); // Public RPC supports larger ranges
+    const CHUNK_SIZE = BigInt(100000); // Alchemy paid plan supports large block ranges
     const allTokenIds: { tokenId: number; to: string }[] = [];
     const foundTokenIds = new Set<number>();
 
