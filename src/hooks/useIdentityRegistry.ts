@@ -177,7 +177,7 @@ export async function fetchAgent(
  * Used to find all minted tokens (Transfer from 0x0)
  */
 async function fetchTransferLogsBackwards(
-    publicClient: ReturnType<typeof createPublicClient>,
+    publicClient: any,  // viem public client
     registryAddress: `0x${string}`,
     fromBlock: bigint,
     toBlock: bigint,
@@ -212,8 +212,8 @@ async function fetchTransferLogsBackwards(
                     // Token ID is in the 3rd topic (index 2) for Transfer events
                     // But in ERC-721, tokenId might be in topics[3] or data depending on implementation
                     // For standard ERC-721: Transfer(from, to, tokenId) - tokenId is topics[3]
-                    if (log.topics && log.topics.length >= 4) {
-                        const tokenIdHex = log.topics[3];
+                    if (log.topics && log.topics.length >= 4 && log.topics[3]) {
+                        const tokenIdHex = log.topics[3] as string;
                         const tokenId = parseInt(tokenIdHex, 16);
                         if (!isNaN(tokenId) && tokenId > 0) {
                             agentIds.add(tokenId);
