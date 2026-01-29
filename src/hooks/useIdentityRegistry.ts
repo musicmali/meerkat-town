@@ -236,74 +236,74 @@ async function fetchTransferLogsBackwards(
 
 /**
  * Fetch all Meerkat Town agents from Identity Registry
- * Uses event logs to find minted agents, then filters for Meerkat Town agents
+ * Uses direct contract reads to check known ID ranges for Meerkat agents
  */
 export async function fetchMeerkatAgents(
     publicClient: ReturnType<typeof usePublicClient>,
-    maxAgentsToScan: number = 500,
+    maxAgentsToScan: number = 100,
     chainId?: number
 ): Promise<RegisteredAgent[]> {
     if (!publicClient) return [];
 
     const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
     const publicRpcClient = getPublicRpcClient(effectiveChainId);
+    const minTokenId = MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
     const blacklist = BLACKLISTED_AGENT_IDS[effectiveChainId] ?? [];
     const registryAddress = getIdentityRegistryAddress(effectiveChainId);
-    const deploymentBlock = CONTRACT_DEPLOYMENT_BLOCK[effectiveChainId] ?? 0n;
+
+    const uniqueIds: number[] = [];
 
     try {
-        // Get current block number
-        const currentBlock = await publicRpcClient.getBlockNumber();
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Current block ${currentBlock}, deployment block ${deploymentBlock}`);
+        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Using direct contract reads to find agents`);
 
-        // Use event logs to find all minted tokens
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Using event logs to find agents`);
+        // Check agents starting from minTokenId
+        const startId = minTokenId;
+        const endId = startId + maxAgentsToScan;
 
-        const allMintedIds = await fetchTransferLogsBackwards(
-            publicRpcClient,
-            registryAddress,
-            deploymentBlock,
-            currentBlock,
-            maxAgentsToScan
-        );
+        // Check agents in parallel batches for faster loading
+        const batchSize = 10;
+        for (let batchStart = startId; batchStart <= endId; batchStart += batchSize) {
+            const batchEnd = Math.min(batchStart + batchSize - 1, endId);
+            const batchPromises: Promise<number | null>[] = [];
 
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Found ${allMintedIds.length} minted tokens via event logs`);
-
-        if (allMintedIds.length === 0) {
-            console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: No minted tokens found`);
-            return [];
-        }
-
-        // Fetch agent details for each minted token (in parallel batches for performance)
-        const batchSize = 20;
-        const agents: RegisteredAgent[] = [];
-
-        for (let i = 0; i < allMintedIds.length; i += batchSize) {
-            const batchIds = allMintedIds.slice(i, i + batchSize);
-            const fetchPromises = batchIds.map(id => fetchAgent(id, publicClient, effectiveChainId));
-            const results = await Promise.all(fetchPromises);
-
-            for (const agent of results) {
-                if (agent && agent.isMeerkatAgent) {
-                    // Skip blacklisted agents by ID
-                    if (blacklist.includes(agent.agentId)) {
-                        console.log(`[fetchMeerkatAgents] Skipping blacklisted agent: ${agent.agentId} - ${agent.metadata?.name}`);
-                        continue;
-                    }
-                    console.log(`[fetchMeerkatAgents] Found Meerkat agent: ${agent.agentId} - ${agent.metadata?.name}`);
-                    agents.push(agent);
-
-                    // Early exit if we've found all 100 possible Meerkat agents
-                    if (agents.length >= 100) {
-                        console.log(`[fetchMeerkatAgents] Found all 100 Meerkat agents, stopping scan`);
-                        break;
-                    }
-                }
+            for (let id = batchStart; id <= batchEnd; id++) {
+                batchPromises.push(
+                    publicRpcClient.readContract({
+                        address: registryAddress,
+                        abi: IDENTITY_REGISTRY_ABI,
+                        functionName: 'tokenURI',
+                        args: [BigInt(id)],
+                    })
+                        .then(() => id) // Token exists
+                        .catch(() => null) // Token doesn't exist
+                );
             }
 
-            // Early exit if we've found all 100 possible Meerkat agents
-            if (agents.length >= 100) {
-                break;
+            const results = await Promise.all(batchPromises);
+            for (const id of results) {
+                if (id !== null) {
+                    uniqueIds.push(id);
+                }
+            }
+        }
+
+        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Found ${uniqueIds.length} existing agents`);
+
+        // Fetch agent details for each found token
+        const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient, effectiveChainId));
+        const fetchResults = await Promise.all(fetchPromises);
+
+        // Filter for Meerkat Town agents only (excluding blacklisted test agents)
+        const agents: RegisteredAgent[] = [];
+        for (const agent of fetchResults) {
+            if (agent && agent.isMeerkatAgent) {
+                // Skip blacklisted agents by ID
+                if (blacklist.includes(agent.agentId)) {
+                    console.log(`[fetchMeerkatAgents] Skipping blacklisted agent: ${agent.agentId} - ${agent.metadata?.name}`);
+                    continue;
+                }
+                console.log(`[fetchMeerkatAgents] Found Meerkat agent: ${agent.agentId} - ${agent.metadata?.name}`);
+                agents.push(agent);
             }
         }
 
