@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, useConnect, useDisconnect, usePublicClient } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useAccount, useConnect, useDisconnect, usePublicClient, useChainId } from 'wagmi';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
-import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
+import { REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
 import { getFromCache, setToCache, batchProcess } from '../utils/rpcUtils';
+import {
+    getContractAddress,
+    getBlockExplorerAddressUrl,
+    get8004ScanAgentUrl,
+} from '../config/networks';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
 import MobileFooter from '../components/MobileFooter';
@@ -24,7 +28,8 @@ function Leaderboard() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
-    const publicClient = usePublicClient({ chainId: baseSepolia.id });
+    const chainId = useChainId();
+    const publicClient = usePublicClient({ chainId });
 
     const [rankedAgents, setRankedAgents] = useState<AgentWithScore[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -41,8 +46,12 @@ function Leaderboard() {
                 return;
             }
 
+            // Use chain-specific cache key
+            const cacheKey = `${LEADERBOARD_CACHE_KEY}_${chainId}`;
+            const reputationAddress = getContractAddress(chainId, 'reputationRegistry');
+
             // Try to load from cache first
-            const cached = getFromCache<AgentWithScore[]>(LEADERBOARD_CACHE_KEY);
+            const cached = getFromCache<AgentWithScore[]>(cacheKey);
             if (cached && cached.length > 0) {
                 console.log('[Leaderboard] Using cached data:', cached.length, 'agents');
                 setRankedAgents(cached);
@@ -53,8 +62,8 @@ function Leaderboard() {
             setIsLoading(true);
             try {
                 // Fetch all meerkat agents
-                console.log('[Leaderboard] Fetching agents...');
-                const agents = await fetchMeerkatAgents(publicClient, 50);
+                console.log(`[Leaderboard] Fetching agents for chain ${chainId}...`);
+                const agents = await fetchMeerkatAgents(publicClient, chainId, 50);
 
                 if (agents.length === 0) {
                     setRankedAgents([]);
@@ -69,7 +78,7 @@ function Leaderboard() {
                     async (agent) => {
                         try {
                             const result = await publicClient.readContract({
-                                address: REPUTATION_REGISTRY_ADDRESS,
+                                address: reputationAddress,
                                 abi: REPUTATION_REGISTRY_ABI,
                                 functionName: 'getSummary',
                                 args: [BigInt(agent.agentId), [], '', ''],
@@ -98,8 +107,8 @@ function Leaderboard() {
                     return b.feedbackCount - a.feedbackCount;
                 });
 
-                // Cache the sorted results
-                setToCache(LEADERBOARD_CACHE_KEY, sorted, CACHE_TTL);
+                // Cache the sorted results (chain-specific)
+                setToCache(cacheKey, sorted, CACHE_TTL);
                 console.log('[Leaderboard] Loaded and cached', sorted.length, 'agents');
 
                 setRankedAgents(sorted);
@@ -110,7 +119,7 @@ function Leaderboard() {
         };
 
         loadLeaderboard();
-    }, [publicClient]);
+    }, [publicClient, chainId]);
 
     const formatAddress = (addr: string) => {
         if (addr.length <= 10) return addr;
@@ -296,7 +305,7 @@ function Leaderboard() {
                                                     </td>
                                                     <td className="col-owner">
                                                         <a
-                                                            href={`https://sepolia.basescan.org/address/${agent.owner}`}
+                                                            href={getBlockExplorerAddressUrl(chainId, agent.owner)}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="owner-link"
@@ -307,7 +316,7 @@ function Leaderboard() {
                                                     <td className="col-actions">
                                                         <div className="table-actions">
                                                             <a
-                                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                                href={get8004ScanAgentUrl(chainId, agent.agentId)}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="btn btn-8004scan btn-sm"

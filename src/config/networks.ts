@@ -16,6 +16,12 @@ export interface NetworkConfig {
   reputationVersion: 'v1.1' | 'v1.2';
   // 8004scan URL pattern
   scan8004Url: string;
+  // Alchemy RPC URL for fast log queries
+  alchemyRpcUrl: string;
+  // First Meerkat Town agent ID on this network (null = no agents yet)
+  firstMeerkatAgentId: number | null;
+  // Minimum token ID for filtering Meerkat agents (null = show all)
+  minimumMeerkatTokenId: number | null;
 }
 
 export const NETWORKS: Record<number, NetworkConfig> = {
@@ -33,6 +39,9 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     blockExplorerName: 'Etherscan',
     reputationVersion: 'v1.2',
     scan8004Url: 'https://www.8004scan.io/agents/mainnet',
+    alchemyRpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
+    firstMeerkatAgentId: null, // TBD when first agent is minted
+    minimumMeerkatTokenId: null,
   },
   84532: {
     // Base Sepolia
@@ -48,6 +57,9 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     blockExplorerName: 'BaseScan',
     reputationVersion: 'v1.1',
     scan8004Url: 'https://www.8004scan.io/agents/base-sepolia',
+    alchemyRpcUrl: 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
+    firstMeerkatAgentId: 16,
+    minimumMeerkatTokenId: 16,
   },
 };
 
@@ -141,6 +153,34 @@ export function get8004ScanAgentUrl(chainId: number, agentId: number): string {
 export function getNetworkName(chainId: number): string {
   const network = NETWORKS[chainId];
   return network?.name ?? 'Unknown Network';
+}
+
+/**
+ * Get Alchemy RPC URL for a network
+ */
+export function getAlchemyRpcUrl(chainId: number): string {
+  const network = NETWORKS[chainId];
+  if (!network) {
+    console.warn(`[networks] Unknown chainId ${chainId}, falling back to Base Sepolia RPC`);
+    return NETWORKS[84532].alchemyRpcUrl;
+  }
+  return network.alchemyRpcUrl;
+}
+
+/**
+ * Get first Meerkat agent ID for a network (null = no agents yet)
+ */
+export function getFirstMeerkatAgentId(chainId: number): number | null {
+  const network = NETWORKS[chainId];
+  return network?.firstMeerkatAgentId ?? null;
+}
+
+/**
+ * Get minimum Meerkat token ID for filtering (null = show all)
+ */
+export function getMinimumMeerkatTokenId(chainId: number): number | null {
+  const network = NETWORKS[chainId];
+  return network?.minimumMeerkatTokenId ?? null;
 }
 
 /**

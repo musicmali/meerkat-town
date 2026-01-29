@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, usePublicClient, useConnect, useDisconnect } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useAccount, usePublicClient, useConnect, useDisconnect, useChainId } from 'wagmi';
 import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRegistry';
+import {
+    get8004ScanAgentUrl,
+} from '../config/networks';
 import AuthorizationRequests from '../components/AuthorizationRequests';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
@@ -15,7 +17,8 @@ function MyAgents() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
-    const publicClient = usePublicClient({ chainId: baseSepolia.id });
+    const chainId = useChainId();
+    const publicClient = usePublicClient({ chainId });
 
     const [myAgents, setMyAgents] = useState<RegisteredAgent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +39,7 @@ function MyAgents() {
             setIsLoading(true);
             try {
                 console.log('Fetching agents owned by:', address);
-                const owned = await fetchAgentsByOwner(address, publicClient, 50);
+                const owned = await fetchAgentsByOwner(address, publicClient, chainId, 50);
                 console.log('Found owned agents:', owned);
                 setMyAgents(owned);
             } catch (error) {
@@ -47,7 +50,7 @@ function MyAgents() {
         };
 
         loadMyAgents();
-    }, [publicClient, address]);
+    }, [publicClient, address, chainId]);
 
     // Check if agent has registrations
     const hasRegistrations = (agent: RegisteredAgent): boolean => {
@@ -190,7 +193,7 @@ function MyAgents() {
                                                 Chat
                                             </Link>
                                             <a
-                                                href={`https://www.8004scan.io/agents/base-sepolia/${agent.agentId}`}
+                                                href={get8004ScanAgentUrl(chainId, agent.agentId)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn btn-secondary btn-sm"

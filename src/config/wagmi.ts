@@ -1,35 +1,20 @@
 import { http, createConfig } from 'wagmi';
-import * as chains from 'wagmi/chains';
+import { mainnet, baseSepolia } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
+import { NETWORKS, SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './networks';
 
-// Get all available chains from wagmi
-const allChains = Object.values(chains).filter(
-    (chain) =>
-        typeof chain === 'object' &&
-        chain !== null &&
-        'id' in chain &&
-        'name' in chain
-) as chains.Chain[];
+// Supported chains for Meerkat Town (Ethereum mainnet and Base Sepolia)
+const supportedChains = [mainnet, baseSepolia] as [typeof mainnet, typeof baseSepolia];
 
-// Base Sepolia should be first (our main chain for x402)
-const baseSepoliaChain = allChains.find(c => c.id === 84532) || chains.baseSepolia;
-const otherChains = allChains.filter(c => c.id !== 84532);
-const orderedChains = [baseSepoliaChain, ...otherChains] as [chains.Chain, ...chains.Chain[]];
+// Create transports with Alchemy RPC for supported networks
+const transports: Record<number, ReturnType<typeof http>> = {};
+for (const chainId of SUPPORTED_CHAIN_IDS) {
+    transports[chainId] = http(NETWORKS[chainId].alchemyRpcUrl);
+}
 
-// Alchemy RPC for Base Sepolia (faster & more reliable)
-const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
-
-// Create transports for all chains (use Alchemy for Base Sepolia)
-const transports = Object.fromEntries(
-    orderedChains.map(chain => [
-        chain.id,
-        chain.id === 84532 ? http(ALCHEMY_BASE_SEPOLIA_RPC) : http()
-    ])
-) as Record<number, ReturnType<typeof http>>;
-
-// Configure wagmi with ALL available chains
+// Configure wagmi with supported chains
 export const config = createConfig({
-    chains: orderedChains,
+    chains: supportedChains,
     connectors: [
         injected(), // This works with ANY browser wallet extension
     ],
@@ -38,20 +23,25 @@ export const config = createConfig({
 
 // Export chain info for use in components
 export const SUPPORTED_CHAINS = {
+    mainnet: {
+        id: mainnet.id,
+        name: 'Ethereum',
+        network: 'eip155:1',
+    },
     baseSepolia: {
-        id: chains.baseSepolia.id,
+        id: baseSepolia.id,
         name: 'Base Sepolia',
         network: 'eip155:84532',
     },
 };
 
-// Default chain is Base Sepolia
-export const DEFAULT_CHAIN = chains.baseSepolia;
+// Default chain is Ethereum Mainnet
+export const DEFAULT_CHAIN = DEFAULT_CHAIN_ID === 1 ? mainnet : baseSepolia;
 
-// ERC-8004 Registry Addresses on Base Sepolia
+// Re-export for backwards compatibility (deprecated - use networks.ts instead)
 export const ERC8004_REGISTRIES = {
-    identityRegistry: '0x8004AA63c570c570eBF15376c0dB199918BFe9Fb',
-    reputationRegistry: '0x8004bd8daB57f14Ed299135749a5CB5c42d341BF',
+    identityRegistry: NETWORKS[84532].contracts.identityRegistry,
+    reputationRegistry: NETWORKS[84532].contracts.reputationRegistry,
     validationRegistry: '0x8004C269D0A5647E51E121FeB226200ECE932d55',
     chainId: 84532,  // Base Sepolia
     network: 'eip155:84532',

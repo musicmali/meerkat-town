@@ -1,23 +1,35 @@
 // ERC-8004 Registry Hooks (v1.2 - Final Spec)
-// Hooks for interacting with Identity, Reputation, and Validation registries on Base Sepolia
-// v1.2 (Final): score (uint8) replaced with value (int128) + valueDecimals (uint8)
-//              Supports decimals, negative numbers, and values > 100
+// Hooks for interacting with Identity, Reputation, and Validation registries
+// Supports both Base Sepolia (v1.1 score) and Ethereum mainnet (v1.2 value/valueDecimals)
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useChainId } from 'wagmi';
 import { useAccount } from 'wagmi';
 import { useCallback } from 'react';
 import { keccak256, toHex } from 'viem';
 
-// Import registry ABIs and addresses
-import { IDENTITY_REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
-import { REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI, EMPTY_BYTES32 } from '../contracts/MeerkatReputationRegistry';
-import { VALIDATION_REGISTRY_ADDRESS, VALIDATION_REGISTRY_ABI } from '../contracts/MeerkatValidationRegistry';
+// Import registry ABIs
+import { IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import {
+    REPUTATION_REGISTRY_ABI,
+    REPUTATION_REGISTRY_ABI_V12,
+    EMPTY_BYTES32,
+} from '../contracts/MeerkatReputationRegistry';
+import { VALIDATION_REGISTRY_ABI } from '../contracts/MeerkatValidationRegistry';
+
+// Import network configuration
+import {
+    getContractAddress,
+    getReputationVersion,
+    DEFAULT_CHAIN_ID,
+} from '../config/networks';
 
 // Import types
 import type { FeedbackData } from '../types/agentMetadata';
 
-// Chain ID for Base Sepolia
-const BASE_SEPOLIA_CHAIN_ID = 84532;
+// Legacy exports for backwards compatibility
+export const IDENTITY_REGISTRY_ADDRESS = getContractAddress(DEFAULT_CHAIN_ID, 'identityRegistry');
+export const REPUTATION_REGISTRY_ADDRESS = getContractAddress(DEFAULT_CHAIN_ID, 'reputationRegistry');
+export const VALIDATION_REGISTRY_ADDRESS = '0x8004C269D0A5647E51E121FeB226200ECE932d55' as const;
 
 // ============================================================================
 // IDENTITY REGISTRY HOOKS
@@ -27,12 +39,15 @@ const BASE_SEPOLIA_CHAIN_ID = 84532;
  * Get the agent URI (metadata URL) from the Identity Registry
  */
 export function useAgentURI(agentId: number, enabled = true) {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'identityRegistry');
+
     return useReadContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+        address,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'tokenURI',
         args: [BigInt(agentId)],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId,
         query: { enabled },
     });
 }
@@ -41,12 +56,15 @@ export function useAgentURI(agentId: number, enabled = true) {
  * Get the agent wallet address from the Identity Registry
  */
 export function useAgentWallet(agentId: number, enabled = true) {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'identityRegistry');
+
     return useReadContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+        address,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'getAgentWallet',
         args: [BigInt(agentId)],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId,
         query: { enabled },
     });
 }
@@ -55,12 +73,15 @@ export function useAgentWallet(agentId: number, enabled = true) {
  * Get metadata for an agent by key
  */
 export function useAgentMetadata(agentId: number, metadataKey: string, enabled = true) {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'identityRegistry');
+
     return useReadContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+        address,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'getMetadata',
         args: [BigInt(agentId), metadataKey],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId,
         query: { enabled },
     });
 }
@@ -70,8 +91,17 @@ export function useAgentMetadata(agentId: number, metadataKey: string, enabled =
 // ============================================================================
 
 /**
+ * Get the ABI for reputation registry based on version
+ */
+function getReputationABI(chainId: number) {
+    const version = getReputationVersion(chainId);
+    return version === 'v1.2' ? REPUTATION_REGISTRY_ABI_V12 : REPUTATION_REGISTRY_ABI;
+}
+
+/**
  * Get agent reputation summary (count and average value)
- * Final spec: Returns count, averageValue (int128), and valueDecimals (uint8)
+ * v1.1 (Base Sepolia): Returns [count, averageScore]
+ * v1.2 (ETH mainnet): Returns [count, summaryValue, summaryValueDecimals]
  * @param agentId - The agent's token ID
  * @param clientAddresses - Optional filter by specific client addresses
  * @param tag1 - Optional filter by tag1 (e.g., "starred", "uptime", "successRate")
@@ -84,12 +114,16 @@ export function useAgentReputation(
     tag2: string = '',
     enabled = true
 ) {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'reputationRegistry');
+    const abi = getReputationABI(chainId);
+
     return useReadContract({
-        address: REPUTATION_REGISTRY_ADDRESS,
-        abi: REPUTATION_REGISTRY_ABI,
+        address,
+        abi,
         functionName: 'getSummary',
         args: [BigInt(agentId), clientAddresses, tag1, tag2],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId,
         query: { enabled },
     });
 }
@@ -98,12 +132,16 @@ export function useAgentReputation(
  * Get list of clients who gave feedback to an agent
  */
 export function useAgentClients(agentId: number, enabled = true) {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'reputationRegistry');
+    const abi = getReputationABI(chainId);
+
     return useReadContract({
-        address: REPUTATION_REGISTRY_ADDRESS,
-        abi: REPUTATION_REGISTRY_ABI,
+        address,
+        abi,
         functionName: 'getClients',
         args: [BigInt(agentId)],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId,
         query: { enabled },
     });
 }
@@ -112,25 +150,29 @@ export function useAgentClients(agentId: number, enabled = true) {
  * Get the identity registry address from the reputation registry
  */
 export function useReputationIdentityRegistry() {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'reputationRegistry');
+    const abi = getReputationABI(chainId);
+
     return useReadContract({
-        address: REPUTATION_REGISTRY_ADDRESS,
-        abi: REPUTATION_REGISTRY_ABI,
+        address,
+        abi,
         functionName: 'getIdentityRegistry',
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId,
     });
 }
 
 /**
  * Hook to submit feedback for an agent
- * v1.1: Direct submission - no authorization required
- * Contract signature: giveFeedback(uint256,uint8,string,string,string,string,bytes32)
- *
- * NOTE: When ERC-8004 final contracts are deployed, update to use value/valueDecimals
+ * v1.1 (Base Sepolia): giveFeedback(agentId, score, tag1, tag2, endpoint, feedbackURI, feedbackHash)
+ * v1.2 (ETH mainnet): giveFeedback(agentId, value, valueDecimals, tag1, tag2, endpoint, feedbackURI, feedbackHash)
  */
 export function useGiveFeedback() {
     const { writeContract, data: hash, isPending, error } = useWriteContract();
     const { address } = useAccount();
-    const publicClient = usePublicClient({ chainId: BASE_SEPOLIA_CHAIN_ID });
+    const chainId = useChainId();
+    const publicClient = usePublicClient({ chainId });
+    const reputationVersion = getReputationVersion(chainId);
 
     const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
         hash,
@@ -159,9 +201,12 @@ export function useGiveFeedback() {
             throw new Error('Public client not available');
         }
 
+        const identityAddress = getContractAddress(chainId, 'identityRegistry');
+        const reputationAddress = getContractAddress(chainId, 'reputationRegistry');
+
         // Check if connected wallet is the agent owner - self-feedback is not allowed
         const agentOwner = await publicClient.readContract({
-            address: IDENTITY_REGISTRY_ADDRESS,
+            address: identityAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'ownerOf',
             args: [BigInt(agentId)],
@@ -172,23 +217,44 @@ export function useGiveFeedback() {
             throw new Error('Cannot rate your own agent. Self-feedback is not allowed.');
         }
 
-        // v1.1: Direct submission with string tags and endpoint
-        writeContract({
-            address: REPUTATION_REGISTRY_ADDRESS,
-            abi: REPUTATION_REGISTRY_ABI,
-            functionName: 'giveFeedback',
-            args: [
-                BigInt(agentId),
-                score,
-                options?.tag1 || '',
-                options?.tag2 || '',
-                options?.endpoint || '',
-                options?.feedbackURI || '',
-                options?.feedbackHash || EMPTY_BYTES32,
-            ],
-            chainId: BASE_SEPOLIA_CHAIN_ID,
-        });
-    }, [writeContract, address, publicClient]);
+        // Use appropriate ABI and args based on version
+        if (reputationVersion === 'v1.2') {
+            // v1.2: Uses value (int128) and valueDecimals (uint8)
+            writeContract({
+                address: reputationAddress,
+                abi: REPUTATION_REGISTRY_ABI_V12,
+                functionName: 'giveFeedback',
+                args: [
+                    BigInt(agentId),
+                    BigInt(score), // value as int128
+                    0, // valueDecimals (score is 0-100, no decimals)
+                    options?.tag1 || 'starred', // Default tag1 for star rating
+                    options?.tag2 || '',
+                    options?.endpoint || '',
+                    options?.feedbackURI || '',
+                    options?.feedbackHash || EMPTY_BYTES32,
+                ],
+                chainId,
+            });
+        } else {
+            // v1.1: Uses score (uint8)
+            writeContract({
+                address: reputationAddress,
+                abi: REPUTATION_REGISTRY_ABI,
+                functionName: 'giveFeedback',
+                args: [
+                    BigInt(agentId),
+                    score,
+                    options?.tag1 || '',
+                    options?.tag2 || '',
+                    options?.endpoint || '',
+                    options?.feedbackURI || '',
+                    options?.feedbackHash || EMPTY_BYTES32,
+                ],
+                chainId,
+            });
+        }
+    }, [writeContract, address, publicClient, chainId, reputationVersion]);
 
     return {
         giveFeedback,
@@ -207,20 +273,24 @@ export function useGiveFeedback() {
  */
 export function useRevokeFeedback() {
     const { writeContract, data: hash, isPending, error } = useWriteContract();
+    const chainId = useChainId();
 
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
         hash,
     });
 
     const revokeFeedback = useCallback((agentId: number, feedbackIndex: bigint) => {
+        const address = getContractAddress(chainId, 'reputationRegistry');
+        const abi = getReputationABI(chainId);
+
         writeContract({
-            address: REPUTATION_REGISTRY_ADDRESS,
-            abi: REPUTATION_REGISTRY_ABI,
+            address,
+            abi,
             functionName: 'revokeFeedback',
             args: [BigInt(agentId), feedbackIndex],
-            chainId: BASE_SEPOLIA_CHAIN_ID,
+            chainId,
         });
-    }, [writeContract]);
+    }, [writeContract, chainId]);
 
     return {
         revokeFeedback,
@@ -236,6 +306,9 @@ export function useRevokeFeedback() {
 // VALIDATION REGISTRY HOOKS
 // ============================================================================
 
+// Note: Validation registry is currently only on Base Sepolia
+const BASE_SEPOLIA_VALIDATION_REGISTRY = '0x8004C269D0A5647E51E121FeB226200ECE932d55' as const;
+
 /**
  * Get validation summary for an agent
  */
@@ -245,13 +318,17 @@ export function useAgentValidationSummary(
     tag = '',
     enabled = true
 ) {
+    const chainId = useChainId();
+    // Validation registry only on Base Sepolia for now
+    const isSupported = chainId === 84532;
+
     return useReadContract({
-        address: VALIDATION_REGISTRY_ADDRESS,
+        address: BASE_SEPOLIA_VALIDATION_REGISTRY,
         abi: VALIDATION_REGISTRY_ABI,
         functionName: 'getSummary',
         args: [BigInt(agentId), validatorAddresses, tag],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        query: { enabled },
+        chainId: 84532,
+        query: { enabled: enabled && isSupported },
     });
 }
 
@@ -259,13 +336,16 @@ export function useAgentValidationSummary(
  * Get all validation request hashes for an agent
  */
 export function useAgentValidations(agentId: number, enabled = true) {
+    const chainId = useChainId();
+    const isSupported = chainId === 84532;
+
     return useReadContract({
-        address: VALIDATION_REGISTRY_ADDRESS,
+        address: BASE_SEPOLIA_VALIDATION_REGISTRY,
         abi: VALIDATION_REGISTRY_ABI,
         functionName: 'getAgentValidations',
         args: [BigInt(agentId)],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        query: { enabled },
+        chainId: 84532,
+        query: { enabled: enabled && isSupported },
     });
 }
 
@@ -273,13 +353,16 @@ export function useAgentValidations(agentId: number, enabled = true) {
  * Get validation status for a specific request
  */
 export function useValidationStatus(requestHash: `0x${string}`, enabled = true) {
+    const chainId = useChainId();
+    const isSupported = chainId === 84532;
+
     return useReadContract({
-        address: VALIDATION_REGISTRY_ADDRESS,
+        address: BASE_SEPOLIA_VALIDATION_REGISTRY,
         abi: VALIDATION_REGISTRY_ABI,
         functionName: 'getValidationStatus',
         args: [requestHash],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        query: { enabled },
+        chainId: 84532,
+        query: { enabled: enabled && isSupported },
     });
 }
 
@@ -290,7 +373,7 @@ export function useValidationStatus(requestHash: `0x${string}`, enabled = true) 
 /**
  * Format a CAIP-10 address for use in feedback data
  */
-export function formatCAIP10(address: string, chainId: number = BASE_SEPOLIA_CHAIN_ID): string {
+export function formatCAIP10(address: string, chainId: number = DEFAULT_CHAIN_ID): string {
     return `eip155:${chainId}:${address}`;
 }
 
@@ -311,14 +394,17 @@ export function createFeedbackData(
         tag1?: string;
         tag2?: string;
         endpoint?: string;
+        chainId?: number;
     }
 ): FeedbackData {
     const now = new Date().toISOString();
+    const chainId = options?.chainId || DEFAULT_CHAIN_ID;
+    const reputationAddress = getContractAddress(chainId, 'reputationRegistry');
 
     const feedback: FeedbackData = {
-        agentRegistry: formatCAIP10(REPUTATION_REGISTRY_ADDRESS),
+        agentRegistry: formatCAIP10(reputationAddress, chainId),
         agentId,
-        clientAddress: formatCAIP10(clientAddress),
+        clientAddress: formatCAIP10(clientAddress, chainId),
         createdAt: now,
         value: score,
         valueDecimals: 0,
@@ -331,9 +417,9 @@ export function createFeedbackData(
 
     if (paymentProof) {
         feedback.proof_of_payment = {
-            fromAddress: formatCAIP10(clientAddress),
-            toAddress: formatCAIP10(paymentProof.toAddress),
-            chainId: BASE_SEPOLIA_CHAIN_ID,
+            fromAddress: formatCAIP10(clientAddress, chainId),
+            toAddress: formatCAIP10(paymentProof.toAddress, chainId),
+            chainId,
             txHash: paymentProof.txHash,
             amount: paymentProof.amount,
             currency: 'USDC',
@@ -364,20 +450,23 @@ export function computeFeedbackHash(feedbackData: FeedbackData): `0x${string}` {
 export function useRegisterAgent() {
     const { writeContract, data: hash, isPending, error } = useWriteContract();
     const { address } = useAccount();
+    const chainId = useChainId();
 
     const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
         hash,
     });
 
     const register = useCallback((agentURI: string) => {
+        const identityAddress = getContractAddress(chainId, 'identityRegistry');
+
         writeContract({
-            address: IDENTITY_REGISTRY_ADDRESS,
+            address: identityAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'register',
             args: [agentURI],
-            chainId: BASE_SEPOLIA_CHAIN_ID,
+            chainId,
         });
-    }, [writeContract]);
+    }, [writeContract, chainId]);
 
     // Parse the agentId from transaction logs
     const getAgentIdFromReceipt = useCallback((): bigint | null => {
@@ -418,20 +507,23 @@ export function useRegisterAgent() {
  */
 export function useSetAgentURI() {
     const { writeContract, data: hash, isPending, error } = useWriteContract();
+    const chainId = useChainId();
 
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
         hash,
     });
 
     const setAgentURI = useCallback((agentId: number, newURI: string) => {
+        const identityAddress = getContractAddress(chainId, 'identityRegistry');
+
         writeContract({
-            address: IDENTITY_REGISTRY_ADDRESS,
+            address: identityAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'setAgentURI',
             args: [BigInt(agentId), newURI],
-            chainId: BASE_SEPOLIA_CHAIN_ID,
+            chainId,
         });
-    }, [writeContract]);
+    }, [writeContract, chainId]);
 
     return {
         setAgentURI,
@@ -442,6 +534,3 @@ export function useSetAgentURI() {
         error,
     };
 }
-
-// Re-export addresses for convenience
-export { IDENTITY_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ADDRESS, VALIDATION_REGISTRY_ADDRESS };

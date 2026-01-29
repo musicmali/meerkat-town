@@ -3,9 +3,7 @@ import { useAccount, useChainId } from 'wagmi';
 import { getWalletClient, switchChain } from 'wagmi/actions';
 import { baseSepolia } from 'wagmi/chains';
 import { config } from '../config/wagmi';
-
-// Base mainnet network identifier
-const BASE_SEPOLIA_NETWORK = 'eip155:84532';
+import { isX402Supported, getCAIP2NetworkId } from '../config/networks';
 
 // Lazy load x402 to avoid breaking the app if it fails
 let x402Module: any = null;
@@ -30,11 +28,15 @@ export function useX402() {
     const { address, isConnected } = useAccount();
     const chainId = useChainId();
 
+    // Check if x402 is supported on current network
+    const x402Available = isX402Supported(chainId);
+
     // Debug log on every render
     console.log('[x402] Hook state:', {
         address,
         isConnected,
         chainId,
+        x402Available,
         expectedChainId: baseSepolia.id,
     });
 
@@ -50,22 +52,28 @@ export function useX402() {
             return fetch(url, options);
         }
 
+        // If x402 not supported on this network, throw error
+        if (!isX402Supported(chainId)) {
+            console.log('[x402] x402 not supported on chain', chainId);
+            throw new Error('x402 payments not supported on this network. Please switch to Base Sepolia.');
+        }
+
         try {
             // Check if we need to switch chains - this will prompt the wallet
             console.log('[x402] Current chain:', chainId, 'Expected:', baseSepolia.id);
             if (chainId !== baseSepolia.id) {
-                console.log('[x402] Switching to Base...');
+                console.log('[x402] Switching to Base Sepolia...');
                 try {
                     await switchChain(config, { chainId: baseSepolia.id });
                     console.log('[x402] Chain switched successfully!');
                 } catch (switchError: any) {
                     console.error('[x402] Failed to switch chain:', switchError);
-                    throw new Error(`Please switch to Base Base Sepolia network. ${switchError.message}`);
+                    throw new Error(`Please switch to Base Sepolia network. ${switchError.message}`);
                 }
             }
 
-            // Get wallet client for Base
-            console.log('[x402] Getting wallet client for Base...');
+            // Get wallet client for Base Sepolia
+            console.log('[x402] Getting wallet client for Base Sepolia...');
             const walletClient = await getWalletClient(config, { chainId: baseSepolia.id });
             console.log('[x402] Got wallet client:', !!walletClient, walletClient?.account?.address);
 
@@ -98,10 +106,11 @@ export function useX402() {
             console.log('[x402] Signer created with address:', signer.address);
 
             // Create the wrapped fetch with payment handling
+            const network = getCAIP2NetworkId(baseSepolia.id);
             const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
                 schemes: [
                     {
-                        network: BASE_SEPOLIA_NETWORK,
+                        network,
                         client: new ExactEvmScheme(signer),
                     },
                     {
@@ -133,5 +142,6 @@ export function useX402() {
     return {
         x402Fetch,
         isReady,
+        x402Available, // Whether x402 is supported on current network
     };
 }

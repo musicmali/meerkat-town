@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { useAccount, useConnect, useChainId, usePublicClient } from 'wagmi';
 import ReactMarkdown from 'react-markdown';
 import { useX402 } from '../hooks/useX402';
 import { fetchAgent } from '../hooks/useIdentityRegistry';
-import { IDENTITY_REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import { IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import {
+    isX402Supported,
+    getContractAddress,
+    getNetworkName,
+} from '../config/networks';
 import RateAgent from '../components/RateAgent';
 import './Chat.css';
 
@@ -52,15 +56,16 @@ function Chat() {
     // Wallet connection
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending: isConnectPending } = useConnect();
-    const publicClient = usePublicClient({ chainId: baseSepolia.id });
 
     // Chain management
     const chainId = useChainId();
-    const { switchChain } = useSwitchChain();
-    const isCorrectChain = chainId === baseSepolia.id;
+    const x402NetworkSupported = isX402Supported(chainId);
+
+    // Use current chain for fetching agent data
+    const publicClient = usePublicClient({ chainId });
 
     // x402 payment support
-    const { x402Fetch, isReady: isX402Ready } = useX402();
+    const { x402Fetch, isReady: isX402Ready, x402Available } = useX402();
 
     // Dynamic agent state
     const [agent, setAgent] = useState<AgentInfo | null>(null);
@@ -103,7 +108,7 @@ function Chat() {
                         return;
                     }
 
-                    const found = await fetchAgent(numericAgentId, publicClient);
+                    const found = await fetchAgent(numericAgentId, publicClient, chainId);
 
                     if (found && found.isMeerkatAgent) {
                         const meerkatId = found.metadata?.meerkatId || 1;
@@ -124,8 +129,9 @@ function Chat() {
                         // Fetch the agent owner from Identity Registry
                         let ownerAddress: string | undefined;
                         try {
+                            const identityAddress = getContractAddress(chainId, 'identityRegistry');
                             const owner = await publicClient.readContract({
-                                address: IDENTITY_REGISTRY_ADDRESS,
+                                address: identityAddress,
                                 abi: IDENTITY_REGISTRY_ABI,
                                 functionName: 'ownerOf',
                                 args: [BigInt(numericAgentId)],
@@ -136,8 +142,9 @@ function Chat() {
                         }
 
                         // Build system prompt from metadata
+                        const networkName = getNetworkName(chainId);
                         const systemPrompt = `You are ${found.metadata?.name || 'a Meerkat Agent'}, a helpful AI assistant.
-Description: ${found.metadata?.description || 'A unique Meerkat Agent on the Base Sepolia network.'}
+Description: ${found.metadata?.description || `A unique Meerkat Agent on ${networkName}.`}
 Expertise: ${domains.join(', ') || 'General assistance'}
 Be friendly, helpful, and concise in your responses.`;
 
@@ -170,7 +177,7 @@ Be friendly, helpful, and concise in your responses.`;
         };
 
         loadAgent();
-    }, [agentId, publicClient]);
+    }, [agentId, publicClient, chainId]);
 
 
     // Scroll to bottom on new message
@@ -196,10 +203,6 @@ Be friendly, helpful, and concise in your responses.`;
         }
     };
 
-    const handleSwitchChain = () => {
-        switchChain({ chainId: baseSepolia.id });
-    };
-
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
 
@@ -220,12 +223,13 @@ Be friendly, helpful, and concise in your responses.`;
         }
 
         try {
-            // Use paid mode when wallet connected and on correct chain
+            // Use paid mode when wallet connected, on correct chain, and x402 is supported
             // Legacy agents (bob, ana) and paid minted agents all require payment
             const isLegacyAgent = agentId === 'bob' || agentId === 'ana';
             const isFreeAgent = agent?.pricePerMessage === 'Free';
             const shouldCharge = (isLegacyAgent || agent?.isMintedAgent) && !isFreeAgent;
-            const useX402 = shouldCharge && isConnected && isX402Ready && isCorrectChain;
+            // Only use x402 if the network supports it
+            const useX402 = shouldCharge && isConnected && isX402Ready && x402Available && x402NetworkSupported;
 
             // Choose endpoint: paid or demo
             const endpoint = useX402 ? `/agents/${agentId}` : `/demo/${agentId}`;
@@ -322,11 +326,11 @@ Be friendly, helpful, and concise in your responses.`;
                     </div>
                 </div>
                 <div className="chat-header-right">
-                    {/* Wrong chain warning */}
-                    {isConnected && !isCorrectChain && (
-                        <button onClick={handleSwitchChain} className="btn btn-warning btn-small">
-                            ⚠️ Switch to Base Sepolia
-                        </button>
+                    {/* Demo-only mode warning (when x402 not supported) */}
+                    {isConnected && !x402NetworkSupported && (
+                        <span className="demo-badge" title="Paid chat available on Base Sepolia">
+                            Demo Mode
+                        </span>
                     )}
                     {/* Price badge */}
                     <span className="price-badge">
@@ -360,12 +364,12 @@ Be friendly, helpful, and concise in your responses.`;
                                 ? 'Ask me about crypto markets, DeFi protocols, or any blockchain project!'
                                 : 'I can help with writing, content creation, copywriting, and more!'}
                         </p>
-                        {isConnected && !isCorrectChain && (
-                            <p className="demo-notice" style={{ color: '#EF4444' }}>
-                                ⚠️ Please switch to Base Base Sepolia network to use paid mode.
+                        {isConnected && !x402NetworkSupported && (
+                            <p className="demo-notice" style={{ color: '#F97316' }}>
+                                Free demo mode on {getNetworkName(chainId)}. Paid chat available on Base Sepolia.
                             </p>
                         )}
-                        {isConnected && isCorrectChain && (
+                        {isConnected && x402NetworkSupported && (
                             <p className="demo-notice">
                                 {agent.pricePerMessage === 'Free'
                                     ? '🆓 This agent is free to chat with!'
@@ -459,7 +463,9 @@ Be friendly, helpful, and concise in your responses.`;
                 <p className="chat-disclaimer">
                     {agent.pricePerMessage === 'Free'
                         ? 'This agent is free to chat with.'
-                        : `Each message costs ${agent.pricePerMessage || '$0.001'} USDC via x402 on Base.`}
+                        : x402NetworkSupported
+                            ? `Each message costs ${agent.pricePerMessage || '$0.001'} USDC via x402.`
+                            : `Demo mode - paid chat available on Base Sepolia.`}
                 </p>
             </footer>
         </div>

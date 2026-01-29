@@ -1,34 +1,47 @@
 // Hooks for fetching agents from ERC-8004 Identity Registry
 // These agents are identified as Meerkat Town agents by the meerkatId field in metadata
 
-import { useReadContract, usePublicClient, useAccount } from 'wagmi';
+import { useReadContract, usePublicClient, useAccount, useChainId } from 'wagmi';
 import { createPublicClient, http } from 'viem';
-import { baseSepolia } from 'viem/chains';
-import { IDENTITY_REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import { mainnet, baseSepolia } from 'viem/chains';
+import { IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
+import {
+    getContractAddress,
+    getAlchemyRpcUrl,
+    getFirstMeerkatAgentId,
+    getMinimumMeerkatTokenId,
+    DEFAULT_CHAIN_ID,
+} from '../config/networks';
 import type { AgentMetadata } from '../types/agentMetadata';
-
-const BASE_SEPOLIA_CHAIN_ID = 84532;
 
 // Blacklisted agent IDs (test agents that shouldn't appear in the dashboard)
 // v1.1: Fresh contract, no blacklisted agents yet
 const BLACKLISTED_AGENT_IDS: number[] = [];
 
-// Minimum token ID for Meerkat Town agents
-// v1.1: First Meerkat Town agent is #16
-const MINIMUM_MEERKAT_TOKEN_ID = 16;
-
 // ERC-721 Transfer event signature
 const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-// Alchemy RPC for fast log queries (paid plan supports large block ranges)
-const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+// Cache for RPC clients per chain
+// Using 'any' to avoid complex viem type incompatibilities between mainnet and baseSepolia
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const rpcClientCache: Record<number, any> = {};
 
-// RPC client for log queries - using Alchemy for speed
-const publicRpcClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(ALCHEMY_BASE_SEPOLIA_RPC),
-});
+/**
+ * Get or create RPC client for a specific chain
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getRpcClient(chainId: number): any {
+    if (!rpcClientCache[chainId]) {
+        const rpcUrl = getAlchemyRpcUrl(chainId);
+        const chain = chainId === 1 ? mainnet : baseSepolia;
+        rpcClientCache[chainId] = createPublicClient({
+            chain,
+            transport: http(rpcUrl),
+        });
+    }
+    return rpcClientCache[chainId];
+}
 
 // Interface for a registered agent
 export interface RegisteredAgent {
@@ -89,14 +102,17 @@ function isMeerkatTownAgent(metadata: AgentMetadata | null): boolean {
  */
 export async function fetchAgent(
     agentId: number,
-    publicClient: ReturnType<typeof usePublicClient>
+    publicClient: ReturnType<typeof usePublicClient>,
+    chainId: number = DEFAULT_CHAIN_ID
 ): Promise<RegisteredAgent | null> {
     if (!publicClient) return null;
+
+    const identityRegistryAddress = getContractAddress(chainId, 'identityRegistry');
 
     try {
         // Get token URI
         const tokenUri = await publicClient.readContract({
-            address: IDENTITY_REGISTRY_ADDRESS,
+            address: identityRegistryAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'tokenURI',
             args: [BigInt(agentId)],
@@ -104,7 +120,7 @@ export async function fetchAgent(
 
         // Get owner
         const owner = await publicClient.readContract({
-            address: IDENTITY_REGISTRY_ADDRESS,
+            address: identityRegistryAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'ownerOf',
             args: [BigInt(agentId)],
@@ -126,17 +142,14 @@ export async function fetchAgent(
     }
 }
 
-// First Meerkat Town agent ID - search backwards until we find this
-// v1.1: Fresh contract starts from ID 1
-const FIRST_MEERKAT_AGENT_ID = 16;
-
 /**
- * Fetch Transfer event logs using raw topics and public RPC (bypasses Alchemy limits)
+ * Fetch Transfer event logs using raw topics and Alchemy RPC
  * Searches BACKWARDS from toBlock to fromBlock, stopping early if stopAtTokenId is found
  */
 async function fetchTransferLogsBackwards(
     fromBlock: bigint,
     toBlock: bigint,
+    chainId: number,
     filterByMint: boolean = true,
     ownerAddress?: string,
     stopAtTokenId?: number
@@ -144,6 +157,8 @@ async function fetchTransferLogsBackwards(
     const CHUNK_SIZE = BigInt(1000000); // Alchemy paid plan supports large block ranges
     const allTokenIds: { tokenId: number; to: string }[] = [];
     const foundTokenIds = new Set<number>();
+    const identityRegistryAddress = getContractAddress(chainId, 'identityRegistry');
+    const rpcClient = getRpcClient(chainId);
 
     // Start from toBlock and work backwards
     let currentTo = toBlock;
@@ -158,11 +173,11 @@ async function fetchTransferLogsBackwards(
                 ownerAddress ? `0x000000000000000000000000${ownerAddress.slice(2).toLowerCase()}` as `0x${string}` : null,
             ];
 
-            // Use public RPC client (not Alchemy) to avoid block range limits
-            const logs = await publicRpcClient.request({
+            // Use RPC client for this chain
+            const logs = await rpcClient.request({
                 method: 'eth_getLogs',
                 params: [{
-                    address: IDENTITY_REGISTRY_ADDRESS,
+                    address: identityRegistryAddress,
                     topics,
                     fromBlock: `0x${currentFrom.toString(16)}`,
                     toBlock: `0x${currentTo.toString(16)}`,
@@ -200,38 +215,52 @@ async function fetchTransferLogsBackwards(
 
 /**
  * Fetch all Meerkat Town agents from Identity Registry using event logs
- * Searches BACKWARDS from current block until finding agent 2212 (Jeremy)
+ * Searches BACKWARDS from current block until finding the first Meerkat agent
  */
 export async function fetchMeerkatAgents(
     publicClient: ReturnType<typeof usePublicClient>,
+    chainId: number = DEFAULT_CHAIN_ID,
     _maxAgentsToScan: number = 100 // Kept for backwards compatibility but not used
 ): Promise<RegisteredAgent[]> {
     if (!publicClient) return [];
 
+    // Get network-specific values
+    const firstAgentId = getFirstMeerkatAgentId(chainId);
+    const minimumTokenId = getMinimumMeerkatTokenId(chainId);
+
+    // Handle "no Meerkat agents yet" case
+    if (firstAgentId === null) {
+        console.log(`[fetchMeerkatAgents] No Meerkat agents on chain ${chainId} yet`);
+        return [];
+    }
+
+    const rpcClient = getRpcClient(chainId);
+
     try {
-        // Get current block number using public RPC
-        const currentBlock = await publicRpcClient.getBlockNumber();
+        // Get current block number using RPC client for this chain
+        const currentBlock = await rpcClient.getBlockNumber();
 
-        console.log(`[fetchMeerkatAgents] Searching backwards from block ${currentBlock} until finding agent ${FIRST_MEERKAT_AGENT_ID}`);
+        console.log(`[fetchMeerkatAgents] Chain ${chainId}: Searching backwards from block ${currentBlock} until finding agent ${firstAgentId}`);
 
-        // Search backwards from current block to block 0, stopping when we find agent 2212
+        // Search backwards from current block to block 0, stopping when we find first Meerkat agent
         const mintEvents = await fetchTransferLogsBackwards(
             0n, // Search all the way back if needed
             currentBlock,
+            chainId,
             true, // filter by mint (from = 0x0)
             undefined,
-            FIRST_MEERKAT_AGENT_ID // Stop when we find Jeremy (agent 2212)
+            firstAgentId // Stop when we find the first Meerkat agent
         );
 
         console.log(`[fetchMeerkatAgents] Found ${mintEvents.length} mint events`);
 
-        // Extract unique agent IDs and filter to only Meerkat Town tokens (>= 2212)
+        // Extract unique agent IDs and filter by minimum token ID if set
         const uniqueIds = [...new Set(mintEvents.map(e => e.tokenId))]
-            .filter(id => id >= MINIMUM_MEERKAT_TOKEN_ID);
-        console.log(`[fetchMeerkatAgents] Meerkat token IDs (>= ${MINIMUM_MEERKAT_TOKEN_ID}):`, uniqueIds);
+            .filter(id => minimumTokenId === null || id >= minimumTokenId);
+        console.log(`[fetchMeerkatAgents] Meerkat token IDs${minimumTokenId !== null ? ` (>= ${minimumTokenId})` : ''}:`, uniqueIds);
 
         // Fetch agent details for each minted token
-        const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient));
+        const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient, chainId));
         const results = await Promise.all(fetchPromises);
 
         // Filter for Meerkat Town agents only (excluding blacklisted test agents)
@@ -263,6 +292,7 @@ export async function fetchMeerkatAgents(
 export async function fetchAgentsByOwner(
     ownerAddress: string,
     publicClient: ReturnType<typeof usePublicClient>,
+    chainId: number = DEFAULT_CHAIN_ID,
     maxAgents: number = 100
 ): Promise<RegisteredAgent[]> {
     if (!publicClient || !ownerAddress) return [];
@@ -271,7 +301,7 @@ export async function fetchAgentsByOwner(
         console.log(`[fetchAgentsByOwner] Fetching all agents and filtering by owner: ${ownerAddress}`);
 
         // Fetch all meerkat agents (same as Dashboard)
-        const allAgents = await fetchMeerkatAgents(publicClient, maxAgents);
+        const allAgents = await fetchMeerkatAgents(publicClient, chainId, maxAgents);
 
         // Filter by owner
         const ownedAgents = allAgents.filter(
@@ -291,13 +321,15 @@ export async function fetchAgentsByOwner(
  */
 export function useAgentBalance() {
     const { address } = useAccount();
+    const chainId = useChainId();
+    const identityRegistryAddress = getContractAddress(chainId, 'identityRegistry');
 
     const { data, isLoading, error, refetch } = useReadContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+        address: identityRegistryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'balanceOf',
         args: address ? [address] : undefined,
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId: chainId,
         query: {
             enabled: !!address,
         },
@@ -315,12 +347,15 @@ export function useAgentBalance() {
  * Hook to get token URI for a specific agent
  */
 export function useAgentTokenURI(agentId: number | undefined) {
+    const chainId = useChainId();
+    const identityRegistryAddress = getContractAddress(chainId, 'identityRegistry');
+
     const { data, isLoading, error } = useReadContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+        address: identityRegistryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'tokenURI',
         args: agentId !== undefined ? [BigInt(agentId)] : undefined,
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId: chainId,
         query: {
             enabled: agentId !== undefined,
         },
@@ -337,12 +372,15 @@ export function useAgentTokenURI(agentId: number | undefined) {
  * Hook to get owner of a specific agent
  */
 export function useAgentOwner(agentId: number | undefined) {
+    const chainId = useChainId();
+    const identityRegistryAddress = getContractAddress(chainId, 'identityRegistry');
+
     const { data, isLoading, error } = useReadContract({
-        address: IDENTITY_REGISTRY_ADDRESS,
+        address: identityRegistryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'ownerOf',
         args: agentId !== undefined ? [BigInt(agentId)] : undefined,
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId: chainId,
         query: {
             enabled: agentId !== undefined,
         },
@@ -361,20 +399,24 @@ export function useAgentOwner(agentId: number | undefined) {
  * (since this ERC-8004 registry has immutable URIs)
  */
 export async function predictNextAgentId(
-    publicClient: ReturnType<typeof usePublicClient>
+    publicClient: ReturnType<typeof usePublicClient>,
+    chainId: number = DEFAULT_CHAIN_ID
 ): Promise<number> {
     if (!publicClient) return 1;
 
+    const rpcClient = getRpcClient(chainId);
+
     try {
         // Get current block
-        const currentBlock = await publicRpcClient.getBlockNumber();
-        // Base Sepolia has ~2 second blocks, so 200000 blocks = ~5 days
+        const currentBlock = await rpcClient.getBlockNumber();
+        // Approximate block time: ETH ~12s, Base ~2s, use 200000 blocks
         const fromBlock = currentBlock - BigInt(200000);
 
         // Get recent mint events (search backwards)
         const mintEvents = await fetchTransferLogsBackwards(
             fromBlock > 0n ? fromBlock : 0n,
             currentBlock,
+            chainId,
             true // filter by mint (from = 0x0)
         );
 
