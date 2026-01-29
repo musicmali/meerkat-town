@@ -1825,12 +1825,13 @@ app.get('/.well-known/agent-registration.json', async (c) => {
         agentRegistry: string;
       }> = [];
 
-      // Fetch agent metadata to find Meerkat Town agents
-      // Start from agent 16 (first Meerkat agent) and go up to 200
-      // Stop early if we get consecutive errors (means we've reached the end)
-      const startId = 16;
-      const maxId = 200; // Upper bound for search
-      let consecutiveErrors = 0;
+      // Search for ALL agents on this registry that use Meerkat endpoints
+      // Start from agent 1 and go up to 500
+      // Use a smarter termination: stop after 20 consecutive non-existent agents
+      const startId = 1;
+      const maxId = 500; // Upper bound for search
+      let consecutiveNotFound = 0;
+      let lastFoundId = 0;
 
       for (let agentId = startId; agentId <= maxId; agentId++) {
         try {
@@ -1842,25 +1843,41 @@ app.get('/.well-known/agent-registration.json', async (c) => {
             args: [BigInt(agentId)],
           }) as string;
 
-          consecutiveErrors = 0; // Reset on success
+          // Agent exists on-chain
+          consecutiveNotFound = 0;
+          lastFoundId = agentId;
 
-          // Quick check: if IPFS URI exists, fetch metadata
+          // Fetch metadata to check if it's a Meerkat Town agent or uses our endpoints
           if (tokenUri && (tokenUri.startsWith('ipfs://') || tokenUri.startsWith('https://'))) {
-            // Fetch metadata to verify it's a Meerkat Town agent
             const metadata = await fetchMetadataFromIPFS(tokenUri);
 
-            if (metadata && metadata.meerkatId && metadata.meerkatId >= 1 && metadata.meerkatId <= 100) {
-              registrations.push({
-                agentId: agentId,
-                agentRegistry: agentRegistryCAIP10,
-              });
+            if (metadata) {
+              // Include agent if:
+              // 1. Has meerkatId (Meerkat Town native agent)
+              // 2. OR has endpoints/services pointing to meerkat.up.railway.app
+              const isMeerkatAgent = metadata.meerkatId && metadata.meerkatId >= 1 && metadata.meerkatId <= 100;
+
+              const services = metadata.services || metadata.endpoints || [];
+              const usesMeerkatDomain = services.some((s: any) =>
+                s.endpoint && s.endpoint.includes('meerkat.up.railway.app')
+              );
+
+              if (isMeerkatAgent || usesMeerkatDomain) {
+                registrations.push({
+                  agentId: agentId,
+                  agentRegistry: agentRegistryCAIP10,
+                });
+                console.log(`[agent-registration.json] Found agent ${agentId}: ${metadata.name || 'Unknown'}`);
+              }
             }
           }
-        } catch {
-          consecutiveErrors++;
-          // If we get 5 consecutive errors, assume we've reached the end
-          if (consecutiveErrors >= 5) {
-            console.log(`[agent-registration.json] Stopping search at agent ${agentId} (5 consecutive errors)`);
+        } catch (error: any) {
+          // Agent doesn't exist or RPC error
+          consecutiveNotFound++;
+
+          // Stop after 20 consecutive non-existent agents (likely reached the end)
+          if (consecutiveNotFound >= 20 && lastFoundId > 0) {
+            console.log(`[agent-registration.json] Stopping at agent ${agentId} (20 consecutive not found after ${lastFoundId})`);
             break;
           }
           continue;
@@ -1869,7 +1886,7 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 
       // Cache the results
       registrationsCache = { data: registrations, timestamp: Date.now() };
-      console.log(`[agent-registration.json] Cached ${registrations.length} registrations`);
+      console.log(`[agent-registration.json] Cached ${registrations.length} registrations (last found: ${lastFoundId})`);
     }
 
     const registrations = registrationsCache!.data;
