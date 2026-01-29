@@ -27,27 +27,7 @@ const MINIMUM_MEERKAT_TOKEN_ID: Record<number, number> = {
     84532: 16,  // Base Sepolia - v1.1 starts from #16
 };
 
-// First Meerkat Town agent ID per network
-const FIRST_MEERKAT_AGENT_ID: Record<number, number> = {
-    1: 1,       // Ethereum Mainnet
-    84532: 16,  // Base Sepolia
-};
 
-// Contract deployment blocks per network (to limit search range)
-const CONTRACT_DEPLOYMENT_BLOCK: Record<number, bigint> = {
-    1: BigInt(21500000),    // ETH Mainnet - approximate deployment block (Jan 2025)
-    84532: BigInt(5000000), // Base Sepolia - approximate deployment block
-};
-
-// Chunk size for eth_getLogs per network (Alchemy free tier: max 10 blocks for mainnet)
-const LOG_CHUNK_SIZE: Record<number, bigint> = {
-    1: BigInt(2000),       // ETH Mainnet - use 2000 blocks (Alchemy allows larger for getLogs)
-    84532: BigInt(10000),  // Base Sepolia - larger chunks allowed
-};
-
-// ERC-721 Transfer event signature
-const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 // Alchemy RPC endpoints for reliable access
 const ALCHEMY_ETH_MAINNET_RPC = 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
@@ -180,88 +160,8 @@ export async function fetchAgent(
 }
 
 /**
- * Fetch Transfer event logs using raw topics and public RPC
- * Searches BACKWARDS from toBlock to fromBlock, stopping early if stopAtTokenId is found
- * Uses network-specific chunk sizes to respect RPC limits
- */
-async function fetchTransferLogsBackwards(
-    fromBlock: bigint,
-    toBlock: bigint,
-    chainId: number,
-    filterByMint: boolean = true,
-    ownerAddress?: string,
-    stopAtTokenId?: number
-): Promise<{ tokenId: number; to: string }[]> {
-    // Use network-specific chunk size
-    const CHUNK_SIZE = LOG_CHUNK_SIZE[chainId] ?? BigInt(2000);
-    const allTokenIds: { tokenId: number; to: string }[] = [];
-    const foundTokenIds = new Set<number>();
-
-    const publicRpcClient = getPublicRpcClient(chainId);
-    const registryAddress = getIdentityRegistryAddress(chainId);
-
-    // Start from toBlock and work backwards
-    let currentTo = toBlock;
-    let requestCount = 0;
-    const MAX_REQUESTS = 50; // Limit total requests to avoid excessive API calls
-
-    while (currentTo >= fromBlock && requestCount < MAX_REQUESTS) {
-        const currentFrom = currentTo - CHUNK_SIZE < fromBlock ? fromBlock : currentTo - CHUNK_SIZE;
-        requestCount++;
-
-        try {
-            // Build topics array
-            const topics: (`0x${string}` | null)[] = [
-                TRANSFER_EVENT_SIGNATURE as `0x${string}`,
-                filterByMint ? ZERO_ADDRESS_TOPIC as `0x${string}` : null,
-                ownerAddress ? `0x000000000000000000000000${ownerAddress.slice(2).toLowerCase()}` as `0x${string}` : null,
-            ];
-
-            const logs = await publicRpcClient.request({
-                method: 'eth_getLogs',
-                params: [{
-                    address: registryAddress,
-                    topics,
-                    fromBlock: `0x${currentFrom.toString(16)}`,
-                    toBlock: `0x${currentTo.toString(16)}`,
-                }],
-            });
-
-            // Parse token IDs from logs
-            for (const log of logs) {
-                if (log.topics && log.topics[3]) {
-                    const tokenId = parseInt(log.topics[3], 16);
-                    const to = '0x' + log.topics[2]?.slice(26);
-                    allTokenIds.push({ tokenId, to });
-                    foundTokenIds.add(tokenId);
-                }
-            }
-
-            // Early exit: if we found the target token ID, we have all agents
-            if (stopAtTokenId !== undefined && foundTokenIds.has(stopAtTokenId)) {
-                console.log(`[fetchTransferLogsBackwards] Found target token ${stopAtTokenId}, stopping search`);
-                break;
-            }
-        } catch (error) {
-            console.warn(`Error fetching logs for blocks ${currentFrom}-${currentTo}:`, error);
-            // On error, try with smaller chunk or skip
-            break;
-        }
-
-        // Move backwards
-        currentTo = currentFrom - 1n;
-
-        // Safety: don't go below block 0
-        if (currentTo < 0n) break;
-    }
-
-    return allTokenIds;
-}
-
-/**
  * Fetch all Meerkat Town agents from Identity Registry
- * For ETH Mainnet: Uses direct contract reads (avoids getLogs block limits)
- * For Base Sepolia: Uses event logs for efficiency
+ * Uses direct contract reads (avoids eth_getLogs block limits on Alchemy free tier)
  */
 export async function fetchMeerkatAgents(
     publicClient: ReturnType<typeof usePublicClient>,
@@ -272,59 +172,49 @@ export async function fetchMeerkatAgents(
 
     const effectiveChainId = chainId ?? DEFAULT_CHAIN_ID;
     const publicRpcClient = getPublicRpcClient(effectiveChainId);
-    const firstAgentId = FIRST_MEERKAT_AGENT_ID[effectiveChainId] ?? 1;
     const minTokenId = MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
     const blacklist = BLACKLISTED_AGENT_IDS[effectiveChainId] ?? [];
 
     let uniqueIds: number[] = [];
 
     try {
-        // ETH Mainnet: Use direct contract reads (Alchemy free tier has very limited getLogs)
-        if (effectiveChainId === 1) {
-            console.log(`[fetchMeerkatAgents] Chain 1: Using direct contract reads to find agents`);
+        // Use direct contract reads for all chains (Alchemy free tier limits getLogs to 10 blocks)
+        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Using direct contract reads to find agents`);
 
-            // Try to read tokenURI for agent IDs 1 to maxAgentsToScan
-            const registryAddress = getIdentityRegistryAddress(effectiveChainId);
+        const registryAddress = getIdentityRegistryAddress(effectiveChainId);
 
-            for (let id = 1; id <= maxAgentsToScan; id++) {
-                try {
-                    await publicRpcClient.readContract({
+        // For Base Sepolia, start from minTokenId (16) since earlier IDs aren't Meerkat agents
+        const startId = minTokenId;
+        const endId = startId + maxAgentsToScan;
+
+        // Check agents in parallel batches for faster loading
+        const batchSize = 10;
+        for (let batchStart = startId; batchStart <= endId; batchStart += batchSize) {
+            const batchEnd = Math.min(batchStart + batchSize - 1, endId);
+            const batchPromises: Promise<number | null>[] = [];
+
+            for (let id = batchStart; id <= batchEnd; id++) {
+                batchPromises.push(
+                    publicRpcClient.readContract({
                         address: registryAddress,
                         abi: IDENTITY_REGISTRY_ABI,
                         functionName: 'tokenURI',
                         args: [BigInt(id)],
-                    });
-                    // If we get here, the token exists
-                    uniqueIds.push(id);
-                } catch {
-                    // Token doesn't exist, continue
-                }
+                    })
+                        .then(() => id) // Token exists
+                        .catch(() => null) // Token doesn't exist
+                );
             }
 
-            console.log(`[fetchMeerkatAgents] Chain 1: Found ${uniqueIds.length} existing agents`);
-        } else {
-            // Base Sepolia: Use event logs (more efficient)
-            const currentBlock = await publicRpcClient.getBlockNumber();
-            const deploymentBlock = CONTRACT_DEPLOYMENT_BLOCK[effectiveChainId] ?? BigInt(0);
-
-            console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Searching backwards from block ${currentBlock} to ${deploymentBlock}`);
-
-            const mintEvents = await fetchTransferLogsBackwards(
-                deploymentBlock,
-                currentBlock,
-                effectiveChainId,
-                true, // filter by mint (from = 0x0)
-                undefined,
-                firstAgentId
-            );
-
-            console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Found ${mintEvents.length} mint events`);
-
-            uniqueIds = [...new Set(mintEvents.map(e => e.tokenId))]
-                .filter(id => id >= minTokenId);
+            const results = await Promise.all(batchPromises);
+            for (const id of results) {
+                if (id !== null) {
+                    uniqueIds.push(id);
+                }
+            }
         }
 
-        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Token IDs to fetch:`, uniqueIds);
+        console.log(`[fetchMeerkatAgents] Chain ${effectiveChainId}: Found ${uniqueIds.length} existing agents`);
 
         // Fetch agent details for each minted token
         const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient, effectiveChainId));
@@ -481,49 +371,28 @@ export async function predictNextAgentId(
 
     try {
         const registryAddress = getIdentityRegistryAddress(effectiveChainId);
+        const minTokenId = MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
 
-        // ETH Mainnet: Use direct contract reads
-        if (effectiveChainId === 1) {
-            // Find the highest existing agent ID by checking sequentially
-            let maxId = 0;
-            for (let id = 1; id <= 100; id++) {
-                try {
-                    await publicRpcClient.readContract({
-                        address: registryAddress,
-                        abi: IDENTITY_REGISTRY_ABI,
-                        functionName: 'tokenURI',
-                        args: [BigInt(id)],
-                    });
-                    maxId = id;
-                } catch {
-                    // Token doesn't exist
-                }
+        // Use direct contract reads (Alchemy free tier limits getLogs)
+        // Find the highest existing agent ID by checking sequentially
+        let maxId = minTokenId - 1;
+        for (let id = minTokenId; id <= minTokenId + 100; id++) {
+            try {
+                await publicRpcClient.readContract({
+                    address: registryAddress,
+                    abi: IDENTITY_REGISTRY_ABI,
+                    functionName: 'tokenURI',
+                    args: [BigInt(id)],
+                });
+                maxId = id;
+            } catch {
+                // Token doesn't exist
             }
-            return maxId + 1;
         }
-
-        // Base Sepolia: Use event logs
-        const currentBlock = await publicRpcClient.getBlockNumber();
-        const blockRange = BigInt(200000);
-        const fromBlock = currentBlock - blockRange;
-
-        const mintEvents = await fetchTransferLogsBackwards(
-            fromBlock > 0n ? fromBlock : 0n,
-            currentBlock,
-            effectiveChainId,
-            true // filter by mint (from = 0x0)
-        );
-
-        if (mintEvents.length === 0) {
-            return 1; // First agent
-        }
-
-        // Find the highest agent ID
-        const maxId = Math.max(...mintEvents.map(e => e.tokenId));
         return maxId + 1;
     } catch (error) {
         console.error('[predictNextAgentId] Error:', error);
-        return 1;
+        return MINIMUM_MEERKAT_TOKEN_ID[effectiveChainId] ?? 1;
     }
 }
 
