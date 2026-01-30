@@ -94,6 +94,18 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_agents_meerkat_id ON agents(meerkat_id)
     `;
     console.log('[Database] agents indexes ready');
+
+    // Create mint_ips table for IP-based mint limiting
+    await sql`
+      CREATE TABLE IF NOT EXISTS mint_ips (
+        ip VARCHAR(45) PRIMARY KEY,
+        wallet_address VARCHAR(42) NOT NULL,
+        meerkat_id INTEGER NOT NULL,
+        chain_id INTEGER NOT NULL DEFAULT 1,
+        minted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    console.log('[Database] mint_ips table ready');
   } catch (error) {
     console.error('[Database] Failed to initialize:', error);
   }
@@ -1141,6 +1153,86 @@ app.get('/agent-cards/:meerkatId', async (c) => {
 });
 
 // ============================================================================
+// IP-BASED MINT LIMITING
+// ============================================================================
+
+/**
+ * Extract client IP from request headers
+ * Handles proxies (Railway, Cloudflare, etc.) via x-forwarded-for
+ */
+function getClientIp(c: any): string {
+  const forwarded = c.req.header('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  const realIp = c.req.header('x-real-ip');
+  if (realIp) {
+    return realIp;
+  }
+  return 'unknown';
+}
+
+/**
+ * Check if an IP is eligible to mint (hasn't minted before)
+ * GET /api/check-mint-eligibility
+ */
+app.get('/api/check-mint-eligibility', async (c) => {
+  if (!sql) {
+    // If no database, allow minting (can't track)
+    return c.json({ eligible: true });
+  }
+
+  const ip = getClientIp(c);
+  console.log(`[IP Check] Checking eligibility for IP: ${ip}`);
+
+  if (ip === 'unknown') {
+    // Can't determine IP, allow but log warning
+    console.warn('[IP Check] Could not determine client IP, allowing mint');
+    return c.json({ eligible: true, warning: 'IP could not be determined' });
+  }
+
+  try {
+    const result = await sql`SELECT meerkat_id, wallet_address, chain_id FROM mint_ips WHERE ip = ${ip}`;
+    if (result.length > 0) {
+      console.log(`[IP Check] IP ${ip} already minted meerkat #${result[0].meerkat_id}`);
+      return c.json({
+        eligible: false,
+        reason: 'This network has already minted a Meerkat agent',
+        meerkatId: result[0].meerkat_id,
+        chainId: result[0].chain_id
+      }, 403);
+    }
+    console.log(`[IP Check] IP ${ip} is eligible to mint`);
+    return c.json({ eligible: true });
+  } catch (error: any) {
+    console.error('[IP Check] Database error:', error);
+    // On error, allow minting to not block legitimate users
+    return c.json({ eligible: true, warning: 'Could not verify eligibility' });
+  }
+});
+
+/**
+ * Record an IP after successful mint (internal helper)
+ */
+async function recordMintIp(ip: string, walletAddress: string, meerkatId: number, chainId: number): Promise<boolean> {
+  if (!sql || ip === 'unknown') {
+    return false;
+  }
+  try {
+    await sql`
+      INSERT INTO mint_ips (ip, wallet_address, meerkat_id, chain_id)
+      VALUES (${ip}, ${walletAddress}, ${meerkatId}, ${chainId})
+      ON CONFLICT (ip) DO NOTHING
+    `;
+    console.log(`[IP Record] Recorded mint: IP=${ip} wallet=${walletAddress} meerkat=#${meerkatId}`);
+    return true;
+  } catch (error) {
+    console.error('[IP Record] Failed to record IP:', error);
+    return false;
+  }
+}
+
+// ============================================================================
 // AGENTS API (Fast agent listing from database instead of RPC)
 // ============================================================================
 
@@ -1174,6 +1266,12 @@ app.post('/api/agents', async (c) => {
 
     if (!success) {
       return c.json({ error: 'Failed to store agent (database not available)' }, 500);
+    }
+
+    // Record IP to prevent future mints from same IP
+    if (meerkatId) {
+      const clientIp = getClientIp(c);
+      await recordMintIp(clientIp, ownerAddress, meerkatId, chainId);
     }
 
     console.log(`[API] Stored agent: chainId=${chainId} agentId=${agentId} name=${name}`);

@@ -56,9 +56,9 @@ type FormStep = 'select' | 'details' | 'skills' | 'preview';
 // Minting stages (simplified - URI updates not supported by this registry)
 type MintStage = 'idle' | 'predicting' | 'uploading' | 'registering' | 'complete' | 'error';
 
-// TEMPORARY: Disable minting while implementing anti-abuse measures
-const MINTING_DISABLED = true;
-const MINTING_DISABLED_MESSAGE = "Minting is temporarily paused while we implement additional security measures. Please check back soon!";
+// Minting control flag (set to true to disable minting)
+const MINTING_DISABLED = false;
+const MINTING_DISABLED_MESSAGE = "Minting is temporarily paused. Please check back soon!";
 
 function MintAgent() {
     const { address, isConnected } = useAccount();
@@ -286,6 +286,21 @@ function MintAgent() {
     const handleMint = async () => {
         try {
             setStageError('');
+
+            // Step 0: Check IP eligibility (1 mint per IP)
+            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+            try {
+                const eligibilityResponse = await fetch(`${BACKEND_URL}/api/check-mint-eligibility`);
+                const eligibility = await eligibilityResponse.json();
+                if (!eligibility.eligible) {
+                    setStageError(`This network has already minted Meerkat #${eligibility.meerkatId}. One mint per IP address.`);
+                    setMintStage('error');
+                    return;
+                }
+            } catch (eligibilityErr) {
+                console.warn('Could not check IP eligibility, proceeding:', eligibilityErr);
+                // Continue if eligibility check fails - don't block users due to backend issues
+            }
 
             // Step 1: Predict the next agent ID
             setMintStage('predicting');
