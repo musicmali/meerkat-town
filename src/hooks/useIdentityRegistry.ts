@@ -224,7 +224,7 @@ async function fetchTransferLogsBackwards(
  * Fetch all Meerkat Town agents - tries database first, falls back to RPC
  */
 export async function fetchMeerkatAgents(
-    publicClient: ReturnType<typeof usePublicClient>,
+    _publicClient: ReturnType<typeof usePublicClient>, // TEMPORARY: unused while RPC disabled
     chainId: number = DEFAULT_CHAIN_ID,
     _maxAgentsToScan: number = 100 // Kept for backwards compatibility but not used
 ): Promise<RegisteredAgent[]> {
@@ -248,20 +248,26 @@ export async function fetchMeerkatAgents(
                 }));
             return agents;
         }
-        console.log(`[fetchMeerkatAgents] Database returned no agents, falling back to RPC`);
+        console.log(`[fetchMeerkatAgents] Database returned no agents`);
+        // TEMPORARY: Disable RPC fallback for testing
+        return [];
     } catch (error) {
-        console.log(`[fetchMeerkatAgents] Database API failed, falling back to RPC:`, error);
+        console.log(`[fetchMeerkatAgents] Database API failed:`, error);
+        // TEMPORARY: Disable RPC fallback for testing
+        return [];
     }
 
-    // Fallback to RPC-based fetching
-    return fetchMeerkatAgentsFromRPC(publicClient, chainId);
+    // Fallback to RPC-based fetching (TEMPORARILY DISABLED)
+    // return fetchMeerkatAgentsFromRPC(publicClient, chainId);
 }
 
 /**
  * Fetch all Meerkat Town agents from Identity Registry using event logs (RPC)
  * Searches BACKWARDS from current block until finding the first Meerkat agent
+ * TEMPORARILY DISABLED for testing database-only mode
  */
-async function fetchMeerkatAgentsFromRPC(
+// @ts-ignore - temporarily unused while testing database-only mode
+async function _fetchMeerkatAgentsFromRPC(
     publicClient: ReturnType<typeof usePublicClient>,
     chainId: number = DEFAULT_CHAIN_ID
 ): Promise<RegisteredAgent[]> {
@@ -334,11 +340,11 @@ async function fetchMeerkatAgentsFromRPC(
  */
 export async function fetchAgentsByOwner(
     ownerAddress: string,
-    publicClient: ReturnType<typeof usePublicClient>,
+    _publicClient: ReturnType<typeof usePublicClient>, // TEMPORARY: unused while RPC disabled
     chainId: number = DEFAULT_CHAIN_ID,
-    maxAgents: number = 100
+    _maxAgents: number = 100 // TEMPORARY: unused while RPC disabled
 ): Promise<RegisteredAgent[]> {
-    if (!publicClient || !ownerAddress) return [];
+    if (!ownerAddress) return [];
 
     // Try fetching from database API first (fast & cheap)
     try {
@@ -359,29 +365,28 @@ export async function fetchAgentsByOwner(
                 }));
             return agents;
         }
-        console.log(`[fetchAgentsByOwner] Database returned no agents, falling back to fetchMeerkatAgents`);
+        console.log(`[fetchAgentsByOwner] Database returned no agents`);
+        // TEMPORARY: Disable fallback for testing
+        return [];
     } catch (error) {
-        console.log(`[fetchAgentsByOwner] Database API failed, falling back to fetchMeerkatAgents:`, error);
-    }
-
-    // Fallback: Fetch all agents and filter by owner
-    try {
-        console.log(`[fetchAgentsByOwner] Fetching all agents and filtering by owner: ${ownerAddress}`);
-
-        // Fetch all meerkat agents (same as Dashboard)
-        const allAgents = await fetchMeerkatAgents(publicClient, chainId, maxAgents);
-
-        // Filter by owner
-        const ownedAgents = allAgents.filter(
-            agent => agent.owner.toLowerCase() === ownerAddress.toLowerCase()
-        );
-
-        console.log(`[fetchAgentsByOwner] Found ${ownedAgents.length} agents owned by ${ownerAddress}`);
-        return ownedAgents;
-    } catch (error) {
-        console.error('[fetchAgentsByOwner] Error:', error);
+        console.log(`[fetchAgentsByOwner] Database API failed:`, error);
+        // TEMPORARY: Disable fallback for testing
         return [];
     }
+
+    // TEMPORARILY DISABLED: Fallback to fetch all agents and filter by owner
+    // try {
+    //     console.log(`[fetchAgentsByOwner] Fetching all agents and filtering by owner: ${ownerAddress}`);
+    //     const allAgents = await fetchMeerkatAgents(publicClient, chainId, maxAgents);
+    //     const ownedAgents = allAgents.filter(
+    //         agent => agent.owner.toLowerCase() === ownerAddress.toLowerCase()
+    //     );
+    //     console.log(`[fetchAgentsByOwner] Found ${ownedAgents.length} agents owned by ${ownerAddress}`);
+    //     return ownedAgents;
+    // } catch (error) {
+    //     console.error('[fetchAgentsByOwner] Error:', error);
+    //     return [];
+    // }
 }
 
 /**
