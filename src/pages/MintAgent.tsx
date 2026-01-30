@@ -56,6 +56,10 @@ type FormStep = 'select' | 'details' | 'skills' | 'preview';
 // Minting stages (simplified - URI updates not supported by this registry)
 type MintStage = 'idle' | 'predicting' | 'uploading' | 'registering' | 'complete' | 'error';
 
+// TEMPORARY: Disable minting while implementing anti-abuse measures
+const MINTING_DISABLED = true;
+const MINTING_DISABLED_MESSAGE = "Minting is temporarily paused while we implement additional security measures. Please check back soon!";
+
 function MintAgent() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending: isConnectPending } = useConnect();
@@ -335,6 +339,23 @@ function MintAgent() {
     const renderStepContent = () => {
         switch (currentStep) {
             case 'select':
+                // Show minting disabled message
+                if (MINTING_DISABLED) {
+                    return (
+                        <div className="selection-card">
+                            <div className="agent-selection-info">
+                                <h2 className="agent-title" style={{ color: 'var(--warning, #f59e0b)' }}>Minting Paused</h2>
+                                <p className="agent-subtitle">
+                                    {MINTING_DISABLED_MESSAGE}
+                                </p>
+                                <Link to="/dashboard" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+                                    Explore Existing Agents
+                                </Link>
+                            </div>
+                        </div>
+                    );
+                }
+
                 // Show loading state while fetching availability
                 if (isLoadingAvailability) {
                     return (
