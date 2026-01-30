@@ -417,12 +417,11 @@
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-4);
-    padding: var(--space-4);
-    background-color: #ffffff;
-    border: 1px solid var(--border-light);
+    background: #ffffff;
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .agent-row:hover {
