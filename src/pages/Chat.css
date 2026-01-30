@@ -420,6 +420,7 @@ input:checked+.slider:before {
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     transition: border-color var(--transition-fast);
+    cursor: text;
 }
 
 .chat-input-wrapper:focus-within {
@@ -436,6 +437,9 @@ input:checked+.slider:before {
     resize: none;
     outline: none;
     max-height: 150px;
+    min-height: 44px;
+    padding: 10px 4px;
+    cursor: text;
 }
 
 .send-button {

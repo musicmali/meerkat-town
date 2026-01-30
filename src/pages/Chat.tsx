@@ -439,7 +439,10 @@ Be friendly, helpful, and concise in your responses.`;
 
             {/* Input */}
             <footer className="chat-input-container">
-                <div className="chat-input-wrapper">
+                <div
+                    className="chat-input-wrapper"
+                    onClick={() => inputRef.current?.focus()}
+                >
                     <textarea
                         ref={inputRef}
                         value={input}
