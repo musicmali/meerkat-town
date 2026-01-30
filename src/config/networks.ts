@@ -40,7 +40,7 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     blockExplorer: 'https://etherscan.io',
     blockExplorerName: 'Etherscan',
     reputationVersion: 'v1.2',
-    scan8004Url: 'https://www.8004scan.io/agents/mainnet',
+    scan8004Url: 'https://www.8004scan.io/agents/ethereum',
     alchemyRpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
     firstMeerkatAgentId: 12276, // First Meerkat agent minted on mainnet
     minimumMeerkatTokenId: 12276,
@@ -147,7 +147,7 @@ export function getBlockExplorerTxUrl(chainId: number, txHash: string): string {
  */
 export function get8004ScanAgentUrl(chainId: number, agentId: number): string {
   const network = NETWORKS[chainId];
-  if (!network) return `https://www.8004scan.io/agents/mainnet/${agentId}`;
+  if (!network) return `https://www.8004scan.io/agents/ethereum/${agentId}`;
   return `${network.scan8004Url}/${agentId}`;
 }
 
