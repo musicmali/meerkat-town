@@ -275,7 +275,7 @@ function MintAgent() {
         pricePerMessage: isFree ? '0' : pricePerMessage,
     });
 
-    const metadata = generateAgentMetadata(getFormData());
+    const metadata = generateAgentMetadata(getFormData(), undefined, chainId);
     const validation = validateAgentMetadata(metadata);
 
     // Handle minting
@@ -292,7 +292,7 @@ function MintAgent() {
 
             // Step 2: Generate metadata WITH registrations (using predicted ID)
             setMintStage('uploading');
-            const metadataWithRegistrations = generateAgentMetadata(getFormData(), nextId);
+            const metadataWithRegistrations = generateAgentMetadata(getFormData(), nextId, chainId);
             console.log('Generated metadata with registrations:', metadataWithRegistrations);
 
             // Step 3: Upload metadata to IPFS

@@ -17,8 +17,8 @@ import {
     BASE_SEPOLIA_CHAIN_ID,
 } from '../types/agentMetadata';
 
-// ERC-8004 Identity Registry on Base Sepolia
-import { IDENTITY_REGISTRY_ADDRESS } from '../contracts/MeerkatIdentityRegistry';
+// Network-specific contract addresses
+import { getContractAddress } from '../config/networks';
 
 // Base URL for hosted assets
 const MEERKAT_CDN_URL = 'https://www.meerkat.town';
@@ -66,11 +66,13 @@ export function getOASFEndpoint(agentId: string): string {
  *
  * @param formData - Agent form data from the mint form
  * @param agentId - Optional agent ID (if known after registration in Identity Registry)
+ * @param chainId - Chain ID for the registry (defaults to Base Sepolia)
  * @returns ERC-8004 compliant metadata object
  */
 export function generateAgentMetadata(
     formData: AgentFormData,
-    agentId?: number
+    agentId?: number,
+    chainId: number = BASE_SEPOLIA_CHAIN_ID
 ): AgentMetadata {
     // Always use meerkat ID format for MCP and A2A services
     const meerkatAgentId = `meerkat-${formData.meerkatNumber}`;
@@ -118,10 +120,11 @@ export function generateAgentMetadata(
 
     // Build registrations array for bidirectional verification
     // Links off-chain metadata to on-chain NFT identity
+    const registryAddress = getContractAddress(chainId, 'identityRegistry');
     const registrations: AgentRegistration[] | undefined = agentId !== undefined ? [
         {
             agentId: agentId,
-            agentRegistry: formatCAIP10Address(IDENTITY_REGISTRY_ADDRESS),
+            agentRegistry: formatCAIP10Address(registryAddress, chainId),
         },
     ] : undefined;
 
@@ -158,15 +161,17 @@ export function generateAgentMetadata(
  */
 export function addRegistrationToMetadata(
     metadata: AgentMetadata,
-    agentId: number
+    agentId: number,
+    chainId: number = BASE_SEPOLIA_CHAIN_ID
 ): AgentMetadata {
+    const registryAddress = getContractAddress(chainId, 'identityRegistry');
     return {
         ...metadata,
         registrations: [
             ...(metadata.registrations || []),
             {
                 agentId: agentId,
-                agentRegistry: formatCAIP10Address(IDENTITY_REGISTRY_ADDRESS),
+                agentRegistry: formatCAIP10Address(registryAddress, chainId),
             },
         ],
         updatedAt: Math.floor(Date.now() / 1000),
