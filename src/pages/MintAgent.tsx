@@ -72,6 +72,9 @@ function MintAgent() {
     const [usedMeerkatIds, setUsedMeerkatIds] = useState<Set<number>>(new Set());
     const [isLoadingAvailability, setIsLoadingAvailability] = useState(true);
 
+    // Track if user already owns a Meerkat agent (1 mint per wallet limit)
+    const [userOwnedAgent, setUserOwnedAgent] = useState<{ id: number; name: string } | null>(null);
+
     // Compute available meerkats (exclude used ones)
     const availableMeerkats = useMemo(() => {
         return allMeerkatNumbers.filter(n => !usedMeerkatIds.has(n));
@@ -86,10 +89,11 @@ function MintAgent() {
         document.title = 'Mint Agent | Meerkat Town';
     }, []);
 
-    // Fetch used meerkat IDs on mount
+    // Fetch used meerkat IDs on mount and check if user already owns an agent
     useEffect(() => {
         async function fetchUsedMeerkats() {
             setIsLoadingAvailability(true);
+            setUserOwnedAgent(null); // Reset on network/address change
             try {
                 const agents = await fetchMeerkatAgents(publicClient, chainId);
                 const usedIds = agents
@@ -99,6 +103,20 @@ function MintAgent() {
                 const allUsedIds = [...usedIds, ...MANUALLY_USED_MEERKAT_IDS];
                 console.log('Used meerkat IDs:', allUsedIds);
                 setUsedMeerkatIds(new Set(allUsedIds));
+
+                // Check if connected wallet already owns a Meerkat agent
+                if (address) {
+                    const ownedAgent = agents.find(
+                        a => a.owner.toLowerCase() === address.toLowerCase()
+                    );
+                    if (ownedAgent) {
+                        console.log('User already owns agent:', ownedAgent.agentId, ownedAgent.metadata?.name);
+                        setUserOwnedAgent({
+                            id: ownedAgent.agentId,
+                            name: ownedAgent.metadata?.name || `Agent #${ownedAgent.agentId}`,
+                        });
+                    }
+                }
             } catch (error) {
                 console.error('Failed to fetch used meerkats:', error);
             } finally {
@@ -108,7 +126,7 @@ function MintAgent() {
         if (publicClient) {
             fetchUsedMeerkats();
         }
-    }, [publicClient, chainId]);
+    }, [publicClient, chainId, address]);
 
     // Set initial random meerkat once availability is loaded
     useEffect(() => {
@@ -354,6 +372,34 @@ function MintAgent() {
                                 <Link to="/dashboard" className="btn btn-primary">
                                     Explore Existing Agents
                                 </Link>
+                            </div>
+                        </div>
+                    );
+                }
+
+                // Show message if user already owns a Meerkat agent (1 per wallet limit)
+                if (userOwnedAgent && isConnected) {
+                    return (
+                        <div className="selection-card">
+                            <div className="agent-selection-info">
+                                <h2 className="agent-title">You Already Own a Meerkat!</h2>
+                                <p className="agent-subtitle">
+                                    Each wallet can only mint one Meerkat agent. You already own <strong>{userOwnedAgent.name}</strong>.
+                                </p>
+                                <div className="selection-actions" style={{ flexDirection: 'column', gap: '0.75rem' }}>
+                                    <Link to="/my-agents" className="btn btn-primary" style={{ width: '100%' }}>
+                                        View My Agents
+                                    </Link>
+                                    <a
+                                        href={get8004ScanAgentUrl(chainId, userOwnedAgent.id)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary"
+                                        style={{ width: '100%' }}
+                                    >
+                                        View on 8004scan
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     );
