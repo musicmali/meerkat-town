@@ -125,3 +125,131 @@ export async function storeAgentCard(params: StoreAgentCardParams): Promise<Stor
 
     return response.json();
 }
+
+// ============================================================================
+// AGENTS API (Database-backed agent storage for fast listing)
+// ============================================================================
+
+/**
+ * Store an agent in the backend database after minting
+ * This allows fast agent listing without expensive RPC calls
+ */
+export interface StoreAgentParams {
+    chainId: number;
+    agentId: number;
+    ownerAddress: string;
+    metadataUri?: string;
+    meerkatId?: number;
+    name?: string;
+    description?: string;
+    image?: string;
+    pricePerMessage?: string;
+    x402Support?: boolean;
+    metadata?: Record<string, unknown>;
+}
+
+export interface StoreAgentResponse {
+    success: boolean;
+    message: string;
+    agent: {
+        chainId: number;
+        agentId: number;
+        name?: string;
+        meerkatId?: number;
+    };
+}
+
+export async function storeAgentInDatabase(params: StoreAgentParams): Promise<StoreAgentResponse> {
+    const response = await fetch(`${BACKEND_URL}/api/agents`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to store agent');
+    }
+
+    return response.json();
+}
+
+/**
+ * Fetch all agents for a chain from the backend database
+ */
+export interface FetchAgentsResponse {
+    chainId: number;
+    agents: Array<{
+        agentId: number;
+        owner: string;
+        metadataUri?: string;
+        metadata: {
+            name?: string;
+            description?: string;
+            image?: string;
+            meerkatId?: number;
+            pricePerMessage?: string;
+            x402support?: boolean;
+            [key: string]: unknown;
+        };
+        isMeerkatAgent: boolean;
+    }>;
+    count: number;
+    source: string;
+}
+
+export async function fetchAgentsFromDatabase(chainId: number): Promise<FetchAgentsResponse> {
+    const response = await fetch(`${BACKEND_URL}/api/agents?chainId=${chainId}`);
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch agents');
+    }
+
+    return response.json();
+}
+
+/**
+ * Fetch agents owned by a specific address from the backend database
+ */
+export async function fetchAgentsByOwnerFromDatabase(
+    chainId: number,
+    ownerAddress: string
+): Promise<FetchAgentsResponse> {
+    const response = await fetch(`${BACKEND_URL}/api/agents/owner/${chainId}/${ownerAddress}`);
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch agents by owner');
+    }
+
+    return response.json();
+}
+
+/**
+ * Check if database has agents for a chain
+ */
+export interface AgentsStatusResponse {
+    chainId: number;
+    databaseAvailable: boolean;
+    hasAgents: boolean;
+    agentCount: number;
+}
+
+export async function checkAgentsStatus(chainId: number): Promise<AgentsStatusResponse> {
+    const response = await fetch(`${BACKEND_URL}/api/agents/status/${chainId}`);
+
+    if (!response.ok) {
+        // If endpoint fails, assume database not available
+        return {
+            chainId,
+            databaseAvailable: false,
+            hasAgents: false,
+            agentCount: 0,
+        };
+    }
+
+    return response.json();
+}

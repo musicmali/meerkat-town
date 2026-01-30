@@ -1,5 +1,6 @@
 // Hooks for fetching agents from ERC-8004 Identity Registry
 // These agents are identified as Meerkat Town agents by the meerkatId field in metadata
+// Now supports database-backed fetching for fast listing (falls back to RPC if needed)
 
 import { useReadContract, usePublicClient, useAccount, useChainId } from 'wagmi';
 import { createPublicClient, http } from 'viem';
@@ -13,6 +14,10 @@ import {
     getBlockChunkSize,
     DEFAULT_CHAIN_ID,
 } from '../config/networks';
+import {
+    fetchAgentsFromDatabase,
+    fetchAgentsByOwnerFromDatabase,
+} from '../utils/pinata';
 import type { AgentMetadata } from '../types/agentMetadata';
 
 // Blacklisted agent IDs (test agents that shouldn't appear in the dashboard)
@@ -216,13 +221,49 @@ async function fetchTransferLogsBackwards(
 }
 
 /**
- * Fetch all Meerkat Town agents from Identity Registry using event logs
- * Searches BACKWARDS from current block until finding the first Meerkat agent
+ * Fetch all Meerkat Town agents - tries database first, falls back to RPC
  */
 export async function fetchMeerkatAgents(
     publicClient: ReturnType<typeof usePublicClient>,
     chainId: number = DEFAULT_CHAIN_ID,
     _maxAgentsToScan: number = 100 // Kept for backwards compatibility but not used
+): Promise<RegisteredAgent[]> {
+    // Try fetching from database API first (fast & cheap)
+    try {
+        console.log(`[fetchMeerkatAgents] Trying database API for chain ${chainId}...`);
+        const response = await fetchAgentsFromDatabase(chainId);
+
+        if (response.agents && response.agents.length > 0) {
+            console.log(`[fetchMeerkatAgents] Got ${response.agents.length} agents from database`);
+            // Transform API response to RegisteredAgent format
+            const agents: RegisteredAgent[] = response.agents
+                .filter(a => a.isMeerkatAgent)
+                .filter(a => !BLACKLISTED_AGENT_IDS.includes(a.agentId))
+                .map(a => ({
+                    agentId: a.agentId,
+                    owner: a.owner,
+                    metadataUri: a.metadataUri || '',
+                    metadata: a.metadata as unknown as AgentMetadata | null,
+                    isMeerkatAgent: a.isMeerkatAgent,
+                }));
+            return agents;
+        }
+        console.log(`[fetchMeerkatAgents] Database returned no agents, falling back to RPC`);
+    } catch (error) {
+        console.log(`[fetchMeerkatAgents] Database API failed, falling back to RPC:`, error);
+    }
+
+    // Fallback to RPC-based fetching
+    return fetchMeerkatAgentsFromRPC(publicClient, chainId);
+}
+
+/**
+ * Fetch all Meerkat Town agents from Identity Registry using event logs (RPC)
+ * Searches BACKWARDS from current block until finding the first Meerkat agent
+ */
+async function fetchMeerkatAgentsFromRPC(
+    publicClient: ReturnType<typeof usePublicClient>,
+    chainId: number = DEFAULT_CHAIN_ID
 ): Promise<RegisteredAgent[]> {
     if (!publicClient) return [];
 
@@ -232,7 +273,7 @@ export async function fetchMeerkatAgents(
 
     // Handle "no Meerkat agents yet" case
     if (firstAgentId === null) {
-        console.log(`[fetchMeerkatAgents] No Meerkat agents on chain ${chainId} yet`);
+        console.log(`[fetchMeerkatAgentsFromRPC] No Meerkat agents on chain ${chainId} yet`);
         return [];
     }
 
@@ -242,7 +283,7 @@ export async function fetchMeerkatAgents(
         // Get current block number using RPC client for this chain
         const currentBlock = await rpcClient.getBlockNumber();
 
-        console.log(`[fetchMeerkatAgents] Chain ${chainId}: Searching backwards from block ${currentBlock} until finding agent ${firstAgentId}`);
+        console.log(`[fetchMeerkatAgentsFromRPC] Chain ${chainId}: Searching backwards from block ${currentBlock} until finding agent ${firstAgentId}`);
 
         // Search backwards from current block to block 0, stopping when we find first Meerkat agent
         const mintEvents = await fetchTransferLogsBackwards(
@@ -254,12 +295,12 @@ export async function fetchMeerkatAgents(
             firstAgentId // Stop when we find the first Meerkat agent
         );
 
-        console.log(`[fetchMeerkatAgents] Found ${mintEvents.length} mint events`);
+        console.log(`[fetchMeerkatAgentsFromRPC] Found ${mintEvents.length} mint events`);
 
         // Extract unique agent IDs and filter by minimum token ID if set
         const uniqueIds = [...new Set(mintEvents.map(e => e.tokenId))]
             .filter(id => minimumTokenId === null || id >= minimumTokenId);
-        console.log(`[fetchMeerkatAgents] Meerkat token IDs${minimumTokenId !== null ? ` (>= ${minimumTokenId})` : ''}:`, uniqueIds);
+        console.log(`[fetchMeerkatAgentsFromRPC] Meerkat token IDs${minimumTokenId !== null ? ` (>= ${minimumTokenId})` : ''}:`, uniqueIds);
 
         // Fetch agent details for each minted token
         const fetchPromises = uniqueIds.map(id => fetchAgent(id, publicClient, chainId));
@@ -271,25 +312,25 @@ export async function fetchMeerkatAgents(
             if (agent && agent.isMeerkatAgent) {
                 // Skip blacklisted agents by ID
                 if (BLACKLISTED_AGENT_IDS.includes(agent.agentId)) {
-                    console.log(`[fetchMeerkatAgents] Skipping blacklisted agent: ${agent.agentId} - ${agent.metadata?.name}`);
+                    console.log(`[fetchMeerkatAgentsFromRPC] Skipping blacklisted agent: ${agent.agentId} - ${agent.metadata?.name}`);
                     continue;
                 }
-                console.log(`[fetchMeerkatAgents] Found Meerkat agent: ${agent.agentId} - ${agent.metadata?.name}`);
+                console.log(`[fetchMeerkatAgentsFromRPC] Found Meerkat agent: ${agent.agentId} - ${agent.metadata?.name}`);
                 agents.push(agent);
             }
         }
 
-        console.log(`[fetchMeerkatAgents] Total Meerkat Town agents found: ${agents.length}`);
+        console.log(`[fetchMeerkatAgentsFromRPC] Total Meerkat Town agents found: ${agents.length}`);
         return agents;
     } catch (error) {
-        console.error('[fetchMeerkatAgents] Error:', error);
+        console.error('[fetchMeerkatAgentsFromRPC] Error:', error);
         return [];
     }
 }
 
 /**
  * Fetch agents owned by a specific address
- * Uses fetchMeerkatAgents and filters by owner - more reliable than event log searching
+ * Tries database API first, falls back to fetching all agents and filtering
  */
 export async function fetchAgentsByOwner(
     ownerAddress: string,
@@ -299,6 +340,31 @@ export async function fetchAgentsByOwner(
 ): Promise<RegisteredAgent[]> {
     if (!publicClient || !ownerAddress) return [];
 
+    // Try fetching from database API first (fast & cheap)
+    try {
+        console.log(`[fetchAgentsByOwner] Trying database API for owner ${ownerAddress} on chain ${chainId}...`);
+        const response = await fetchAgentsByOwnerFromDatabase(chainId, ownerAddress);
+
+        if (response.agents && response.agents.length > 0) {
+            console.log(`[fetchAgentsByOwner] Got ${response.agents.length} agents from database`);
+            // Transform API response to RegisteredAgent format
+            const agents: RegisteredAgent[] = response.agents
+                .filter(a => a.isMeerkatAgent)
+                .map(a => ({
+                    agentId: a.agentId,
+                    owner: a.owner,
+                    metadataUri: a.metadataUri || '',
+                    metadata: a.metadata as unknown as AgentMetadata | null,
+                    isMeerkatAgent: a.isMeerkatAgent,
+                }));
+            return agents;
+        }
+        console.log(`[fetchAgentsByOwner] Database returned no agents, falling back to fetchMeerkatAgents`);
+    } catch (error) {
+        console.log(`[fetchAgentsByOwner] Database API failed, falling back to fetchMeerkatAgents:`, error);
+    }
+
+    // Fallback: Fetch all agents and filter by owner
     try {
         console.log(`[fetchAgentsByOwner] Fetching all agents and filtering by owner: ${ownerAddress}`);
 

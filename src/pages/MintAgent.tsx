@@ -6,7 +6,7 @@ import type { AgentFormData } from '../types/agentMetadata';
 import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata, getMeerkatImageUrl } from '../utils/generateAgentMetadata';
 import { useRegisterAgent } from '../hooks/useERC8004Registries';
 import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
-import { uploadToIPFS, storeAgentCard } from '../utils/pinata';
+import { uploadToIPFS, storeAgentCard, storeAgentInDatabase } from '../utils/pinata';
 import {
     isSupportedNetwork,
     isX402Supported,
@@ -154,24 +154,48 @@ function MintAgent() {
     const [stageError, setStageError] = useState<string>('');
     const [newAgentId, setNewAgentId] = useState<number | null>(null);
     const [predictedAgentId, setPredictedAgentId] = useState<number | null>(null);
+    const [uploadedMetadataUri, setUploadedMetadataUri] = useState<string | null>(null);
 
     // Handle registration success
     useEffect(() => {
         if (isSuccess && mintStage === 'registering') {
             console.log('Agent registered in Identity Registry! TX:', hash);
             const agentId = getAgentIdFromReceipt();
-            if (agentId !== null && Number(agentId) > 0) {
-                const agentIdNum = Number(agentId);
-                console.log('New Agent ID from receipt:', agentIdNum);
-                setNewAgentId(agentIdNum);
-            } else if (predictedAgentId) {
-                // Use predicted ID if we couldn't parse from receipt
-                console.log('Using predicted Agent ID:', predictedAgentId);
-                setNewAgentId(predictedAgentId);
+            const finalAgentId = (agentId !== null && Number(agentId) > 0)
+                ? Number(agentId)
+                : predictedAgentId;
+
+            if (finalAgentId) {
+                console.log('Final Agent ID:', finalAgentId);
+                setNewAgentId(finalAgentId);
+
+                // Store agent in database for fast listing (non-blocking)
+                const formData = getFormData();
+                storeAgentInDatabase({
+                    chainId,
+                    agentId: finalAgentId,
+                    ownerAddress: address || '',
+                    metadataUri: uploadedMetadataUri || undefined,
+                    meerkatId: selectedMeerkat,
+                    name: formData.name,
+                    description: formData.description,
+                    image: getMeerkatImageUrl(selectedMeerkat),
+                    pricePerMessage: formData.pricePerMessage === '0' ? 'Free' : formData.pricePerMessage,
+                    x402Support: true,
+                    metadata: {
+                        skills: formData.skills,
+                        domains: formData.domains,
+                    },
+                }).then(() => {
+                    console.log('Agent stored in database for fast listing');
+                }).catch((err) => {
+                    console.warn('Failed to store agent in database (non-critical):', err);
+                });
             }
             setMintStage('complete');
         }
-    }, [isSuccess, mintStage, hash, getAgentIdFromReceipt, predictedAgentId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSuccess, mintStage, hash, getAgentIdFromReceipt, predictedAgentId, chainId, address, selectedMeerkat, uploadedMetadataUri]);
 
     // Handle errors
     useEffect(() => {
@@ -271,6 +295,7 @@ function MintAgent() {
                 `meerkat-agent-${selectedMeerkat}`
             );
             console.log('Metadata uploaded to IPFS:', result.ipfsUri);
+            setUploadedMetadataUri(result.ipfsUri);
 
             // Step 4: Store A2A agent card in database (non-blocking)
             const formData = getFormData();

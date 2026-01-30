@@ -45,7 +45,7 @@ async function initDatabase() {
   }
 
   try {
-    // Create agent_cards table
+    // Create agent_cards table (legacy)
     await sql`
       CREATE TABLE IF NOT EXISTS agent_cards (
         meerkat_id INTEGER PRIMARY KEY,
@@ -60,6 +60,40 @@ async function initDatabase() {
       )
     `;
     console.log('[Database] agent_cards table ready');
+
+    // Create agents table for full agent data (indexed from blockchain)
+    await sql`
+      CREATE TABLE IF NOT EXISTS agents (
+        id SERIAL PRIMARY KEY,
+        chain_id INTEGER NOT NULL,
+        agent_id INTEGER NOT NULL,
+        owner_address VARCHAR(42) NOT NULL,
+        metadata_uri TEXT,
+        meerkat_id INTEGER,
+        name VARCHAR(200),
+        description TEXT,
+        image VARCHAR(500),
+        price_per_message VARCHAR(50),
+        x402_support BOOLEAN DEFAULT true,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(chain_id, agent_id)
+      )
+    `;
+    console.log('[Database] agents table ready');
+
+    // Create index for faster queries
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_agents_chain_id ON agents(chain_id)
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_agents_owner ON agents(owner_address)
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_agents_meerkat_id ON agents(meerkat_id)
+    `;
+    console.log('[Database] agents indexes ready');
   } catch (error) {
     console.error('[Database] Failed to initialize:', error);
   }
@@ -121,6 +155,150 @@ async function getAgentCard(meerkatId: number): Promise<StoredAgentCard | null> 
   } catch (error) {
     console.error('[Database] Failed to get agent card:', error);
     return null;
+  }
+}
+
+// ============================================================================
+// AGENTS DATABASE (for fast agent listing without RPC calls)
+// ============================================================================
+
+// Agent stored in database
+interface StoredAgent {
+  id?: number;
+  chain_id: number;
+  agent_id: number;
+  owner_address: string;
+  metadata_uri?: string;
+  meerkat_id?: number;
+  name?: string;
+  description?: string;
+  image?: string;
+  price_per_message?: string;
+  x402_support?: boolean;
+  metadata?: Record<string, unknown>;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+/**
+ * Store an agent in the database (upsert)
+ */
+async function storeAgent(agent: StoredAgent): Promise<boolean> {
+  if (!sql) {
+    console.warn('[Database] Cannot store agent: DATABASE_URL not set');
+    return false;
+  }
+
+  try {
+    await sql`
+      INSERT INTO agents (
+        chain_id, agent_id, owner_address, metadata_uri,
+        meerkat_id, name, description, image,
+        price_per_message, x402_support, metadata, updated_at
+      ) VALUES (
+        ${agent.chain_id}, ${agent.agent_id}, ${agent.owner_address}, ${agent.metadata_uri || null},
+        ${agent.meerkat_id || null}, ${agent.name || null}, ${agent.description || null}, ${agent.image || null},
+        ${agent.price_per_message || null}, ${agent.x402_support ?? true}, ${JSON.stringify(agent.metadata || {})}, CURRENT_TIMESTAMP
+      )
+      ON CONFLICT (chain_id, agent_id) DO UPDATE SET
+        owner_address = ${agent.owner_address},
+        metadata_uri = ${agent.metadata_uri || null},
+        meerkat_id = ${agent.meerkat_id || null},
+        name = ${agent.name || null},
+        description = ${agent.description || null},
+        image = ${agent.image || null},
+        price_per_message = ${agent.price_per_message || null},
+        x402_support = ${agent.x402_support ?? true},
+        metadata = ${JSON.stringify(agent.metadata || {})},
+        updated_at = CURRENT_TIMESTAMP
+    `;
+    console.log(`[Database] Stored agent: chain=${agent.chain_id} agentId=${agent.agent_id} name=${agent.name}`);
+    return true;
+  } catch (error) {
+    console.error('[Database] Failed to store agent:', error);
+    return false;
+  }
+}
+
+/**
+ * Get all agents for a specific chain
+ */
+async function getAgentsByChain(chainId: number): Promise<StoredAgent[]> {
+  if (!sql) return [];
+
+  try {
+    const result = await sql<StoredAgent[]>`
+      SELECT chain_id, agent_id, owner_address, metadata_uri,
+             meerkat_id, name, description, image,
+             price_per_message, x402_support, metadata, created_at, updated_at
+      FROM agents
+      WHERE chain_id = ${chainId}
+      ORDER BY agent_id DESC
+    `;
+    return result;
+  } catch (error) {
+    console.error('[Database] Failed to get agents by chain:', error);
+    return [];
+  }
+}
+
+/**
+ * Get a single agent by chain and agent ID
+ */
+async function getAgent(chainId: number, agentId: number): Promise<StoredAgent | null> {
+  if (!sql) return null;
+
+  try {
+    const result = await sql<StoredAgent[]>`
+      SELECT chain_id, agent_id, owner_address, metadata_uri,
+             meerkat_id, name, description, image,
+             price_per_message, x402_support, metadata, created_at, updated_at
+      FROM agents
+      WHERE chain_id = ${chainId} AND agent_id = ${agentId}
+    `;
+    return result[0] || null;
+  } catch (error) {
+    console.error('[Database] Failed to get agent:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all agents owned by a specific address on a chain
+ */
+async function getAgentsByOwner(chainId: number, ownerAddress: string): Promise<StoredAgent[]> {
+  if (!sql) return [];
+
+  try {
+    const result = await sql<StoredAgent[]>`
+      SELECT chain_id, agent_id, owner_address, metadata_uri,
+             meerkat_id, name, description, image,
+             price_per_message, x402_support, metadata, created_at, updated_at
+      FROM agents
+      WHERE chain_id = ${chainId} AND LOWER(owner_address) = LOWER(${ownerAddress})
+      ORDER BY agent_id DESC
+    `;
+    return result;
+  } catch (error) {
+    console.error('[Database] Failed to get agents by owner:', error);
+    return [];
+  }
+}
+
+/**
+ * Check if database has agents for a chain
+ */
+async function hasAgentsInDatabase(chainId: number): Promise<boolean> {
+  if (!sql) return false;
+
+  try {
+    const result = await sql<{ count: string }[]>`
+      SELECT COUNT(*) as count FROM agents WHERE chain_id = ${chainId}
+    `;
+    return parseInt(result[0]?.count || '0') > 0;
+  } catch (error) {
+    console.error('[Database] Failed to check agents count:', error);
+    return false;
   }
 }
 
@@ -960,6 +1138,199 @@ app.get('/agent-cards/:meerkatId', async (c) => {
   }
 
   return c.json(card);
+});
+
+// ============================================================================
+// AGENTS API (Fast agent listing from database instead of RPC)
+// ============================================================================
+
+/**
+ * Store an agent after minting
+ * POST /api/agents
+ * Body: { chainId, agentId, ownerAddress, metadataUri, meerkatId, name, description, image, pricePerMessage, x402Support, metadata }
+ */
+app.post('/api/agents', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { chainId, agentId, ownerAddress, metadataUri, meerkatId, name, description, image, pricePerMessage, x402Support, metadata } = body;
+
+    if (!chainId || !agentId || !ownerAddress) {
+      return c.json({ error: 'chainId, agentId, and ownerAddress are required' }, 400);
+    }
+
+    const success = await storeAgent({
+      chain_id: chainId,
+      agent_id: agentId,
+      owner_address: ownerAddress,
+      metadata_uri: metadataUri,
+      meerkat_id: meerkatId,
+      name,
+      description,
+      image,
+      price_per_message: pricePerMessage,
+      x402_support: x402Support ?? true,
+      metadata,
+    });
+
+    if (!success) {
+      return c.json({ error: 'Failed to store agent (database not available)' }, 500);
+    }
+
+    console.log(`[API] Stored agent: chainId=${chainId} agentId=${agentId} name=${name}`);
+    return c.json({
+      success: true,
+      message: `Agent ${agentId} stored successfully`,
+      agent: { chainId, agentId, name, meerkatId }
+    });
+
+  } catch (error: any) {
+    console.error('[API] Store agent error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get all agents for a chain
+ * GET /api/agents?chainId=1
+ */
+app.get('/api/agents', async (c) => {
+  const chainIdParam = c.req.query('chainId');
+  const chainId = chainIdParam ? parseInt(chainIdParam) : 1; // Default to mainnet
+
+  if (isNaN(chainId)) {
+    return c.json({ error: 'Invalid chainId' }, 400);
+  }
+
+  const agents = await getAgentsByChain(chainId);
+
+  // Transform to match frontend RegisteredAgent format
+  const transformedAgents = agents.map(agent => ({
+    agentId: agent.agent_id,
+    owner: agent.owner_address,
+    metadataUri: agent.metadata_uri,
+    metadata: {
+      name: agent.name,
+      description: agent.description,
+      image: agent.image,
+      meerkatId: agent.meerkat_id,
+      pricePerMessage: agent.price_per_message,
+      x402support: agent.x402_support,
+      ...(agent.metadata as Record<string, unknown> || {}),
+    },
+    isMeerkatAgent: agent.meerkat_id !== null && agent.meerkat_id >= 1 && agent.meerkat_id <= 100,
+  }));
+
+  console.log(`[API] Fetched ${transformedAgents.length} agents for chain ${chainId}`);
+  return c.json({
+    chainId,
+    agents: transformedAgents,
+    count: transformedAgents.length,
+    source: 'database'
+  });
+});
+
+/**
+ * Get a single agent by chain and agent ID
+ * GET /api/agents/:chainId/:agentId
+ */
+app.get('/api/agents/:chainId/:agentId', async (c) => {
+  const chainId = parseInt(c.req.param('chainId'));
+  const agentId = parseInt(c.req.param('agentId'));
+
+  if (isNaN(chainId) || isNaN(agentId)) {
+    return c.json({ error: 'Invalid chainId or agentId' }, 400);
+  }
+
+  const agent = await getAgent(chainId, agentId);
+
+  if (!agent) {
+    return c.json({ error: 'Agent not found' }, 404);
+  }
+
+  // Transform to match frontend RegisteredAgent format
+  const transformedAgent = {
+    agentId: agent.agent_id,
+    owner: agent.owner_address,
+    metadataUri: agent.metadata_uri,
+    metadata: {
+      name: agent.name,
+      description: agent.description,
+      image: agent.image,
+      meerkatId: agent.meerkat_id,
+      pricePerMessage: agent.price_per_message,
+      x402support: agent.x402_support,
+      ...(agent.metadata as Record<string, unknown> || {}),
+    },
+    isMeerkatAgent: agent.meerkat_id !== null && agent.meerkat_id >= 1 && agent.meerkat_id <= 100,
+  };
+
+  return c.json(transformedAgent);
+});
+
+/**
+ * Get all agents owned by a specific address
+ * GET /api/agents/owner/:chainId/:address
+ */
+app.get('/api/agents/owner/:chainId/:address', async (c) => {
+  const chainId = parseInt(c.req.param('chainId'));
+  const address = c.req.param('address');
+
+  if (isNaN(chainId)) {
+    return c.json({ error: 'Invalid chainId' }, 400);
+  }
+
+  if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return c.json({ error: 'Invalid address format' }, 400);
+  }
+
+  const agents = await getAgentsByOwner(chainId, address);
+
+  // Transform to match frontend RegisteredAgent format
+  const transformedAgents = agents.map(agent => ({
+    agentId: agent.agent_id,
+    owner: agent.owner_address,
+    metadataUri: agent.metadata_uri,
+    metadata: {
+      name: agent.name,
+      description: agent.description,
+      image: agent.image,
+      meerkatId: agent.meerkat_id,
+      pricePerMessage: agent.price_per_message,
+      x402support: agent.x402_support,
+      ...(agent.metadata as Record<string, unknown> || {}),
+    },
+    isMeerkatAgent: agent.meerkat_id !== null && agent.meerkat_id >= 1 && agent.meerkat_id <= 100,
+  }));
+
+  console.log(`[API] Fetched ${transformedAgents.length} agents for owner ${address} on chain ${chainId}`);
+  return c.json({
+    chainId,
+    owner: address,
+    agents: transformedAgents,
+    count: transformedAgents.length,
+  });
+});
+
+/**
+ * Check if database has agents (for frontend to decide whether to use DB or RPC)
+ * GET /api/agents/status/:chainId
+ */
+app.get('/api/agents/status/:chainId', async (c) => {
+  const chainId = parseInt(c.req.param('chainId'));
+
+  if (isNaN(chainId)) {
+    return c.json({ error: 'Invalid chainId' }, 400);
+  }
+
+  const hasAgents = await hasAgentsInDatabase(chainId);
+  const agents = hasAgents ? await getAgentsByChain(chainId) : [];
+
+  return c.json({
+    chainId,
+    databaseAvailable: sql !== null,
+    hasAgents,
+    agentCount: agents.length,
+  });
 });
 
 // ============================================================================
