@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect, usePublicClient, useChainId } from 'wagmi';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
-import { REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
+import { REPUTATION_REGISTRY_ABI, REPUTATION_REGISTRY_ABI_V12 } from '../contracts/MeerkatReputationRegistry';
 import { getFromCache, setToCache, batchProcess } from '../utils/rpcUtils';
 import {
     getContractAddress,
     getBlockExplorerAddressUrl,
     get8004ScanAgentUrl,
+    getReputationVersion,
 } from '../config/networks';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
@@ -49,6 +50,8 @@ function Leaderboard() {
             // Use chain-specific cache key
             const cacheKey = `${LEADERBOARD_CACHE_KEY}_${chainId}`;
             const reputationAddress = getContractAddress(chainId, 'reputationRegistry');
+            const reputationVersion = getReputationVersion(chainId);
+            const abi = reputationVersion === 'v1.2' ? REPUTATION_REGISTRY_ABI_V12 : REPUTATION_REGISTRY_ABI;
 
             // Try to load from cache first
             const cached = getFromCache<AgentWithScore[]>(cacheKey);
@@ -79,16 +82,28 @@ function Leaderboard() {
                         try {
                             const result = await publicClient.readContract({
                                 address: reputationAddress,
-                                abi: REPUTATION_REGISTRY_ABI,
+                                abi,
                                 functionName: 'getSummary',
                                 args: [BigInt(agent.agentId), [], '', ''],
-                            }) as [bigint, number];
+                            });
 
-                            return {
-                                ...agent,
-                                feedbackCount: Number(result[0]),
-                                score: result[1],
-                            };
+                            // v1.1: [count, averageScore]
+                            // v1.2: [count, summaryValue, summaryValueDecimals]
+                            if (reputationVersion === 'v1.2') {
+                                const [count, summaryValue] = result as [bigint, bigint, number];
+                                return {
+                                    ...agent,
+                                    feedbackCount: Number(count),
+                                    score: Number(summaryValue),
+                                };
+                            } else {
+                                const [count, averageScore] = result as [bigint, number];
+                                return {
+                                    ...agent,
+                                    feedbackCount: Number(count),
+                                    score: averageScore,
+                                };
+                            }
                         } catch {
                             return {
                                 ...agent,

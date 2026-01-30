@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect, useChainId, usePublicClient } from 'wagmi';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
-import { REPUTATION_REGISTRY_ABI } from '../contracts/MeerkatReputationRegistry';
+import { REPUTATION_REGISTRY_ABI, REPUTATION_REGISTRY_ABI_V12 } from '../contracts/MeerkatReputationRegistry';
 import { getFromCache, setToCache, clearCache, batchProcess } from '../utils/rpcUtils';
 import {
     isSupportedNetwork,
@@ -11,6 +11,7 @@ import {
     get8004ScanAgentUrl,
     getNetworkName,
     getFirstMeerkatAgentId,
+    getReputationVersion,
 } from '../config/networks';
 import AgentReputation from '../components/AgentReputation';
 import ScoreBadge from '../components/ScoreBadge';
@@ -102,19 +103,32 @@ function Dashboard() {
         if (!publicClient) return { score: 0, feedbackCount: 0 };
 
         const reputationAddress = getContractAddress(chainId, 'reputationRegistry');
+        const reputationVersion = getReputationVersion(chainId);
+        const abi = reputationVersion === 'v1.2' ? REPUTATION_REGISTRY_ABI_V12 : REPUTATION_REGISTRY_ABI;
 
         try {
             const result = await publicClient.readContract({
                 address: reputationAddress,
-                abi: REPUTATION_REGISTRY_ABI,
+                abi,
                 functionName: 'getSummary',
                 args: [BigInt(agentId), [], '', ''],
-            }) as [bigint, number];
+            });
 
-            return {
-                feedbackCount: Number(result[0]),
-                score: result[1],
-            };
+            // v1.1: [count, averageScore]
+            // v1.2: [count, summaryValue, summaryValueDecimals]
+            if (reputationVersion === 'v1.2') {
+                const [count, summaryValue] = result as [bigint, bigint, number];
+                return {
+                    feedbackCount: Number(count),
+                    score: Number(summaryValue), // summaryValue is the average score (0-100)
+                };
+            } else {
+                const [count, averageScore] = result as [bigint, number];
+                return {
+                    feedbackCount: Number(count),
+                    score: averageScore,
+                };
+            }
         } catch {
             return { score: 0, feedbackCount: 0 };
         }

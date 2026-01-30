@@ -1,8 +1,12 @@
 // AgentReputation Component
 // Displays ERC-8004 agent reputation summary (average value and feedback count)
-// Final spec: getSummary returns [count, averageValue, valueDecimals]
+// Supports both v1.1 (Base Sepolia) and v1.2 (ETH mainnet) contracts
+// v1.1: getSummary returns [count, averageScore]
+// v1.2: getSummary returns [count, summaryValue, summaryValueDecimals]
 
+import { useChainId } from 'wagmi';
 import { useAgentReputation } from '../hooks/useERC8004Registries';
+import { getReputationVersion } from '../config/networks';
 import './AgentReputation.css';
 
 interface AgentReputationProps {
@@ -18,6 +22,8 @@ export function AgentReputation({
     showCount = true,
     className = ''
 }: AgentReputationProps) {
+    const chainId = useChainId();
+    const reputationVersion = getReputationVersion(chainId);
     const { data, isLoading, error } = useAgentReputation(agentId);
 
     // Handle loading state
@@ -34,8 +40,21 @@ export function AgentReputation({
         return null; // Silently hide if can't load reputation
     }
 
-    const [count, averageScore] = data as [bigint, number];
-    const feedbackCount = Number(count);
+    // Parse data based on contract version
+    // v1.1: [count, averageScore]
+    // v1.2: [count, summaryValue, summaryValueDecimals]
+    let feedbackCount: number;
+    let averageScore: number;
+
+    if (reputationVersion === 'v1.2') {
+        const [count, summaryValue] = data as [bigint, bigint, number];
+        feedbackCount = Number(count);
+        averageScore = Number(summaryValue);
+    } else {
+        const [count, score] = data as [bigint, number];
+        feedbackCount = Number(count);
+        averageScore = score;
+    }
 
     // No feedback yet
     if (feedbackCount === 0) {
