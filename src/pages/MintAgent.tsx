@@ -643,6 +643,17 @@ function MintAgent() {
                             <span className="wallet-value">{address ? formatAddress(address) : 'Not connected'}</span>
                         </div>
 
+                        {userOwnedAgent && (
+                            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid #ef4444' }}>
+                                <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                    1 Agent Per Wallet Limit
+                                </p>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                                    You already own <strong>{userOwnedAgent.name}</strong>. Each wallet can only mint one Meerkat agent.
+                                </p>
+                            </div>
+                        )}
+
                         <div className="form-actions">
                             <button
                                 className="btn btn-secondary"
@@ -660,11 +671,13 @@ function MintAgent() {
                                     mintStage === 'registering' ||
                                     mintStage === 'complete' ||
                                     isRegistering ||
-                                    isConfirming
+                                    isConfirming ||
+                                    userOwnedAgent !== null
                                 }
                                 onClick={handleMint}
                             >
-                                {mintStage === 'predicting' ? 'Preparing...' :
+                                {userOwnedAgent ? 'Already Own an Agent' :
+                                    mintStage === 'predicting' ? 'Preparing...' :
                                     mintStage === 'uploading' ? 'Uploading to IPFS...' :
                                         mintStage === 'registering' ? (isConfirming ? 'Confirming...' : 'Registering Agent...') :
                                             mintStage === 'complete' ? 'Registered!' :
