@@ -99,36 +99,6 @@ function getReputationABI(chainId: number) {
 }
 
 /**
- * Get agent reputation summary (count and average value)
- * v1.1 (Base Sepolia): Returns [count, averageScore]
- * v1.2 (ETH mainnet): Returns [count, summaryValue, summaryValueDecimals]
- * @param agentId - The agent's token ID
- * @param clientAddresses - Optional filter by specific client addresses
- * @param tag1 - Optional filter by tag1 (e.g., "starred", "uptime", "successRate")
- * @param tag2 - Optional filter by tag2 (e.g., time window: "day", "week", "month")
- */
-export function useAgentReputation(
-    agentId: number,
-    clientAddresses: `0x${string}`[] = [],
-    tag1: string = '',
-    tag2: string = '',
-    enabled = true
-) {
-    const chainId = useChainId();
-    const address = getContractAddress(chainId, 'reputationRegistry');
-    const abi = getReputationABI(chainId);
-
-    return useReadContract({
-        address,
-        abi,
-        functionName: 'getSummary',
-        args: [BigInt(agentId), clientAddresses, tag1, tag2],
-        chainId,
-        query: { enabled },
-    });
-}
-
-/**
  * Get list of clients who gave feedback to an agent
  */
 export function useAgentClients(agentId: number, enabled = true) {
@@ -144,6 +114,72 @@ export function useAgentClients(agentId: number, enabled = true) {
         chainId,
         query: { enabled },
     });
+}
+
+/**
+ * Get agent reputation summary (count and average value)
+ * v1.1 (Base Sepolia): Returns [count, averageScore] - accepts empty clientAddresses
+ * v1.2 (ETH mainnet): Returns [count, summaryValue, summaryValueDecimals] - REQUIRES clientAddresses
+ *
+ * For v1.2, this hook first fetches the client addresses, then fetches the summary.
+ * @param agentId - The agent's token ID
+ * @param tag1 - Optional filter by tag1 (e.g., "starred", "uptime", "successRate")
+ * @param tag2 - Optional filter by tag2 (e.g., time window: "day", "week", "month")
+ */
+export function useAgentReputation(
+    agentId: number,
+    clientAddresses: `0x${string}`[] = [],
+    tag1: string = '',
+    tag2: string = '',
+    enabled = true
+) {
+    const chainId = useChainId();
+    const address = getContractAddress(chainId, 'reputationRegistry');
+    const abi = getReputationABI(chainId);
+    const reputationVersion = getReputationVersion(chainId);
+
+    // For v1.2, we need to fetch clients first (contract requires clientAddresses)
+    const { data: clients, isLoading: isLoadingClients } = useReadContract({
+        address,
+        abi,
+        functionName: 'getClients',
+        args: [BigInt(agentId)],
+        chainId,
+        query: { enabled: enabled && reputationVersion === 'v1.2' && clientAddresses.length === 0 },
+    });
+
+    // Determine which client addresses to use
+    // For v1.2: use fetched clients (or provided clientAddresses if given)
+    // For v1.1: use provided clientAddresses (empty array is OK)
+    const effectiveClients = reputationVersion === 'v1.2'
+        ? (clientAddresses.length > 0 ? clientAddresses : (clients as `0x${string}`[] || []))
+        : clientAddresses;
+
+    // For v1.2, only call getSummary once we have clients
+    const summaryEnabled = enabled && (
+        reputationVersion === 'v1.1' ||
+        clientAddresses.length > 0 ||
+        (clients && (clients as `0x${string}`[]).length > 0)
+    );
+
+    const summaryResult = useReadContract({
+        address,
+        abi,
+        functionName: 'getSummary',
+        args: [BigInt(agentId), effectiveClients, tag1, tag2],
+        chainId,
+        query: { enabled: summaryEnabled },
+    });
+
+    // For v1.2 with no provided clients, combine loading states
+    if (reputationVersion === 'v1.2' && clientAddresses.length === 0) {
+        return {
+            ...summaryResult,
+            isLoading: isLoadingClients || summaryResult.isLoading,
+        };
+    }
+
+    return summaryResult;
 }
 
 /**

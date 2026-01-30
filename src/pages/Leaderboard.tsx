@@ -80,11 +80,28 @@ function Leaderboard() {
                     agents,
                     async (agent) => {
                         try {
+                            // For v1.2, we need to fetch clients first (contract REQUIRES clientAddresses)
+                            let clientAddresses: `0x${string}`[] = [];
+                            if (reputationVersion === 'v1.2') {
+                                const clients = await publicClient.readContract({
+                                    address: reputationAddress,
+                                    abi,
+                                    functionName: 'getClients',
+                                    args: [BigInt(agent.agentId)],
+                                }) as `0x${string}`[];
+                                clientAddresses = clients;
+
+                                // If no clients, no feedback yet
+                                if (clientAddresses.length === 0) {
+                                    return { ...agent, feedbackCount: 0, score: 0 };
+                                }
+                            }
+
                             const result = await publicClient.readContract({
                                 address: reputationAddress,
                                 abi,
                                 functionName: 'getSummary',
-                                args: [BigInt(agent.agentId), [], '', ''],
+                                args: [BigInt(agent.agentId), clientAddresses, '', ''],
                             });
 
                             // v1.1: [count, averageScore]

@@ -107,11 +107,28 @@ function Dashboard() {
         const abi = reputationVersion === 'v1.2' ? REPUTATION_REGISTRY_ABI_V12 : REPUTATION_REGISTRY_ABI;
 
         try {
+            // For v1.2, we need to fetch clients first (contract REQUIRES clientAddresses)
+            let clientAddresses: `0x${string}`[] = [];
+            if (reputationVersion === 'v1.2') {
+                const clients = await publicClient.readContract({
+                    address: reputationAddress,
+                    abi,
+                    functionName: 'getClients',
+                    args: [BigInt(agentId)],
+                }) as `0x${string}`[];
+                clientAddresses = clients;
+
+                // If no clients, no feedback yet
+                if (clientAddresses.length === 0) {
+                    return { score: 0, feedbackCount: 0 };
+                }
+            }
+
             const result = await publicClient.readContract({
                 address: reputationAddress,
                 abi,
                 functionName: 'getSummary',
-                args: [BigInt(agentId), [], '', ''],
+                args: [BigInt(agentId), clientAddresses, '', ''],
             });
 
             // v1.1: [count, averageScore]
@@ -129,7 +146,8 @@ function Dashboard() {
                     score: averageScore,
                 };
             }
-        } catch {
+        } catch (error) {
+            console.error(`[Dashboard] Error fetching score for agent ${agentId}:`, error);
             return { score: 0, feedbackCount: 0 };
         }
     }, [publicClient, chainId]);
