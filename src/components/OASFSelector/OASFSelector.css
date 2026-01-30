@@ -277,10 +277,33 @@
 }
 
 .oasf-checkbox {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--primary);
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    background: white;
     cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.oasf-checkbox:checked {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.oasf-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
 .oasf-item.disabled .oasf-checkbox {
