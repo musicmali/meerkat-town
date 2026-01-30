@@ -106,11 +106,9 @@ export function generateAgentMetadata(
         });
     }
 
-    // Agent Wallet (payment address on Base Sepolia)
-    services.push({
-        name: 'agentWallet',
-        endpoint: formatCAIP10Address(formData.ownerAddress),
-    });
+    // NOTE: agentWallet is NOT included in metadata anymore (deprecated per WA082)
+    // The agent wallet should be set on-chain using setAgentWallet() instead
+    // See: https://best-practices.8004scan.io/docs/implementation/error-codes.html#wa082
 
     // Web endpoint (Meerkat Town website)
     services.push({
@@ -207,11 +205,8 @@ export function validateAgentMetadata(metadata: AgentMetadata): { valid: boolean
         errors.push('At least one service is required');
     }
 
-    // Check for agentWallet (required for x402 support)
-    const hasWallet = servicesList.some(s => s.name === 'agentWallet');
-    if (!hasWallet) {
-        errors.push('agentWallet service is required');
-    }
+    // NOTE: agentWallet in metadata is deprecated (WA082)
+    // Wallet should be set on-chain using setAgentWallet() instead
 
     // Meerkat Town specific
     if (!metadata.meerkatId || metadata.meerkatId < 1 || metadata.meerkatId > 100) {
