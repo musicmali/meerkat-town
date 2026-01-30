@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
-import { getSkillsByCategory, getDomainsByCategory } from '../data/oasfTaxonomy';
+import { OASF_SKILLS_TAXONOMY, OASF_DOMAINS_TAXONOMY } from '../data/oasfTaxonomy';
+import OASFSelector from '../components/OASFSelector';
 import type { AgentFormData } from '../types/agentMetadata';
 import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata, getMeerkatImageUrl } from '../utils/generateAgentMetadata';
 import { useRegisterAgent } from '../hooks/useERC8004Registries';
@@ -244,19 +245,6 @@ function MintAgent() {
 
     // Step navigation
     const goToStep = (step: FormStep) => setCurrentStep(step);
-
-    // Toggle skill/domain selection
-    const toggleSkill = (slug: string) => {
-        setSelectedSkills(prev =>
-            prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
-        );
-    };
-
-    const toggleDomain = (slug: string) => {
-        setSelectedDomains(prev =>
-            prev.includes(slug) ? prev.filter(d => d !== slug) : [...prev, slug]
-        );
-    };
 
     // Generate metadata for preview
     const getFormData = (): AgentFormData => ({
@@ -516,58 +504,31 @@ function MintAgent() {
                 );
 
             case 'skills':
-                const skillsByCategory = getSkillsByCategory();
-                const domainsByCategory = getDomainsByCategory();
-
                 return (
                     <div className="form-card skills-card">
                         <div className="form-header">
                             <img src={getMeerkatImage(selectedMeerkat)} alt="Selected Meerkat" className="form-avatar" />
                             <div>
                                 <h2 className="form-title">Skills & Domains</h2>
-                                <p className="form-subtitle">Select capabilities using OASF taxonomy</p>
+                                <p className="form-subtitle">Select capabilities (max 5 each)</p>
                             </div>
                         </div>
 
-                        <div className="taxonomy-section">
-                            <h3 className="taxonomy-title">Skills ({selectedSkills.length} selected)</h3>
-                            {Object.entries(skillsByCategory).map(([category, skills]) => (
-                                <div key={category} className="taxonomy-category">
-                                    <h4 className="category-name">{category}</h4>
-                                    <div className="taxonomy-chips">
-                                        {skills.map(skill => (
-                                            <button
-                                                key={skill.slug}
-                                                className={`chip ${selectedSkills.includes(skill.slug) ? 'selected' : ''}`}
-                                                onClick={() => toggleSkill(skill.slug)}
-                                            >
-                                                {skill.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <OASFSelector
+                            type="skills"
+                            taxonomy={OASF_SKILLS_TAXONOMY}
+                            selectedSlugs={selectedSkills}
+                            onSelectionChange={setSelectedSkills}
+                            maxSelections={5}
+                        />
 
-                        <div className="taxonomy-section">
-                            <h3 className="taxonomy-title">Domains ({selectedDomains.length} selected)</h3>
-                            {Object.entries(domainsByCategory).map(([category, domains]) => (
-                                <div key={category} className="taxonomy-category">
-                                    <h4 className="category-name">{category}</h4>
-                                    <div className="taxonomy-chips">
-                                        {domains.map(domain => (
-                                            <button
-                                                key={domain.slug}
-                                                className={`chip ${selectedDomains.includes(domain.slug) ? 'selected' : ''}`}
-                                                onClick={() => toggleDomain(domain.slug)}
-                                            >
-                                                {domain.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <OASFSelector
+                            type="domains"
+                            taxonomy={OASF_DOMAINS_TAXONOMY}
+                            selectedSlugs={selectedDomains}
+                            onSelectionChange={setSelectedDomains}
+                            maxSelections={5}
+                        />
 
                         <div className="form-actions">
                             <button className="btn btn-secondary" onClick={() => goToStep('details')}>

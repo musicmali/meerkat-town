@@ -1,0 +1,337 @@
+/* ============================================
+   OASF SELECTOR - Hierarchical Accordion
+   ============================================ */
+
+.oasf-selector {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.oasf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.oasf-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+}
+
+.oasf-count {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.oasf-count.at-limit {
+    color: var(--warning, #f59e0b);
+}
+
+/* ============================================
+   SELECTED CHIPS
+   ============================================ */
+
+.oasf-selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.oasf-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--primary);
+    color: white;
+    border-radius: 16px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.oasf-chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.oasf-chip-remove:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============================================
+   LIMIT WARNING
+   ============================================ */
+
+.oasf-limit-warning {
+    padding: 0.5rem 0.75rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid var(--warning, #f59e0b);
+    border-radius: 8px;
+    color: var(--warning, #f59e0b);
+    font-size: 0.8125rem;
+    margin-bottom: 0.75rem;
+}
+
+/* ============================================
+   ACCORDION
+   ============================================ */
+
+.oasf-accordion {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Custom scrollbar */
+.oasf-accordion::-webkit-scrollbar {
+    width: 6px;
+}
+
+.oasf-accordion::-webkit-scrollbar-track {
+    background: var(--background);
+    border-radius: 3px;
+}
+
+.oasf-accordion::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.oasf-accordion::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* ============================================
+   CATEGORY (Level 1)
+   ============================================ */
+
+.oasf-category {
+    border-bottom: 1px solid var(--border);
+}
+
+.oasf-category:last-child {
+    border-bottom: none;
+}
+
+.oasf-category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-align: left;
+}
+
+.oasf-category-header:hover {
+    background: rgba(255, 107, 0, 0.05);
+}
+
+.oasf-category-header.expanded {
+    background: rgba(255, 107, 0, 0.08);
+}
+
+.oasf-expand-icon {
+    font-size: 0.625rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.oasf-category-name {
+    flex: 1;
+}
+
+.oasf-category-badge {
+    background: var(--primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.125rem 0.5rem;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+
+/* ============================================
+   SUBCATEGORY (Level 2)
+   ============================================ */
+
+.oasf-subcategories {
+    padding-left: 1.25rem;
+}
+
+.oasf-subcategory {
+    border-top: 1px solid var(--border);
+}
+
+.oasf-subcategory:first-child {
+    border-top: none;
+}
+
+.oasf-subcategory-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.375rem;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-align: left;
+}
+
+.oasf-subcategory-header:hover {
+    background: rgba(255, 107, 0, 0.05);
+}
+
+.oasf-subcategory-header.expanded {
+    background: rgba(255, 107, 0, 0.05);
+}
+
+.oasf-subcategory-name {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+.oasf-subcategory-badge {
+    background: var(--primary);
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 8px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* ============================================
+   ITEMS (Level 3 - Checkboxes)
+   ============================================ */
+
+.oasf-items {
+    padding: 0.5rem 0 0.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.oasf-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.oasf-item:hover:not(.disabled) {
+    background: rgba(255, 107, 0, 0.05);
+}
+
+.oasf-item.selected {
+    background: rgba(255, 107, 0, 0.1);
+}
+
+.oasf-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.oasf-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.oasf-item.disabled .oasf-checkbox {
+    cursor: not-allowed;
+}
+
+.oasf-item-name {
+    font-size: 0.8125rem;
+    color: var(--text);
+}
+
+.oasf-item.selected .oasf-item-name {
+    font-weight: 500;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .oasf-selector {
+        padding: 0.75rem;
+    }
+
+    .oasf-accordion {
+        max-height: 250px;
+    }
+
+    .oasf-category-header {
+        padding: 0.625rem 0.375rem;
+        font-size: 0.875rem;
+    }
+
+    .oasf-subcategory-header {
+        padding: 0.4375rem 0.25rem;
+        font-size: 0.8125rem;
+    }
+
+    .oasf-items {
+        padding-left: 1rem;
+    }
+
+    .oasf-item {
+        padding: 0.3125rem 0.375rem;
+    }
+
+    .oasf-item-name {
+        font-size: 0.75rem;
+    }
+
+    .oasf-chip {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.625rem;
+    }
+}
