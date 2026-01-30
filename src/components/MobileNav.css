@@ -101,3 +101,156 @@
     height: 22px;
     margin-bottom: 2px;
 }
+
+/* ============================================
+   MOBILE WALLET MENU
+   ============================================ */
+
+.mobile-wallet-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .mobile-wallet-overlay {
+        display: flex;
+    }
+}
+
+.mobile-wallet-menu {
+    width: 100%;
+    max-width: 400px;
+    background: var(--bg-white, #fff);
+    border-radius: 20px 20px 0 0;
+    padding: 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.mobile-wallet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light, #e5e7eb);
+    margin-bottom: 1rem;
+}
+
+.mobile-wallet-address {
+    font-family: monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text, #1f2937);
+}
+
+.mobile-wallet-network {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.625rem;
+    border-radius: 12px;
+    background: var(--primary-glow, rgba(249, 115, 22, 0.1));
+    color: var(--primary, #f97316);
+}
+
+.mobile-wallet-network.unsupported {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.mobile-wallet-section {
+    margin-bottom: 1rem;
+}
+
+.mobile-wallet-section-title {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #6b7280);
+    margin-bottom: 0.75rem;
+}
+
+.mobile-wallet-networks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.mobile-network-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: var(--surface, #f9fafb);
+    border: 1px solid var(--border-light, #e5e7eb);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mobile-network-option:hover:not(:disabled) {
+    border-color: var(--primary, #f97316);
+    background: var(--primary-glow, rgba(249, 115, 22, 0.05));
+}
+
+.mobile-network-option.active {
+    border-color: var(--primary, #f97316);
+    background: var(--primary-glow, rgba(249, 115, 22, 0.1));
+}
+
+.mobile-network-option:disabled {
+    cursor: default;
+}
+
+.mobile-network-logo {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.mobile-network-name {
+    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text, #1f2937);
+    text-align: left;
+}
+
+.mobile-network-check {
+    color: var(--primary, #f97316);
+}
+
+.mobile-wallet-disconnect {
+    width: 100%;
+    padding: 0.875rem;
+    background: transparent;
+    border: 1px solid #ef4444;
+    border-radius: 12px;
+    color: #ef4444;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mobile-wallet-disconnect:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
