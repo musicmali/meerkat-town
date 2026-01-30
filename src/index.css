@@ -82,6 +82,8 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 110px;
   /* Offset for fixed navbar */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -91,6 +93,9 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
 .footer-content p {

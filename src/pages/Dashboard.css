@@ -970,6 +970,19 @@
 @media (max-width: 1024px) {
     .agents-grid {
         grid-template-columns: 1fr;
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .agents-grid {
+        width: calc(100vw - var(--space-8));
+        max-width: 100%;
+    }
+
+    .agents-list {
+        width: calc(100vw - var(--space-8));
+        max-width: 100%;
     }
 }
 
@@ -994,6 +1007,8 @@
         flex-direction: column;
         width: 100%;
         max-width: 100%;
+        overflow: hidden;
+        -webkit-overflow-scrolling: touch;
     }
 
     .agent-artwork {
@@ -1007,10 +1022,35 @@
         width: 100%;
         max-width: 100%;
         padding: var(--space-4);
+        overflow: hidden;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
 
     .agent-artwork::after {
         display: none;
+    }
+
+    /* Score badge inside card bounds on mobile */
+    .agent-score-badge {
+        top: var(--space-2);
+        left: var(--space-2);
+    }
+
+    /* Ensure text doesn't overflow */
+    .agent-header {
+        flex-wrap: wrap;
+    }
+
+    .deployer-badge {
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .deployer-address {
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .agent-avatar-large {
