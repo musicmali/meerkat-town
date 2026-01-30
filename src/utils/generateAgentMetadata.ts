@@ -62,15 +62,6 @@ export function getOASFEndpoint(agentId: string): string {
 }
 
 /**
- * Extract just the skill/domain name from a full OASF path
- * e.g., 'research_and_education/data_science' -> 'data_science'
- */
-function getOASFName(fullPath: string): string {
-    const parts = fullPath.split('/');
-    return parts[parts.length - 1];
-}
-
-/**
  * Generate ERC-8004 compliant agent metadata from form data
  *
  * @param formData - Agent form data from the mint form
@@ -105,14 +96,13 @@ export function generateAgentMetadata(
     });
 
     // OASF Service (skills & domains)
-    // Use just the skill/domain name (not full path) for OASF compliance
     if (formData.skills.length > 0 || formData.domains.length > 0) {
         services.push({
             name: 'OASF',
             endpoint: getOASFEndpoint(meerkatAgentId),
             version: OASF_VERSION,
-            skills: formData.skills.map(getOASFName),
-            domains: formData.domains.map(getOASFName),
+            skills: formData.skills,
+            domains: formData.domains,
         });
     }
 
