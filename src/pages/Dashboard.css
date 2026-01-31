@@ -399,7 +399,8 @@
 
 .agents-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    /* Responsive grid: auto-fit columns with min 550px, adapts to screen width */
+    grid-template-columns: repeat(auto-fit, minmax(550px, 1fr));
     gap: var(--space-6);
     padding-top: var(--space-4);
     /* Space for score badges that extend above cards */
@@ -955,6 +956,7 @@
 /* Responsive */
 @media (max-width: 1024px) {
     .agents-grid {
+        /* On tablets and smaller, reduce min-width to fit single column */
         grid-template-columns: 1fr;
         width: 100%;
     }
