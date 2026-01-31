@@ -6,8 +6,6 @@
     display: flex;
     min-height: 100vh;
     background: var(--bg-light);
-    max-width: 100vw;
-    overflow-x: hidden;
 }
 
 /* Sidebar */
@@ -120,8 +118,6 @@
     padding: var(--space-8);
     display: flex;
     flex-direction: column;
-    max-width: 100%;
-    overflow-x: hidden;
 }
 
 .dashboard-header {
@@ -175,8 +171,6 @@
 /* Agents Section */
 .agents-section {
     margin-bottom: var(--space-8);
-    max-width: 100%;
-    overflow-x: hidden;
 }
 
 .section-header {
@@ -409,8 +403,6 @@
     gap: var(--space-6);
     padding-top: var(--space-4);
     /* Space for score badges that extend above cards */
-    max-width: 100%;
-    overflow-x: hidden;
 }
 
 /* List View (for Meerkat Agents toggle) */
@@ -418,8 +410,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    max-width: 100%;
-    overflow-x: hidden;
 }
 
 .agent-row {
@@ -432,8 +422,6 @@
     border-radius: var(--radius-lg);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1);
-    max-width: 100%;
-    box-sizing: border-box;
 }
 
 .agent-row:hover {
@@ -622,8 +610,6 @@
     overflow: visible;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    max-width: 100%;
-    box-sizing: border-box;
 }
 
 .agent-card:hover {
@@ -971,18 +957,6 @@
     .agents-grid {
         grid-template-columns: 1fr;
         width: 100%;
-    }
-}
-
-@media (max-width: 768px) {
-    .agents-grid {
-        width: calc(100vw - var(--space-8));
-        max-width: 100%;
-    }
-
-    .agents-list {
-        width: calc(100vw - var(--space-8));
-        max-width: 100%;
     }
 }
 
