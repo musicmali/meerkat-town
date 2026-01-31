@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, usePublicClient, useConnect, useDisconnect, useChainId } from 'wagmi';
+import { useAccount, usePublicClient, useChainId } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import {
     get8004ScanAgentUrl,
@@ -15,8 +16,6 @@ import '../pages/Dashboard.css'; // Reuse sidebar styles
 
 function MyAgents() {
     const { address, isConnected } = useAccount();
-    const { connect, connectors, isPending } = useConnect();
-    const { disconnect } = useDisconnect();
     const chainId = useChainId();
     const publicClient = usePublicClient({ chainId });
 
@@ -57,13 +56,6 @@ function MyAgents() {
         return !!(agent.metadata?.registrations && agent.metadata.registrations.length > 0);
     };
 
-    const handleConnect = () => {
-        const connector = connectors[0];
-        if (connector) {
-            connect({ connector });
-        }
-    };
-
     const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
     return (
@@ -96,25 +88,30 @@ function MyAgents() {
                 </nav>
 
                 <div className="sidebar-footer">
-                    {isConnected && address ? (
-                        <div className="wallet-connected">
-                            <div className="wallet-info">
-                                <span className="wallet-indicator"></span>
-                                <span className="wallet-address">{formatAddress(address)}</span>
-                            </div>
-                            <button onClick={() => disconnect()} className="btn btn-secondary wallet-btn">
-                                Disconnect
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={handleConnect}
-                            disabled={isPending}
-                            className="btn btn-primary wallet-btn"
-                        >
-                            {isPending ? 'Connecting...' : 'Connect Wallet'}
-                        </button>
-                    )}
+                    <ConnectButton.Custom>
+                        {({ account, chain, openAccountModal, openConnectModal, mounted }) => {
+                            const connected = mounted && account && chain;
+                            return (
+                                <>
+                                    {connected ? (
+                                        <div className="wallet-connected">
+                                            <div className="wallet-info">
+                                                <span className="wallet-indicator"></span>
+                                                <span className="wallet-address">{formatAddress(address || '')}</span>
+                                            </div>
+                                            <button onClick={openAccountModal} className="btn btn-secondary wallet-btn">
+                                                Disconnect
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={openConnectModal} className="btn btn-primary wallet-btn">
+                                            Connect Wallet
+                                        </button>
+                                    )}
+                                </>
+                            );
+                        }}
+                    </ConnectButton.Custom>
                 </div>
             </aside>
 

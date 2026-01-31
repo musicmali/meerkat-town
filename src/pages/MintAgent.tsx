@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, useConnect, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
+import { useAccount, useChainId, useSwitchChain, usePublicClient } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { OASF_SKILLS_TAXONOMY, OASF_DOMAINS_TAXONOMY } from '../data/oasfTaxonomy';
 import OASFSelector from '../components/OASFSelector';
 import type { AgentFormData } from '../types/agentMetadata';
@@ -62,7 +63,6 @@ const MINTING_DISABLED_MESSAGE = "Minting is temporarily paused. Please check ba
 
 function MintAgent() {
     const { address, isConnected } = useAccount();
-    const { connect, connectors, isPending: isConnectPending } = useConnect();
     const chainId = useChainId();
     const { switchChain, isPending: isSwitching } = useSwitchChain();
     const isCorrectChain = isSupportedNetwork(chainId);
@@ -246,13 +246,6 @@ function MintAgent() {
             }
         }, 150); // 150ms between each image (slower for visibility)
     }, [availableMeerkats]);
-
-    const handleConnect = () => {
-        const connector = connectors[0];
-        if (connector) {
-            connect({ connector });
-        }
-    };
 
     // Network switching is now handled by NetworkSwitcher in header
     // This is kept for the notice button
@@ -814,18 +807,27 @@ function MintAgent() {
                     </Link>
                 </nav>
                 <div className="sidebar-footer">
-                    {isConnected && address ? (
-                        <div className="wallet-connected">
-                            <div className="wallet-info">
-                                <span className="wallet-indicator"></span>
-                                <span className="wallet-address">{formatAddress(address)}</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <button onClick={handleConnect} disabled={isConnectPending} className="btn btn-primary wallet-btn">
-                            {isConnectPending ? 'Connecting...' : 'Connect Wallet'}
-                        </button>
-                    )}
+                    <ConnectButton.Custom>
+                        {({ account, chain, openConnectModal, mounted }) => {
+                            const connected = mounted && account && chain;
+                            return (
+                                <>
+                                    {connected ? (
+                                        <div className="wallet-connected">
+                                            <div className="wallet-info">
+                                                <span className="wallet-indicator"></span>
+                                                <span className="wallet-address">{formatAddress(address || '')}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button onClick={openConnectModal} className="btn btn-primary wallet-btn">
+                                            Connect Wallet
+                                        </button>
+                                    )}
+                                </>
+                            );
+                        }}
+                    </ConnectButton.Custom>
                 </div>
             </aside>
 

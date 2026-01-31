@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAccount, useConnect, useChainId, usePublicClient } from 'wagmi';
+import { useAccount, useChainId, usePublicClient } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import ReactMarkdown from 'react-markdown';
 import { useX402 } from '../hooks/useX402';
 import { fetchAgent } from '../hooks/useIdentityRegistry';
@@ -55,7 +56,6 @@ function Chat() {
 
     // Wallet connection
     const { address, isConnected } = useAccount();
-    const { connect, connectors, isPending: isConnectPending } = useConnect();
 
     // Chain management
     const chainId = useChainId();
@@ -192,17 +192,6 @@ Be friendly, helpful, and concise in your responses.`;
         e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
     };
 
-    const formatAddress = (addr: string) => {
-        return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-    };
-
-    const handleConnect = () => {
-        const connector = connectors[0];
-        if (connector) {
-            connect({ connector });
-        }
-    };
-
     const sendMessage = async () => {
         if (!input.trim() || isLoading) return;
 
@@ -336,20 +325,24 @@ Be friendly, helpful, and concise in your responses.`;
                     <span className="price-badge">
                         {agent.pricePerMessage === 'Free' ? 'Free' : `${agent.pricePerMessage || '$0.001'} / msg`}
                     </span>
-                    {isConnected && address ? (
-                        <div className="wallet-badge connected">
-                            <span className="wallet-dot"></span>
-                            {formatAddress(address)}
-                        </div>
-                    ) : (
-                        <button
-                            onClick={handleConnect}
-                            disabled={isConnectPending}
-                            className="btn btn-primary btn-small"
-                        >
-                            {isConnectPending ? '...' : 'Connect'}
-                        </button>
-                    )}
+                    <ConnectButton.Custom>
+                        {({ account, chain, openAccountModal, openConnectModal, mounted }) => {
+                            const connected = mounted && account && chain;
+                            return connected ? (
+                                <div className="wallet-badge connected" onClick={openAccountModal} style={{ cursor: 'pointer' }}>
+                                    <span className="wallet-dot"></span>
+                                    {account.displayName}
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={openConnectModal}
+                                    className="btn btn-primary btn-small"
+                                >
+                                    Connect
+                                </button>
+                            );
+                        }}
+                    </ConnectButton.Custom>
                 </div>
             </header>
 
