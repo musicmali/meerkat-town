@@ -2,29 +2,20 @@
 // Supports Ethereum Mainnet and Base Sepolia with network-specific contract addresses and features
 
 // RPC Configuration
-// Alchemy API key from environment (optional - free RPCs used when not provided)
-const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || '';
+// Alchemy API key from environment (optional override)
+const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || 'XRfB1Htp32AuoMrXtblwO';
 
-// Free public RPCs (used as primary for testnet, fallback for mainnet)
-const FREE_RPCS: Record<number, string> = {
-  1: 'https://eth.llamarpc.com',      // Ethereum mainnet free RPC
-  84532: 'https://sepolia.base.org',  // Base Sepolia official free RPC
+// RPC URLs per network
+// - Ethereum Mainnet: Alchemy (fast, reliable for production)
+// - Base Sepolia: Free public RPC (testnet, saves Alchemy credits)
+const RPC_URLS: Record<number, string> = {
+  1: `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+  84532: 'https://sepolia.base.org',
 };
 
-// Build RPC URLs based on available API key
+// Build RPC URL for a chain
 function buildRpcUrl(chainId: number): string {
-  // Base Sepolia: always use free RPC (testnet, no need for paid service)
-  if (chainId === 84532) {
-    return FREE_RPCS[84532];
-  }
-  // Ethereum Mainnet: use Alchemy if key provided, otherwise free RPC
-  if (chainId === 1) {
-    return ALCHEMY_API_KEY
-      ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-      : FREE_RPCS[1];
-  }
-  // Fallback to free RPC if available
-  return FREE_RPCS[chainId] || '';
+  return RPC_URLS[chainId] || '';
 }
 
 export interface NetworkConfig {

@@ -320,18 +320,14 @@ async function hasAgentsInDatabase(chainId: number): Promise<boolean> {
 // ============================================================================
 
 // RPC Configuration
-// Alchemy API key from environment (optional - free RPCs used when not provided)
-const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || '';
+// Alchemy API key from environment (with default fallback)
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || 'XRfB1Htp32AuoMrXtblwO';
 
-// Free public RPCs (used as primary for testnet)
-const FREE_BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
-const FREE_ETH_MAINNET_RPC = 'https://eth.llamarpc.com';
-
-// Build RPC URLs: Base Sepolia always uses free RPC, Mainnet uses Alchemy if available
-const ETH_MAINNET_RPC = ALCHEMY_API_KEY
-  ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-  : FREE_ETH_MAINNET_RPC;
-const BASE_SEPOLIA_RPC = FREE_BASE_SEPOLIA_RPC;
+// RPC URLs per network:
+// - Ethereum Mainnet: Alchemy (fast, reliable for production)
+// - Base Sepolia: Free public RPC (testnet, saves Alchemy credits)
+const ETH_MAINNET_RPC = `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
 // Network configurations
 const NETWORKS = {
