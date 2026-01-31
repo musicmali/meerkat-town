@@ -2376,13 +2376,11 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 
     // Query all agents from database
     const agents = await sql`
-      SELECT chain_id, agent_id, meerkat_id
+      SELECT chain_id, agent_id
       FROM agents
       WHERE meerkat_id IS NOT NULL
-      ORDER BY chain_id ASC, meerkat_id ASC
+      ORDER BY chain_id ASC, agent_id ASC
     `;
-
-    console.log(`[agent-registration.json] Found ${agents.length} agents in database`);
 
     // Build registrations array
     const registrations = agents.map((agent: any) => {
@@ -2392,48 +2390,15 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 
       return {
         agentId: agent.agent_id,
-        agentRegistry: `eip155:${agent.chain_id}:${registryAddress}`,
-        chainId: agent.chain_id
+        agentRegistry: `eip155:${agent.chain_id}:${registryAddress}`
       };
     });
 
-    // Return ERC-8004 compliant registration file
-    return c.json({
-      type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-      name: 'Meerkat Town',
-      description: 'Web3 AI agent marketplace on Ethereum and Base. Mint AI agents as NFTs, chat with them via x402 USDC micropayments (Base Sepolia), and provide on-chain reputation feedback.',
-      image: 'https://www.meerkat.town/logo.png',
-      supportedNetworks: [
-        { chainId: 1, name: 'Ethereum', x402Supported: false },
-        { chainId: 84532, name: 'Base Sepolia', x402Supported: true },
-      ],
-      registrations,
-      services: [
-        {
-          name: 'A2A',
-          endpoint: 'https://meerkat.up.railway.app/agents/{agentId}/.well-known/agent-card.json',
-          version: '0.3.0',
-          description: 'A2A protocol agent cards for all Meerkat agents',
-        },
-        {
-          name: 'MCP',
-          endpoint: 'https://meerkat.up.railway.app/mcp/{agentId}',
-          version: '2025-06-18',
-          description: 'MCP JSON-RPC endpoint for AI agent interactions',
-        },
-      ],
-      supportedTrust: ['reputation'],
-      active: true,
-      x402support: true,
-      updatedAt: Math.floor(Date.now() / 1000),
-    });
+    return c.json({ registrations });
 
   } catch (error: any) {
     console.error('[agent-registration.json] Error:', error);
-    return c.json({
-      error: 'Failed to generate registration file',
-      message: error.message,
-    }, 500);
+    return c.json({ error: 'Failed to generate registration file' }, 500);
   }
 });
 
