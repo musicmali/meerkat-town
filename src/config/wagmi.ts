@@ -6,10 +6,10 @@ import { NETWORKS, SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './networks';
 // Supported chains for Meerkat Town (Ethereum mainnet and Base Sepolia)
 const supportedChains = [mainnet, baseSepolia] as [typeof mainnet, typeof baseSepolia];
 
-// Create transports with Alchemy RPC for supported networks
+// Create transports with configured RPCs for supported networks
 const transports: Record<number, ReturnType<typeof http>> = {};
 for (const chainId of SUPPORTED_CHAIN_IDS) {
-    transports[chainId] = http(NETWORKS[chainId].alchemyRpcUrl);
+    transports[chainId] = http(NETWORKS[chainId].rpcUrl);
 }
 
 // Configure wagmi with supported chains

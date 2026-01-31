@@ -319,9 +319,19 @@ async function hasAgentsInDatabase(chainId: number): Promise<boolean> {
 // Multi-network support: Ethereum Mainnet + Base Sepolia
 // ============================================================================
 
-// Alchemy RPC endpoints
-const ALCHEMY_ETH_MAINNET_RPC = 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
-const ALCHEMY_BASE_SEPOLIA_RPC = 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO';
+// RPC Configuration
+// Alchemy API key from environment (optional - free RPCs used when not provided)
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || '';
+
+// Free public RPCs (used as primary for testnet)
+const FREE_BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+const FREE_ETH_MAINNET_RPC = 'https://eth.llamarpc.com';
+
+// Build RPC URLs: Base Sepolia always uses free RPC, Mainnet uses Alchemy if available
+const ETH_MAINNET_RPC = ALCHEMY_API_KEY
+  ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  : FREE_ETH_MAINNET_RPC;
+const BASE_SEPOLIA_RPC = FREE_BASE_SEPOLIA_RPC;
 
 // Network configurations
 const NETWORKS = {
@@ -329,7 +339,7 @@ const NETWORKS = {
     chainId: 1,
     name: 'Ethereum',
     identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
-    rpcUrl: ALCHEMY_ETH_MAINNET_RPC,
+    rpcUrl: ETH_MAINNET_RPC,
     x402Supported: false,
     deploymentBlock: 21887265n,  // Identity Registry deployment block
   },
@@ -337,7 +347,7 @@ const NETWORKS = {
     chainId: 84532,
     name: 'Base Sepolia',
     identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e' as const,
-    rpcUrl: ALCHEMY_BASE_SEPOLIA_RPC,
+    rpcUrl: BASE_SEPOLIA_RPC,
     x402Supported: true,
     deploymentBlock: 20550000n,  // Approximate deployment block
   },
@@ -351,7 +361,7 @@ const ZERO_ADDRESS_TOPIC = '0x00000000000000000000000000000000000000000000000000
 // Create public clients for each network
 const publicClients = {
   1: createPublicClient({
-    chain: { id: 1, name: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ALCHEMY_ETH_MAINNET_RPC] } } },
+    chain: { id: 1, name: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ETH_MAINNET_RPC] } } },
     transport: http(NETWORKS[1].rpcUrl),
   }),
   84532: createPublicClient({

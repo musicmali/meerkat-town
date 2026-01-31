@@ -1,6 +1,32 @@
 // Multi-Network Configuration for Meerkat Town
 // Supports Ethereum Mainnet and Base Sepolia with network-specific contract addresses and features
 
+// RPC Configuration
+// Alchemy API key from environment (optional - free RPCs used when not provided)
+const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || '';
+
+// Free public RPCs (used as primary for testnet, fallback for mainnet)
+const FREE_RPCS: Record<number, string> = {
+  1: 'https://eth.llamarpc.com',      // Ethereum mainnet free RPC
+  84532: 'https://sepolia.base.org',  // Base Sepolia official free RPC
+};
+
+// Build RPC URLs based on available API key
+function buildRpcUrl(chainId: number): string {
+  // Base Sepolia: always use free RPC (testnet, no need for paid service)
+  if (chainId === 84532) {
+    return FREE_RPCS[84532];
+  }
+  // Ethereum Mainnet: use Alchemy if key provided, otherwise free RPC
+  if (chainId === 1) {
+    return ALCHEMY_API_KEY
+      ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : FREE_RPCS[1];
+  }
+  // Fallback to free RPC if available
+  return FREE_RPCS[chainId] || '';
+}
+
 export interface NetworkConfig {
   chainId: number;
   name: string;
@@ -16,8 +42,8 @@ export interface NetworkConfig {
   reputationVersion: 'v1.1' | 'v1.2';
   // 8004scan URL pattern
   scan8004Url: string;
-  // Alchemy RPC URL for fast log queries
-  alchemyRpcUrl: string;
+  // RPC URL for blockchain queries
+  rpcUrl: string;
   // First Meerkat Town agent ID on this network (null = no agents yet)
   firstMeerkatAgentId: number | null;
   // Minimum token ID for filtering Meerkat agents (null = show all)
@@ -41,7 +67,7 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     blockExplorerName: 'Etherscan',
     reputationVersion: 'v1.2',
     scan8004Url: 'https://www.8004scan.io/agents/ethereum',
-    alchemyRpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
+    rpcUrl: buildRpcUrl(1),
     firstMeerkatAgentId: 12276, // First Meerkat agent minted on mainnet
     minimumMeerkatTokenId: 12276,
     blockChunkSize: 10000, // Alchemy limit for ETH mainnet
@@ -60,7 +86,7 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     blockExplorerName: 'BaseScan',
     reputationVersion: 'v1.1',
     scan8004Url: 'https://www.8004scan.io/agents/base-sepolia',
-    alchemyRpcUrl: 'https://base-sepolia.g.alchemy.com/v2/XRfB1Htp32AuoMrXtblwO',
+    rpcUrl: buildRpcUrl(84532),
     firstMeerkatAgentId: 16,
     minimumMeerkatTokenId: 16,
     blockChunkSize: 1000000, // Alchemy supports large ranges for Base Sepolia
@@ -160,16 +186,19 @@ export function getNetworkName(chainId: number): string {
 }
 
 /**
- * Get Alchemy RPC URL for a network
+ * Get RPC URL for a network
  */
-export function getAlchemyRpcUrl(chainId: number): string {
+export function getRpcUrl(chainId: number): string {
   const network = NETWORKS[chainId];
   if (!network) {
     console.warn(`[networks] Unknown chainId ${chainId}, falling back to Base Sepolia RPC`);
-    return NETWORKS[84532].alchemyRpcUrl;
+    return NETWORKS[84532].rpcUrl;
   }
-  return network.alchemyRpcUrl;
+  return network.rpcUrl;
 }
+
+// Alias for backwards compatibility
+export const getAlchemyRpcUrl = getRpcUrl;
 
 /**
  * Get first Meerkat agent ID for a network (null = no agents yet)
