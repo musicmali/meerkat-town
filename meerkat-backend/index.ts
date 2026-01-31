@@ -391,14 +391,6 @@ interface CachedMetadata {
 const metadataCache = new Map<string, CachedMetadata>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Registrations cache for ERC-8004 endpoint verification (10 minute TTL)
-// Now includes chainId for multi-network support
-interface CachedRegistrations {
-  data: Array<{ agentId: number; agentRegistry: string; chainId?: number }>;
-  timestamp: number;
-}
-let registrationsCache: CachedRegistrations | null = null;
-const REGISTRATIONS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 // Agent metadata types (matching frontend)
 // ERC-8004 final spec: "endpoints" renamed to "services"
@@ -2378,145 +2370,44 @@ app.post('/mcp/:agentId', async (c) => {
  */
 app.get('/.well-known/agent-registration.json', async (c) => {
   try {
-    // Check cache first
-    if (registrationsCache && Date.now() - registrationsCache.timestamp < REGISTRATIONS_CACHE_TTL) {
-      console.log('[agent-registration.json] Using cached registrations');
-      // Return cached data (skip to return statement below)
-    } else {
-      console.log('[agent-registration.json] Fetching registrations from multiple networks (parallel)...');
-      const startTime = Date.now();
-
-      const registrations: Array<{
-        agentId: number;
-        agentRegistry: string;
-        chainId?: number;
-      }> = [];
-
-      // Fetch from all supported networks in parallel
-      const networkPromises = Object.values(NETWORKS).map(async (network) => {
-        const { chainId, identityRegistry, deploymentBlock } = network;
-        const client = publicClients[chainId as keyof typeof publicClients];
-        if (!client) return [];
-
-        const agentRegistryCAIP10 = `eip155:${chainId}:${identityRegistry}`;
-        const networkRegistrations: Array<{ agentId: number; agentRegistry: string; chainId: number }> = [];
-
-        console.log(`[agent-registration.json] Checking ${network.name} (chainId: ${chainId})...`);
-
-        // Step 1: Get current block and fetch all minted token IDs via event logs
-        let currentBlock: bigint;
-        try {
-          currentBlock = await client.getBlockNumber();
-        } catch (error) {
-          console.error(`[agent-registration.json] Failed to get block number for ${network.name}:`, error);
-          return [];
-        }
-
-        const mintedIds = await fetchMintedTokenIds(
-          client,
-          identityRegistry,
-          deploymentBlock,
-          currentBlock,
-          500  // Max agents to scan
-        );
-
-        console.log(`[agent-registration.json] Found ${mintedIds.length} minted tokens on ${network.name} via event logs`);
-
-        if (mintedIds.length === 0) {
-          return [];
-        }
-
-        // Step 2: Batch fetch tokenURIs for minted tokens
-        const tokenUriPromises = mintedIds.map(agentId =>
-          client.readContract({
-            address: identityRegistry,
-            abi: IDENTITY_REGISTRY_ABI,
-            functionName: 'tokenURI',
-            args: [BigInt(agentId)],
-          })
-            .then((uri) => ({ agentId, tokenUri: uri as string }))
-            .catch(() => ({ agentId, tokenUri: null }))
-        );
-
-        const tokenUriResults = await Promise.all(tokenUriPromises);
-        const existingAgents = tokenUriResults.filter(r => r.tokenUri !== null);
-        console.log(`[agent-registration.json] Retrieved ${existingAgents.length} token URIs on ${network.name}`);
-
-        // Step 2: Batch fetch metadata from IPFS in parallel
-        const metadataPromises = existingAgents.map(async ({ agentId, tokenUri }) => {
-          if (!tokenUri || (!tokenUri.startsWith('ipfs://') && !tokenUri.startsWith('https://'))) {
-            return null;
-          }
-
-          const metadata = await fetchMetadataFromIPFS(tokenUri);
-          if (!metadata) return null;
-
-          // Include agent if:
-          // 1. Has meerkatId (Meerkat Town native agent)
-          // 2. OR has endpoints/services pointing to meerkat.up.railway.app
-          const isMeerkatAgent = metadata.meerkatId && metadata.meerkatId >= 1 && metadata.meerkatId <= 100;
-          const services = metadata.services || metadata.endpoints || [];
-          const usesMeerkatDomain = services.some((s: any) =>
-            s.endpoint && s.endpoint.includes('meerkat.up.railway.app')
-          );
-
-          if (isMeerkatAgent || usesMeerkatDomain) {
-            console.log(`[agent-registration.json] Found Meerkat agent ${agentId} on ${network.name}: ${metadata.name || 'Unknown'}`);
-            return { agentId, agentRegistry: agentRegistryCAIP10, chainId };
-          }
-          return null;
-        });
-
-        // Wait for all metadata fetches (parallel)
-        const metadataResults = await Promise.all(metadataPromises);
-        for (const result of metadataResults) {
-          if (result) {
-            networkRegistrations.push(result);
-          }
-        }
-
-        return networkRegistrations;
-      });
-
-      // Wait for all network fetches to complete
-      const networkResults = await Promise.all(networkPromises);
-      for (const networkRegs of networkResults) {
-        registrations.push(...networkRegs);
-      }
-
-      // Sort by chainId, then by agentId for consistency
-      registrations.sort((a, b) => {
-        if ((a.chainId || 0) !== (b.chainId || 0)) return (a.chainId || 0) - (b.chainId || 0);
-        return a.agentId - b.agentId;
-      });
-
-      // Cache the results
-      registrationsCache = { data: registrations, timestamp: Date.now() };
-      console.log(`[agent-registration.json] Cached ${registrations.length} total registrations across all networks in ${Date.now() - startTime}ms`);
+    if (!sql) {
+      return c.json({ error: 'Database not configured' }, 500);
     }
 
-    const registrations = registrationsCache!.data;
+    // Query all agents from database
+    const agents = await sql`
+      SELECT chain_id, agent_id, meerkat_id
+      FROM agents
+      WHERE meerkat_id IS NOT NULL
+      ORDER BY chain_id ASC, meerkat_id ASC
+    `;
+
+    console.log(`[agent-registration.json] Found ${agents.length} agents in database`);
+
+    // Build registrations array
+    const registrations = agents.map((agent: any) => {
+      const registryAddress = agent.chain_id === 1
+        ? '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'  // Ethereum mainnet
+        : '0x8004A818BFB912233c491871b3d84c89A494BD9e'; // Base Sepolia
+
+      return {
+        agentId: agent.agent_id,
+        agentRegistry: `eip155:${agent.chain_id}:${registryAddress}`,
+        chainId: agent.chain_id
+      };
+    });
 
     // Return ERC-8004 compliant registration file
     return c.json({
-      // Standard ERC-8004 registration type
       type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-
-      // Domain info
       name: 'Meerkat Town',
       description: 'Web3 AI agent marketplace on Ethereum and Base. Mint AI agents as NFTs, chat with them via x402 USDC micropayments (Base Sepolia), and provide on-chain reputation feedback.',
       image: 'https://www.meerkat.town/logo.png',
-
-      // Supported networks
       supportedNetworks: [
         { chainId: 1, name: 'Ethereum', x402Supported: false },
         { chainId: 84532, name: 'Base Sepolia', x402Supported: true },
       ],
-
-      // All Meerkat Town agents registered on this domain
-      registrations: registrations,
-
-      // Services available on this domain
+      registrations,
       services: [
         {
           name: 'A2A',
@@ -2531,17 +2422,9 @@ app.get('/.well-known/agent-registration.json', async (c) => {
           description: 'MCP JSON-RPC endpoint for AI agent interactions',
         },
       ],
-
-      // Trust mechanisms supported
       supportedTrust: ['reputation'],
-
-      // Domain is active
       active: true,
-
-      // x402 payment support
       x402support: true,
-
-      // Last updated timestamp
       updatedAt: Math.floor(Date.now() / 1000),
     });
 
