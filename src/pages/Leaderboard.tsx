@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, usePublicClient, useChainId } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useConnect, useDisconnect, usePublicClient, useChainId } from 'wagmi';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import { REPUTATION_REGISTRY_ABI, REPUTATION_REGISTRY_ABI_V12 } from '../contracts/MeerkatReputationRegistry';
 import { getFromCache, setToCache, batchProcess } from '../utils/rpcUtils';
@@ -27,7 +26,9 @@ const LEADERBOARD_CACHE_KEY = 'leaderboard_agents_v2'; // v2: updated for new v1
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
 function Leaderboard() {
-    const { address } = useAccount();
+    const { address, isConnected } = useAccount();
+    const { connect, connectors, isPending } = useConnect();
+    const { disconnect } = useDisconnect();
     const chainId = useChainId();
     const publicClient = usePublicClient({ chainId });
 
@@ -157,6 +158,13 @@ function Leaderboard() {
         return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
     };
 
+    const handleConnect = () => {
+        const connector = connectors[0];
+        if (connector) {
+            connect({ connector });
+        }
+    };
+
     const getMedalIcon = (rank: number) => {
         switch (rank) {
             case 1:
@@ -202,30 +210,25 @@ function Leaderboard() {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <ConnectButton.Custom>
-                        {({ account, chain, openAccountModal, openConnectModal, mounted }) => {
-                            const connected = mounted && account && chain;
-                            return (
-                                <>
-                                    {connected ? (
-                                        <div className="wallet-connected">
-                                            <div className="wallet-info">
-                                                <span className="wallet-indicator"></span>
-                                                <span className="wallet-address">{formatAddress(address || '')}</span>
-                                            </div>
-                                            <button onClick={openAccountModal} className="btn btn-secondary wallet-btn">
-                                                Disconnect
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={openConnectModal} className="btn btn-primary wallet-btn">
-                                            Connect Wallet
-                                        </button>
-                                    )}
-                                </>
-                            );
-                        }}
-                    </ConnectButton.Custom>
+                    {isConnected && address ? (
+                        <div className="wallet-connected">
+                            <div className="wallet-info">
+                                <span className="wallet-indicator"></span>
+                                <span className="wallet-address">{formatAddress(address)}</span>
+                            </div>
+                            <button onClick={() => disconnect()} className="btn btn-secondary wallet-btn">
+                                Disconnect
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleConnect}
+                            disabled={isPending}
+                            className="btn btn-primary wallet-btn"
+                        >
+                            {isPending ? 'Connecting...' : 'Connect Wallet'}
+                        </button>
+                    )}
                 </div>
             </aside>
 

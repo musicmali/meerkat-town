@@ -1,7 +1,10 @@
-import { http } from 'wagmi';
+import { http, createConfig } from 'wagmi';
 import { mainnet, baseSepolia } from 'wagmi/chains';
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { injected } from 'wagmi/connectors';
 import { NETWORKS, SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './networks';
+
+// Supported chains for Meerkat Town (Ethereum mainnet and Base Sepolia)
+const supportedChains = [mainnet, baseSepolia] as [typeof mainnet, typeof baseSepolia];
 
 // Create transports with configured RPCs for supported networks
 const transports: Record<number, ReturnType<typeof http>> = {};
@@ -9,11 +12,12 @@ for (const chainId of SUPPORTED_CHAIN_IDS) {
     transports[chainId] = http(NETWORKS[chainId].rpcUrl);
 }
 
-// Configure wagmi with RainbowKit (provides wallet selection modal)
-export const config = getDefaultConfig({
-    appName: 'Meerkat Town',
-    projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'meerkat-town-dev',
-    chains: [mainnet, baseSepolia],
+// Configure wagmi with supported chains
+export const config = createConfig({
+    chains: supportedChains,
+    connectors: [
+        injected(), // This works with ANY browser wallet extension
+    ],
     transports,
 });
 

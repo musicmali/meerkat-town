@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, useChainId, usePublicClient } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useConnect, useDisconnect, useChainId, usePublicClient } from 'wagmi';
 import { fetchMeerkatAgents, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import { REPUTATION_REGISTRY_ABI, REPUTATION_REGISTRY_ABI_V12 } from '../contracts/MeerkatReputationRegistry';
 import { getFromCache, setToCache, clearCache, batchProcess } from '../utils/rpcUtils';
@@ -72,7 +71,9 @@ const legacyAgents: Agent[] = [
 ];
 
 function Dashboard() {
-    const { isConnected } = useAccount();
+    const { address, isConnected } = useAccount();
+    const { connect, connectors, isPending } = useConnect();
+    const { disconnect } = useDisconnect();
     const chainId = useChainId();
 
     // Check if on a supported network
@@ -313,6 +314,11 @@ function Dashboard() {
         }
     };
 
+    const formatAddress = (addr: string) => {
+        if (addr.length <= 10) return addr;
+        return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    };
+
     const formatDeployerAddress = (addr: string) => {
         if (addr.length <= 8) return addr;
         return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
@@ -320,6 +326,13 @@ function Dashboard() {
 
     const getBlockExplorerUrl = (addr: string) => {
         return getBlockExplorerAddressUrl(chainId, addr);
+    };
+
+    const handleConnect = () => {
+        const connector = connectors[0];
+        if (connector) {
+            connect({ connector });
+        }
     };
 
     return (
@@ -352,33 +365,25 @@ function Dashboard() {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <ConnectButton.Custom>
-                        {({ account, chain, openAccountModal, openConnectModal, mounted }) => {
-                            const connected = mounted && account && chain;
-                            return (
-                                <>
-                                    {connected ? (
-                                        <div className="wallet-connected">
-                                            <div className="wallet-info">
-                                                <span className="wallet-indicator"></span>
-                                                <span className="wallet-address">{account.displayName}</span>
-                                            </div>
-                                            <button onClick={openAccountModal} className="btn btn-secondary wallet-btn">
-                                                Disconnect
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={openConnectModal}
-                                            className="btn btn-primary wallet-btn"
-                                        >
-                                            Connect Wallet
-                                        </button>
-                                    )}
-                                </>
-                            );
-                        }}
-                    </ConnectButton.Custom>
+                    {isConnected && address ? (
+                        <div className="wallet-connected">
+                            <div className="wallet-info">
+                                <span className="wallet-indicator"></span>
+                                <span className="wallet-address">{formatAddress(address)}</span>
+                            </div>
+                            <button onClick={() => disconnect()} className="btn btn-secondary wallet-btn">
+                                Disconnect
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleConnect}
+                            disabled={isPending}
+                            className="btn btn-primary wallet-btn"
+                        >
+                            {isPending ? 'Connecting...' : 'Connect Wallet'}
+                        </button>
+                    )}
                 </div>
             </aside>
 
