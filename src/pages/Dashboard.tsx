@@ -13,7 +13,6 @@ import {
     getFirstMeerkatAgentId,
     getReputationVersion,
 } from '../config/networks';
-import AgentReputation from '../components/AgentReputation';
 import ScoreBadge from '../components/ScoreBadge';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
@@ -600,8 +599,6 @@ function Dashboard() {
                                             <div className="agent-header">
                                                 <div className="agent-header-left">
                                                     <h3 className="agent-name">{agent.metadata?.name || `Meerkat Agent #${meerkatId}`}</h3>
-                                                    {/* ERC-8004 Reputation */}
-                                                    <AgentReputation agentId={agent.agentId} variant="compact" />
                                                 </div>
                                                 <div className="deployer-badge">
                                                     <span className="deployer-label">Owner:</span>
