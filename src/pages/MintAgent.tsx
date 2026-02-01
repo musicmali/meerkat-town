@@ -725,21 +725,21 @@ function MintAgent() {
                         {mintStage !== 'idle' && mintStage !== 'error' && (
                             <div className="mint-progress" style={{ marginTop: '1rem', padding: '1rem', background: 'var(--surface)', borderRadius: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                    <span style={{ color: mintStage === 'predicting' ? 'var(--primary)' : 'var(--success)' }}>
-                                        {mintStage === 'predicting' ? '...' : '✓'} 1. Predict Agent ID
+                                    <span style={{ color: mintStage === 'predicting' ? 'var(--primary)' : 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {mintStage === 'predicting' ? <LoadingSpinner size="tiny" /> : '✓'} 1. Predict Agent ID
                                     </span>
                                     {predictedAgentId && (
                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(#{predictedAgentId})</span>
                                     )}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                    <span style={{ color: mintStage === 'uploading' ? 'var(--primary)' : ['registering', 'complete'].includes(mintStage) ? 'var(--success)' : 'var(--text-muted)' }}>
-                                        {mintStage === 'uploading' ? '...' : ['registering', 'complete'].includes(mintStage) ? '✓' : 'o'} 2. Upload to IPFS (with registrations)
+                                    <span style={{ color: mintStage === 'uploading' ? 'var(--primary)' : ['registering', 'complete'].includes(mintStage) ? 'var(--success)' : 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {mintStage === 'uploading' ? <LoadingSpinner size="tiny" /> : ['registering', 'complete'].includes(mintStage) ? '✓' : 'o'} 2. Upload to IPFS (with registrations)
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span style={{ color: mintStage === 'registering' ? 'var(--primary)' : mintStage === 'complete' ? 'var(--success)' : 'var(--text-muted)' }}>
-                                        {mintStage === 'registering' ? '...' : mintStage === 'complete' ? '✓' : 'o'} 3. Register in Identity Registry
+                                    <span style={{ color: mintStage === 'registering' ? 'var(--primary)' : mintStage === 'complete' ? 'var(--success)' : 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {mintStage === 'registering' ? <LoadingSpinner size="tiny" /> : mintStage === 'complete' ? '✓' : 'o'} 3. Register in Identity Registry
                                     </span>
                                     {hash && (
                                         <a href={`https://sepolia.basescan.org/tx/${hash}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>

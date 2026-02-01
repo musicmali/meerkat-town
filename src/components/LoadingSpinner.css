@@ -15,6 +15,20 @@
 }
 
 /* Size variants */
+.loading-spinner-container.tiny {
+    display: inline-flex;
+    vertical-align: middle;
+}
+
+.loading-spinner-container.tiny .loading-spinner {
+    width: 16px;
+    height: 16px;
+}
+
+.loading-spinner-container.tiny .spinner-ring {
+    border-width: 2px;
+}
+
 .loading-spinner-container.small .loading-spinner {
     width: 32px;
     height: 32px;

@@ -37,6 +37,11 @@ config();
 const DATABASE_URL = process.env.DATABASE_URL;
 const sql = DATABASE_URL ? postgres(DATABASE_URL) : null;
 
+// Whitelisted IPs for testing (bypass 1-mint-per-IP limit)
+const WHITELISTED_IPS = [
+  '186.104.142.223',  // Mali testing
+];
+
 // Initialize database tables
 async function initDatabase() {
   if (!sql) {
@@ -1187,6 +1192,12 @@ app.get('/api/check-mint-eligibility', async (c) => {
     // Can't determine IP, allow but log warning
     console.warn('[IP Check] Could not determine client IP, allowing mint');
     return c.json({ eligible: true, warning: 'IP could not be determined' });
+  }
+
+  // Check whitelist for testing
+  if (WHITELISTED_IPS.includes(ip)) {
+    console.log(`[IP Check] IP ${ip} is whitelisted for testing, allowing mint`);
+    return c.json({ eligible: true, whitelisted: true });
   }
 
   try {

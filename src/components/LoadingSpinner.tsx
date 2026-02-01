@@ -1,7 +1,7 @@
 import './LoadingSpinner.css';
 
 interface LoadingSpinnerProps {
-    size?: 'small' | 'medium' | 'large';
+    size?: 'tiny' | 'small' | 'medium' | 'large';
     text?: string;
 }
 
