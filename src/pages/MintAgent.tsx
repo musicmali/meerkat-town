@@ -554,7 +554,7 @@ function MintAgent() {
                                     className={`pricing-btn ${!isFree ? 'active' : ''}`}
                                     onClick={() => setIsFree(false)}
                                     disabled={!x402Supported}
-                                    title={!x402Supported ? 'x402 payments require Base Sepolia' : ''}
+                                    title={!x402Supported ? 'x402 payments require Base or Base Sepolia' : ''}
                                 >
                                     Paid (x402)
                                 </button>
@@ -575,7 +575,7 @@ function MintAgent() {
                             )}
                             <span className="form-hint">
                                 {!x402Supported
-                                    ? 'x402 payments not available on this network. Switch to Base Sepolia for paid agents.'
+                                    ? 'x402 payments not available on this network. Switch to Base or Base Sepolia for paid agents.'
                                     : isFree
                                         ? 'Anyone can chat with your agent for free (x402 still enabled for future features)'
                                         : `Users pay $${pricePerMessage} USDC per message via x402`}
@@ -590,7 +590,7 @@ function MintAgent() {
                             <span className="form-hint">
                                 {x402Supported
                                     ? 'x402 payments will be sent to this address'
-                                    : 'x402 not supported on this network. Minting still works, but paid chat requires Base Sepolia.'}
+                                    : 'x402 not supported on this network. Minting still works, but paid chat requires Base or Base Sepolia.'}
                             </span>
                         </div>
                         <div className="form-actions">

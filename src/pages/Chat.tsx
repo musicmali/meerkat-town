@@ -252,7 +252,7 @@ Be friendly, helpful, and concise in your responses.`;
             const data = await response.json();
 
             if (response.status === 402) {
-                setError('Payment required. Make sure you have USDC on Base Sepolia and try again.');
+                setError(`Payment required. Make sure you have USDC on ${getNetworkName(chainId)} and try again.`);
                 return;
             }
 
@@ -328,7 +328,7 @@ Be friendly, helpful, and concise in your responses.`;
                 <div className="chat-header-right">
                     {/* Demo-only mode warning (when x402 not supported) */}
                     {isConnected && !x402NetworkSupported && (
-                        <span className="demo-badge" title="Paid chat available on Base Sepolia">
+                        <span className="demo-badge" title="Paid chat available on Base or Base Sepolia">
                             Demo Mode
                         </span>
                     )}
@@ -366,7 +366,7 @@ Be friendly, helpful, and concise in your responses.`;
                         </p>
                         {isConnected && !x402NetworkSupported && (
                             <p className="demo-notice" style={{ color: '#F97316' }}>
-                                Free demo mode on {getNetworkName(chainId)}. Paid chat available on Base Sepolia.
+                                Free demo mode on {getNetworkName(chainId)}. Paid chat available on Base or Base Sepolia.
                             </p>
                         )}
                         {isConnected && x402NetworkSupported && (
@@ -468,7 +468,7 @@ Be friendly, helpful, and concise in your responses.`;
                         ? 'This agent is free to chat with.'
                         : x402NetworkSupported
                             ? `Each message costs ${agent.pricePerMessage || '$0.001'} USDC via x402.`
-                            : `Demo mode - paid chat available on Base Sepolia.`}
+                            : `Demo mode - paid chat available on Base or Base Sepolia.`}
                 </p>
             </footer>
         </div>

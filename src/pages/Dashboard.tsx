@@ -408,7 +408,7 @@ function Dashboard() {
                 {isConnected && !isCorrectChain && (
                     <div className="notice" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: '#EF4444' }}>
                         <span className="notice-icon">&#9888;</span>
-                        <span>Please switch to a supported network (Ethereum or Base Sepolia).</span>
+                        <span>Please switch to a supported network (Base, Ethereum, or Base Sepolia).</span>
                     </div>
                 )}
 
