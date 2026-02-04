@@ -6,7 +6,6 @@ import {
     get8004ScanAgentUrl,
     getNetworkName,
 } from '../config/networks';
-import AuthorizationRequests from '../components/AuthorizationRequests';
 import TopBar from '../components/TopBar';
 import MobileNav from '../components/MobileNav';
 import MobileFooter from '../components/MobileFooter';
@@ -178,11 +177,6 @@ function MyAgents() {
                     </div>
                 ) : (
                     <>
-                        {/* Feedback Authorization Requests */}
-                        <section className="auth-requests-section">
-                            <AuthorizationRequests />
-                        </section>
-
                         {/* Agents List - Grouped by Network */}
                         {DISPLAY_CHAIN_ORDER.map((networkChainId) => {
                             const networkAgents = agentsByNetwork[networkChainId] || [];
