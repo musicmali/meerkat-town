@@ -596,7 +596,8 @@ const facilitatorClient = new HTTPFacilitatorClient({
   createAuthHeaders: cdpFacilitator.createAuthHeaders,
 });
 
-// Network: Base Sepolia (CAIP-2 format)
+// Networks supporting x402 payments (CAIP-2 format)
+const BASE_MAINNET_NETWORK = 'eip155:8453';
 const BASE_SEPOLIA_NETWORK = 'eip155:84532';
 
 // Price per agent request: $0.001 USD
@@ -921,6 +922,12 @@ app.use(
           {
             scheme: 'exact',
             price: PRICE_PER_REQUEST,
+            network: BASE_MAINNET_NETWORK,
+            payTo: PAYMENT_ADDRESS,
+          },
+          {
+            scheme: 'exact',
+            price: PRICE_PER_REQUEST,
             network: BASE_SEPOLIA_NETWORK,
             payTo: PAYMENT_ADDRESS,
           },
@@ -931,6 +938,12 @@ app.use(
       // Ana endpoint - $0.01 per message
       'POST /agents/ana': {
         accepts: [
+          {
+            scheme: 'exact',
+            price: PRICE_PER_REQUEST,
+            network: BASE_MAINNET_NETWORK,
+            payTo: PAYMENT_ADDRESS,
+          },
           {
             scheme: 'exact',
             price: PRICE_PER_REQUEST,
@@ -948,6 +961,12 @@ app.use(
           {
             scheme: 'exact',
             price: PRICE_PER_REQUEST,
+            network: BASE_MAINNET_NETWORK,
+            payTo: PAYMENT_ADDRESS,
+          },
+          {
+            scheme: 'exact',
+            price: PRICE_PER_REQUEST,
             network: BASE_SEPOLIA_NETWORK,
             payTo: PAYMENT_ADDRESS,
           },
@@ -957,6 +976,7 @@ app.use(
       },
     },
     new x402ResourceServer(facilitatorClient)
+      .register(BASE_MAINNET_NETWORK, new ExactEvmScheme())
       .register(BASE_SEPOLIA_NETWORK, new ExactEvmScheme()),
   ),
 );
@@ -974,7 +994,7 @@ app.get('/', (c) => {
     version: '2.0.0',
     agents: ['bob', 'ana'],
     payment: {
-      network: BASE_SEPOLIA_NETWORK,
+      networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK],
       price: PRICE_PER_REQUEST,
       payTo: PAYMENT_ADDRESS
     },
@@ -1008,7 +1028,7 @@ app.get('/agents', (c) => {
       }
     ],
     payment: {
-      network: BASE_SEPOLIA_NETWORK,
+      networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK],
       facilitator: cdpFacilitator.url
     }
   });
@@ -1734,7 +1754,7 @@ app.post('/agents/bob', async (c) => {
       sessionId,
       payment: {
         charged: PRICE_PER_REQUEST,
-        network: BASE_SEPOLIA_NETWORK
+        networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK]
       }
     });
 
@@ -1788,7 +1808,7 @@ app.post('/agents/ana', async (c) => {
       sessionId,
       payment: {
         charged: PRICE_PER_REQUEST,
-        network: BASE_SEPOLIA_NETWORK
+        networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK]
       }
     });
 
@@ -1861,7 +1881,7 @@ Use these tools when relevant to provide accurate, real-time information.`;
       sessionId,
       payment: {
         charged: PRICE_PER_REQUEST,
-        network: BASE_SEPOLIA_NETWORK
+        networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK]
       }
     });
 
@@ -2176,7 +2196,7 @@ app.get('/mcp/:agentId', async (c) => {
     prompts: getAgentPrompts(agentId).map(p => p.name),
     x402: {
       supported: true,
-      network: BASE_SEPOLIA_NETWORK,
+      networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK],
       price: PRICE_PER_REQUEST,
     },
   });
@@ -2297,7 +2317,7 @@ app.post('/mcp/:agentId', async (c) => {
                     tools: getAgentTools(agentId).map(t => t.name),
                     prompts: getAgentPrompts(agentId).map(p => p.name),
                     x402support: true,
-                    network: BASE_SEPOLIA_NETWORK,
+                    networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK],
                   }),
                 },
               ],
