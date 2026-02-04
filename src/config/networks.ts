@@ -6,9 +6,11 @@
 const ALCHEMY_API_KEY = import.meta.env.VITE_ALCHEMY_API_KEY || 'XRfB1Htp32AuoMrXtblwO';
 
 // RPC URLs per network
+// - Base Mainnet: Alchemy (fast, reliable for production - default network)
 // - Ethereum Mainnet: Alchemy (fast, reliable for production)
 // - Base Sepolia: Free public RPC (testnet, saves Alchemy credits)
 const RPC_URLS: Record<number, string> = {
+  8453: `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
   1: `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
   84532: 'https://sepolia.base.org',
 };
@@ -44,6 +46,25 @@ export interface NetworkConfig {
 }
 
 export const NETWORKS: Record<number, NetworkConfig> = {
+  8453: {
+    // Base Mainnet (default network)
+    chainId: 8453,
+    name: 'Base',
+    shortName: 'Base',
+    contracts: {
+      identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
+      reputationRegistry: '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
+    },
+    x402Supported: true,
+    blockExplorer: 'https://basescan.org',
+    blockExplorerName: 'BaseScan',
+    reputationVersion: 'v1.2',
+    scan8004Url: 'https://www.8004scan.io/agents/base',
+    rpcUrl: buildRpcUrl(8453),
+    firstMeerkatAgentId: null, // TBD after first mint
+    minimumMeerkatTokenId: null,
+    blockChunkSize: 1000000, // Alchemy supports large ranges for Base
+  },
   1: {
     // Ethereum Mainnet
     chainId: 1,
@@ -84,12 +105,16 @@ export const NETWORKS: Record<number, NetworkConfig> = {
   },
 };
 
-// Supported chains for Meerkat Town (in order of priority)
-export const SUPPORTED_CHAIN_IDS = [1, 84532] as const;
+// Supported chains for Meerkat Town (in order of priority - Base first = default)
+export const SUPPORTED_CHAIN_IDS = [8453, 1, 84532] as const;
 export type SupportedChainId = (typeof SUPPORTED_CHAIN_IDS)[number];
 
-// Default chain is Ethereum Mainnet
-export const DEFAULT_CHAIN_ID: SupportedChainId = 1;
+// Default chain is Base Mainnet
+export const DEFAULT_CHAIN_ID: SupportedChainId = 8453;
+
+// Chains that share the meerkat pool (Base + Ethereum mainnets)
+// Base Sepolia is separate - different contracts, not part of shared pool
+export const SHARED_MEERKAT_CHAIN_IDS = [8453, 1] as const;
 
 // ============================================================================
 // Helper Functions

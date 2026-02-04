@@ -4,7 +4,7 @@
 
 import { useReadContract, usePublicClient, useAccount, useChainId } from 'wagmi';
 import { createPublicClient, http } from 'viem';
-import { mainnet, baseSepolia } from 'viem/chains';
+import { base, mainnet, baseSepolia } from 'viem/chains';
 import { IDENTITY_REGISTRY_ABI } from '../contracts/MeerkatIdentityRegistry';
 import {
     getContractAddress,
@@ -13,6 +13,7 @@ import {
     getMinimumMeerkatTokenId,
     getBlockChunkSize,
     DEFAULT_CHAIN_ID,
+    SHARED_MEERKAT_CHAIN_IDS,
 } from '../config/networks';
 import {
     fetchAgentsFromDatabase,
@@ -40,7 +41,7 @@ const rpcClientCache: Record<number, any> = {};
 function getRpcClient(chainId: number): any {
     if (!rpcClientCache[chainId]) {
         const rpcUrl = getAlchemyRpcUrl(chainId);
-        const chain = chainId === 1 ? mainnet : baseSepolia;
+        const chain = chainId === 8453 ? base : chainId === 1 ? mainnet : baseSepolia;
         rpcClientCache[chainId] = createPublicClient({
             chain,
             transport: http(rpcUrl),
@@ -259,6 +260,45 @@ export async function fetchMeerkatAgents(
 
     // Fallback to RPC-based fetching (TEMPORARILY DISABLED)
     // return fetchMeerkatAgentsFromRPC(publicClient, chainId);
+}
+
+/**
+ * Fetch used meerkat IDs across all shared mainnet chains (Base + Ethereum)
+ * This ensures the meerkat pool of 100 is shared across mainnets
+ * Base Sepolia is NOT included (separate testing environment)
+ */
+export async function fetchCrossChainUsedMeerkats(): Promise<Set<number>> {
+    console.log('[fetchCrossChainUsedMeerkats] Querying chains:', SHARED_MEERKAT_CHAIN_IDS);
+
+    // Query all shared chains in parallel
+    // Note: publicClient is unused since we use database API, passing undefined
+    const results = await Promise.all(
+        SHARED_MEERKAT_CHAIN_IDS.map(async (chainId) => {
+            try {
+                const agents = await fetchMeerkatAgents(undefined, chainId);
+                console.log(`[fetchCrossChainUsedMeerkats] Chain ${chainId}: Found ${agents.length} agents`);
+                return agents;
+            } catch (error) {
+                console.warn(`[fetchCrossChainUsedMeerkats] Failed to fetch from chain ${chainId}:`, error);
+                return [];
+            }
+        })
+    );
+
+    // Combine all meerkat IDs from all chains
+    const usedIds = new Set<number>();
+    for (const agents of results) {
+        for (const agent of agents) {
+            if (agent.metadata?.meerkatId !== undefined &&
+                agent.metadata.meerkatId >= 1 &&
+                agent.metadata.meerkatId <= 100) {
+                usedIds.add(agent.metadata.meerkatId);
+            }
+        }
+    }
+
+    console.log(`[fetchCrossChainUsedMeerkats] Total used meerkats across chains: ${usedIds.size}`, [...usedIds].sort((a, b) => a - b));
+    return usedIds;
 }
 
 /**

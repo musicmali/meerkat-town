@@ -1,10 +1,10 @@
 import { http, createConfig } from 'wagmi';
-import { mainnet, baseSepolia } from 'wagmi/chains';
+import { base, mainnet, baseSepolia } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
 import { NETWORKS, SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './networks';
 
-// Supported chains for Meerkat Town (Ethereum mainnet and Base Sepolia)
-const supportedChains = [mainnet, baseSepolia] as [typeof mainnet, typeof baseSepolia];
+// Supported chains for Meerkat Town (Base mainnet first = default, Ethereum mainnet, Base Sepolia)
+const supportedChains = [base, mainnet, baseSepolia] as [typeof base, typeof mainnet, typeof baseSepolia];
 
 // Create transports with configured RPCs for supported networks
 const transports: Record<number, ReturnType<typeof http>> = {};
@@ -23,6 +23,11 @@ export const config = createConfig({
 
 // Export chain info for use in components
 export const SUPPORTED_CHAINS = {
+    base: {
+        id: base.id,
+        name: 'Base',
+        network: 'eip155:8453',
+    },
     mainnet: {
         id: mainnet.id,
         name: 'Ethereum',
@@ -35,8 +40,8 @@ export const SUPPORTED_CHAINS = {
     },
 };
 
-// Default chain is Ethereum Mainnet
-export const DEFAULT_CHAIN = DEFAULT_CHAIN_ID === 1 ? mainnet : baseSepolia;
+// Default chain is Base Mainnet
+export const DEFAULT_CHAIN = DEFAULT_CHAIN_ID === 8453 ? base : DEFAULT_CHAIN_ID === 1 ? mainnet : baseSepolia;
 
 // Re-export for backwards compatibility (deprecated - use networks.ts instead)
 export const ERC8004_REGISTRIES = {

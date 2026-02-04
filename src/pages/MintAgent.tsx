@@ -6,13 +6,15 @@ import OASFSelector from '../components/OASFSelector';
 import type { AgentFormData } from '../types/agentMetadata';
 import { generateAgentMetadata, formatMetadataJSON, validateAgentMetadata, getMeerkatImageUrl } from '../utils/generateAgentMetadata';
 import { useRegisterAgent } from '../hooks/useERC8004Registries';
-import { predictNextAgentId, fetchMeerkatAgents } from '../hooks/useIdentityRegistry';
+import { predictNextAgentId, fetchMeerkatAgents, fetchCrossChainUsedMeerkats } from '../hooks/useIdentityRegistry';
 import { uploadToIPFS, storeAgentCard, storeAgentInDatabase } from '../utils/pinata';
 import {
     isSupportedNetwork,
     isX402Supported,
     getNetworkName,
     get8004ScanAgentUrl,
+    DEFAULT_CHAIN_ID,
+    SHARED_MEERKAT_CHAIN_IDS,
 } from '../config/networks';
 import MobileNav from '../components/MobileNav';
 import MobileFooter from '../components/MobileFooter';
@@ -94,23 +96,44 @@ function MintAgent() {
     }, []);
 
     // Fetch used meerkat IDs on mount and check if user already owns an agent
+    // For mainnet chains (Base + Ethereum), use cross-chain availability to share the meerkat pool
+    // For Base Sepolia (testnet), use single-chain availability
     useEffect(() => {
         async function fetchUsedMeerkats() {
             setIsLoadingAvailability(true);
             setUserOwnedAgent(null); // Reset on network/address change
             try {
-                const agents = await fetchMeerkatAgents(publicClient, chainId);
-                const usedIds = agents
-                    .map(a => a.metadata?.meerkatId)
-                    .filter((id): id is number => id !== undefined && id >= 1 && id <= 100);
+                // Check if current chain is part of shared mainnet pool
+                const isSharedPool = (SHARED_MEERKAT_CHAIN_IDS as readonly number[]).includes(chainId);
+
+                let usedIds: number[];
+                let currentChainAgents;
+
+                if (isSharedPool) {
+                    // Cross-chain availability: Query both Base + Ethereum mainnets
+                    console.log('Using cross-chain meerkat availability (Base + Ethereum)');
+                    const crossChainUsedIds = await fetchCrossChainUsedMeerkats();
+                    usedIds = [...crossChainUsedIds];
+
+                    // Also fetch current chain agents to check wallet ownership
+                    currentChainAgents = await fetchMeerkatAgents(publicClient, chainId);
+                } else {
+                    // Single-chain availability (Base Sepolia testnet)
+                    console.log('Using single-chain meerkat availability (testnet)');
+                    currentChainAgents = await fetchMeerkatAgents(publicClient, chainId);
+                    usedIds = currentChainAgents
+                        .map(a => a.metadata?.meerkatId)
+                        .filter((id): id is number => id !== undefined && id >= 1 && id <= 100);
+                }
+
                 // Combine blockchain-detected IDs with manually excluded IDs
                 const allUsedIds = [...usedIds, ...MANUALLY_USED_MEERKAT_IDS];
                 console.log('Used meerkat IDs:', allUsedIds);
                 setUsedMeerkatIds(new Set(allUsedIds));
 
-                // Check if connected wallet already owns a Meerkat agent
-                if (address) {
-                    const ownedAgent = agents.find(
+                // Check if connected wallet already owns a Meerkat agent on current chain
+                if (address && currentChainAgents) {
+                    const ownedAgent = currentChainAgents.find(
                         a => a.owner.toLowerCase() === address.toLowerCase()
                     );
                     if (ownedAgent) {
@@ -257,8 +280,8 @@ function MintAgent() {
     // Network switching is now handled by NetworkSwitcher in header
     // This is kept for the notice button
     const handleSwitchToSupported = () => {
-        // Switch to Base Sepolia as default supported network
-        switchChain({ chainId: 84532 });
+        // Switch to Base mainnet as default supported network
+        switchChain({ chainId: DEFAULT_CHAIN_ID });
     };
 
     const formatAddress = (addr: string) => {
@@ -865,9 +888,9 @@ function MintAgent() {
 
                 {isConnected && !isCorrectChain && (
                     <div className="notice notice-warning">
-                        <span>Please switch to a supported network (Ethereum or Base Sepolia)</span>
+                        <span>Please switch to a supported network (Base, Ethereum, or Base Sepolia)</span>
                         <button onClick={handleSwitchToSupported} disabled={isSwitching} className="btn btn-primary" style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}>
-                            {isSwitching ? 'Switching...' : 'Switch to Base Sepolia'}
+                            {isSwitching ? 'Switching...' : 'Switch to Base'}
                         </button>
                     </div>
                 )}
