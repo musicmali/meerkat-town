@@ -61,8 +61,8 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     reputationVersion: 'v1.2',
     scan8004Url: 'https://www.8004scan.io/agents/base',
     rpcUrl: buildRpcUrl(8453),
-    firstMeerkatAgentId: null, // TBD after first mint
-    minimumMeerkatTokenId: null,
+    firstMeerkatAgentId: 78, // First Meerkat agent minted on Base mainnet
+    minimumMeerkatTokenId: 78,
     blockChunkSize: 1000000, // Alchemy supports large ranges for Base
   },
   1: {
