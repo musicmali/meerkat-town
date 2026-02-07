@@ -175,9 +175,9 @@ function Landing() {
                         </div>
 
                         {/* Phase 2 */}
-                        <div className="roadmap-card pending">
+                        <div className="roadmap-card completed">
                             <span className="roadmap-number">02</span>
-                            <span className="roadmap-status status-pending">Pending</span>
+                            <span className="roadmap-status status-completed">Completed</span>
                             <h3 className="roadmap-title">Deployment on Base Network</h3>
                             <p className="roadmap-desc">
                                 Deployment of Meerkat Town on Base Mainnet. Minting of Meerkat Agents and full integration of ERC-8004 protocol and x402 payments.
@@ -226,8 +226,6 @@ function Landing() {
                     <img src="/logo.png" alt="Meerkat Town" className="footer-logo" />
                     <p>
                         © 2026 Meerkat Town. Powered by ERC-8004 & x402
-                        <br />
-                        <strong>Live on Base Sepolia</strong>
                     </p>
                     <div className="footer-links">
                         <a href="https://x.com/MeerkatTown" target="_blank" rel="noopener noreferrer" className="footer-link">
