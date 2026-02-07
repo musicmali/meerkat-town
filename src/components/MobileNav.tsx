@@ -6,8 +6,9 @@ import './MobileNav.css';
 
 // Network logos mapping
 const NETWORK_LOGOS: Record<number, string> = {
-    1: '/ethereum-eth-logo.png',
-    84532: '/base-logo-in-blue.png',
+    8453: '/base-logo-in-blue.png',   // Base mainnet
+    1: '/ethereum-eth-logo.png',       // Ethereum mainnet
+    84532: '/base-logo-in-blue.png',   // Base Sepolia
 };
 
 function MobileNav() {

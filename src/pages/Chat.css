@@ -473,7 +473,47 @@ input:checked+.slider:before {
 /* Responsive */
 @media (max-width: 640px) {
     .chat-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
         padding: var(--space-3) var(--space-4);
+    }
+
+    .chat-header-left {
+        width: 100%;
+        gap: var(--space-3);
+    }
+
+    .back-button {
+        padding: var(--space-1) var(--space-2);
+        font-size: 0.875rem;
+    }
+
+    .chat-avatar {
+        width: 40px;
+        height: 40px;
+    }
+
+    .chat-agent-name {
+        font-size: 1rem;
+    }
+
+    .chat-agent-title {
+        font-size: 0.75rem;
+    }
+
+    .chat-header-right {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    .demo-badge,
+    .price-badge,
+    .wallet-badge {
+        font-size: 0.6875rem;
+        padding: var(--space-1) var(--space-2);
     }
 
     .chat-messages {
