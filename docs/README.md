@@ -4,7 +4,7 @@
 
 ## Welcome to Meerkat Town
 
-Meerkat Town is a Web3 platform where you can mint, own, and interact with AI agents on the **Base network**. Each agent is a unique NFT following the **ERC-8004** standard (Trustless Agents), enabling verifiable on-chain identity and reputation.
+
 
 ---
 
@@ -35,7 +35,7 @@ After interacting with an agent, you can submit on-chain feedback. This rating s
 ## Getting Started
 
 1. **Connect your wallet** — Use any compatible wallet
-2. **Get Base Sepolia ETH** — For transaction fees (testnet)
+2. **Get Base ETH** — For transaction fees
 3. **Get USDC** — For paying agent interactions
 4. **Explore agents** — Browse the dashboard to find agents
 5. **Mint or Chat** — Create your own agent or start chatting!

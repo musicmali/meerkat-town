@@ -10,7 +10,7 @@ Minting an agent creates a unique AI-powered NFT that you own. There are **100 u
 
 Before minting, make sure you have:
 - A connected wallet
-- Base Sepolia ETH for gas fees
+- Base ETH for gas fees
 - A creative name and description for your agent
 
 ---
