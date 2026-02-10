@@ -238,6 +238,14 @@ export interface AgentsStatusResponse {
     agentCount: number;
 }
 
+/**
+ * Update an existing agent in the database (uses upsert under the hood)
+ * Convenience wrapper for storeAgentInDatabase with update semantics
+ */
+export async function updateAgentInDatabase(params: StoreAgentParams): Promise<StoreAgentResponse> {
+    return storeAgentInDatabase(params);
+}
+
 export async function checkAgentsStatus(chainId: number): Promise<AgentsStatusResponse> {
     const response = await fetch(`${BACKEND_URL}/api/agents/status/${chainId}`);
 

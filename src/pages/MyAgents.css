@@ -179,7 +179,384 @@
     border-bottom: 1px solid var(--border-light);
 }
 
-/* Responsive */
+/* ============================================================================
+   AGENT DETAILS PANEL
+   ============================================================================ */
+
+.agent-details-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+}
+
+/* Back to list link */
+.details-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: var(--space-4);
+}
+
+.details-back-link:hover {
+    text-decoration: underline;
+}
+
+/* Header section: avatar + name */
+.agent-details-header {
+    display: flex;
+    gap: var(--space-6);
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-6);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.details-avatar {
+    width: 160px;
+    height: 160px;
+    border-radius: var(--radius-lg);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.details-header-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.details-header-info h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2) 0;
+}
+
+.details-agent-ids {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.details-agent-ids span {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: rgba(99, 102, 241, 0.1);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+}
+
+.details-description {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Capabilities section */
+.agent-details-capabilities {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-6);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.agent-details-capabilities h3,
+.agent-details-info h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-4) 0;
+}
+
+.capabilities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-4);
+}
+
+.capability-item {
+    background: var(--surface, rgba(0, 0, 0, 0.02));
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+}
+
+.capability-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-1);
+}
+
+.capability-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.capability-value a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.capability-value a:hover {
+    text-decoration: underline;
+}
+
+/* Skills/domains tags */
+.capability-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.capability-tag {
+    font-size: 0.8125rem;
+    color: var(--primary);
+    background: rgba(99, 102, 241, 0.1);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+}
+
+/* Agent info section */
+.agent-details-info {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-6);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-3);
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.info-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.info-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.info-value a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.info-value a:hover {
+    text-decoration: underline;
+}
+
+/* Details actions row */
+.details-actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+/* ============================================================================
+   EDIT FORM (inside details panel)
+   ============================================================================ */
+
+.agent-edit-form {
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-light);
+}
+
+.agent-edit-form h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-4) 0;
+}
+
+.edit-form-group {
+    margin-bottom: var(--space-4);
+}
+
+.edit-form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.edit-form-group input[type="text"],
+.edit-form-group input[type="number"],
+.edit-form-group textarea {
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.edit-form-group input:focus,
+.edit-form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.edit-form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.edit-form-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: var(--space-1);
+}
+
+/* Pricing toggle in edit form */
+.edit-pricing-toggle {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.edit-pricing-toggle button {
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.edit-pricing-toggle button.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.edit-price-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.edit-price-input-wrapper input {
+    width: 120px;
+}
+
+.edit-price-currency {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+/* Edit form actions */
+.edit-form-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+}
+
+/* Validation errors in edit */
+.edit-validation-errors {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.edit-validation-errors p {
+    color: #ef4444;
+    font-size: 0.8125rem;
+    margin: var(--space-1) 0;
+}
+
+/* ============================================================================
+   UPDATE PROGRESS
+   ============================================================================ */
+
+.update-progress {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--surface, rgba(0, 0, 0, 0.02));
+    border-radius: var(--radius-md);
+}
+
+.update-progress-step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.update-progress-step:last-child {
+    margin-bottom: 0;
+}
+
+.update-progress-step.active {
+    color: var(--primary);
+}
+
+.update-progress-step.done {
+    color: var(--success);
+}
+
+.update-progress-step.pending {
+    color: var(--text-muted);
+}
+
+/* Success message */
+.update-success {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--success);
+}
+
+.update-success p {
+    color: var(--success);
+    font-weight: 600;
+    margin: 0 0 var(--space-2) 0;
+}
+
+.update-success a {
+    color: var(--primary);
+    font-size: 0.875rem;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
 @media (max-width: 640px) {
     .agent-row {
         flex-wrap: wrap;
@@ -196,5 +573,45 @@
 
     .agent-actions .btn {
         flex: 1;
+    }
+
+    /* Details panel responsive */
+    .agent-details-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .details-avatar {
+        width: 120px;
+        height: 120px;
+    }
+
+    .details-agent-ids {
+        justify-content: center;
+    }
+
+    .capabilities-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .details-actions {
+        flex-direction: column;
+    }
+
+    .details-actions .btn {
+        width: 100%;
+    }
+
+    .edit-form-actions {
+        flex-direction: column;
+    }
+
+    .edit-form-actions .btn {
+        width: 100%;
     }
 }
