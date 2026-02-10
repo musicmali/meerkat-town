@@ -10,8 +10,8 @@ import {
     isX402Supported,
 } from '../config/networks';
 import { OASF_SKILLS_TAXONOMY, OASF_DOMAINS_TAXONOMY, getItemNameFromSlug } from '../data/oasfTaxonomy';
-import { generateAgentMetadata, validateAgentMetadata, getMeerkatImageUrl, getServicesFromMetadata } from '../utils/generateAgentMetadata';
-import { uploadToIPFS, fetchFromIPFS, storeAgentInDatabase, storeAgentCard } from '../utils/pinata';
+import { generateAgentMetadata, validateAgentMetadata, getMeerkatImageUrl, getMCPEndpoint, getA2AEndpoint } from '../utils/generateAgentMetadata';
+import { uploadToIPFS, storeAgentInDatabase, storeAgentCard } from '../utils/pinata';
 import type { AgentFormData } from '../types/agentMetadata';
 import OASFSelector from '../components/OASFSelector';
 import TopBar from '../components/TopBar';
@@ -42,7 +42,6 @@ function MyAgents() {
 
     // Details panel state
     const [selectedAgent, setSelectedAgent] = useState<NetworkAgent | null>(null);
-    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
 
     // Edit form state
@@ -227,37 +226,18 @@ function MyAgents() {
         }
     };
 
-    // Open details for an agent — fetch full metadata from IPFS
-    const handleShowDetails = async (agent: NetworkAgent) => {
+    // Open details for an agent (data comes from database)
+    const handleShowDetails = (agent: NetworkAgent) => {
         setSelectedAgent(agent);
         setIsEditMode(false);
         setUpdateStage('idle');
         setUpdateError('');
-
-        // Fetch full metadata from IPFS to get services/skills/domains
-        if (agent.metadataUri) {
-            setIsLoadingDetails(true);
-            try {
-                const ipfsMetadata = await fetchFromIPFS(agent.metadataUri);
-                // Merge IPFS metadata (source of truth) with the agent
-                setSelectedAgent(prev => prev && prev.agentId === agent.agentId ? {
-                    ...prev,
-                    metadata: ipfsMetadata,
-                } : prev);
-            } catch (err) {
-                console.warn('Failed to fetch full metadata from IPFS, using database metadata:', err);
-            } finally {
-                setIsLoadingDetails(false);
-            }
-        }
     };
 
-    // Enter edit mode with current values pre-populated
+    // Enter edit mode with current values pre-populated from database
     const handleEnterEdit = useCallback(() => {
         if (!selectedAgent?.metadata) return;
         const meta = selectedAgent.metadata;
-        const services = getServicesFromMetadata(meta);
-        const oasfService = services.find(s => s.name === 'OASF');
 
         setEditName(meta.name || '');
         setEditDescription(meta.description || '');
@@ -267,10 +247,10 @@ function MyAgents() {
         setEditIsFree(free);
         setEditPrice(free ? '0.001' : price);
 
-        // Skills/domains may be in OASF service (IPFS metadata) or top-level (database metadata)
+        // Skills/domains from database metadata (stored at top level from JSONB spread)
         const metaAny = meta as unknown as Record<string, unknown>;
-        setEditSkills(oasfService?.skills || (Array.isArray(metaAny.skills) ? metaAny.skills as string[] : []));
-        setEditDomains(oasfService?.domains || (Array.isArray(metaAny.domains) ? metaAny.domains as string[] : []));
+        setEditSkills(Array.isArray(metaAny.skills) ? metaAny.skills as string[] : []);
+        setEditDomains(Array.isArray(metaAny.domains) ? metaAny.domains as string[] : []);
 
         setIsEditMode(true);
         setUpdateStage('idle');
@@ -358,14 +338,16 @@ function MyAgents() {
         if (!meta) return null;
 
         const meerkatId = meta.meerkatId || 1;
-        const services = getServicesFromMetadata(meta);
-        const mcpService = services.find(s => s.name === 'MCP');
-        const a2aService = services.find(s => s.name === 'A2A');
-        const oasfService = services.find(s => s.name === 'OASF');
-        // Skills/domains may be in OASF service (IPFS) or top-level (database)
-        const detailMetaAny = meta as unknown as Record<string, unknown>;
-        const displaySkills = oasfService?.skills || (Array.isArray(detailMetaAny.skills) ? detailMetaAny.skills as string[] : []);
-        const displayDomains = oasfService?.domains || (Array.isArray(detailMetaAny.domains) ? detailMetaAny.domains as string[] : []);
+        const meerkatAgentId = `meerkat-${meerkatId}`;
+
+        // Compute endpoints from meerkatId (predictable pattern)
+        const mcpEndpoint = getMCPEndpoint(meerkatAgentId);
+        const a2aEndpoint = getA2AEndpoint(meerkatAgentId);
+
+        // Skills/domains: read from database metadata (stored at top level from JSONB spread)
+        const dbMeta = meta as unknown as Record<string, unknown>;
+        const displaySkills: string[] = Array.isArray(dbMeta.skills) ? dbMeta.skills as string[] : [];
+        const displayDomains: string[] = Array.isArray(dbMeta.domains) ? dbMeta.domains as string[] : [];
         const pricePerMessage = meta.pricePerMessage || 'Free';
         const isFree = pricePerMessage === 'Free' || pricePerMessage === '0';
         const x402Supported = isX402Supported(selectedAgent.chainId);
@@ -401,28 +383,24 @@ function MyAgents() {
 
                 {/* Capabilities */}
                 <div className="agent-details-capabilities">
-                    <h3>Capabilities {isLoadingDetails && <LoadingSpinner size="tiny" />}</h3>
+                    <h3>Capabilities</h3>
                     <div className="capabilities-grid">
-                        {mcpService && (
-                            <div className="capability-item">
-                                <div className="capability-label">MCP Endpoint</div>
-                                <div className="capability-value">
-                                    <a href={mcpService.endpoint} target="_blank" rel="noopener noreferrer">
-                                        {mcpService.endpoint}
-                                    </a>
-                                </div>
+                        <div className="capability-item">
+                            <div className="capability-label">MCP Endpoint</div>
+                            <div className="capability-value">
+                                <a href={mcpEndpoint} target="_blank" rel="noopener noreferrer">
+                                    {mcpEndpoint}
+                                </a>
                             </div>
-                        )}
-                        {a2aService && (
-                            <div className="capability-item">
-                                <div className="capability-label">A2A Endpoint</div>
-                                <div className="capability-value">
-                                    <a href={a2aService.endpoint} target="_blank" rel="noopener noreferrer">
-                                        {a2aService.endpoint}
-                                    </a>
-                                </div>
+                        </div>
+                        <div className="capability-item">
+                            <div className="capability-label">A2A Endpoint</div>
+                            <div className="capability-value">
+                                <a href={a2aEndpoint} target="_blank" rel="noopener noreferrer">
+                                    {a2aEndpoint}
+                                </a>
                             </div>
-                        )}
+                        </div>
                         {displaySkills.length > 0 && (
                             <div className="capability-item">
                                 <div className="capability-label">OASF Skills</div>
