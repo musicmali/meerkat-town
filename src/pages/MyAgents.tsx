@@ -376,20 +376,20 @@ function MyAgents() {
 
                 {/* Header */}
                 <div className="agent-details-header">
-                    <img
-                        src={`/meerkats/meerkat_${meerkatId.toString().padStart(3, '0')}.png`}
-                        alt={meta.name}
-                        className="details-avatar"
-                    />
-                    <div className="details-header-info">
+                    <div className="details-header-top">
+                        <img
+                            src={`/meerkats/meerkat_${meerkatId.toString().padStart(3, '0')}.png`}
+                            alt={meta.name}
+                            className="details-avatar"
+                        />
                         <h2>{meta.name || `Meerkat Agent #${meerkatId}`}</h2>
                         <div className="details-agent-ids">
                             <span>Agent #{selectedAgent.agentId}</span>
                             <span>Meerkat #{meerkatId}</span>
                             <span>{getNetworkName(selectedAgent.chainId)}</span>
                         </div>
-                        <p className="details-description">{meta.description || 'No description.'}</p>
                     </div>
+                    <p className="details-description">{meta.description || 'No description.'}</p>
                 </div>
 
                 {/* Capabilities */}
