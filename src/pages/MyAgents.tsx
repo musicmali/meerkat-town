@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { fetchAgentsByOwner, type RegisteredAgent } from '../hooks/useIdentityRegistry';
 import { useSetAgentURI } from '../hooks/useERC8004Registries';
 import {
@@ -36,6 +36,8 @@ function MyAgents() {
     const { address, isConnected } = useAccount();
     const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
+    const walletChainId = useChainId();
+    const { switchChainAsync } = useSwitchChain();
 
     const [agentsByNetwork, setAgentsByNetwork] = useState<Record<number, NetworkAgent[]>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -317,7 +319,11 @@ function MyAgents() {
             console.log('Updated metadata uploaded to IPFS:', result.ipfsUri);
             setUpdatedIpfsUri(result.ipfsUri);
 
-            // Stage 3: Update on-chain
+            // Stage 3: Switch chain if needed, then update on-chain
+            if (walletChainId !== selectedAgent.chainId) {
+                console.log(`Switching wallet from chain ${walletChainId} to ${selectedAgent.chainId}...`);
+                await switchChainAsync({ chainId: selectedAgent.chainId });
+            }
             setUpdateStage('onchain');
             setAgentURI(selectedAgent.agentId, result.ipfsUri);
             // The rest is handled by the useEffect watching isUpdateSuccess
