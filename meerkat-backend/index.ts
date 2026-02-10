@@ -198,6 +198,38 @@ interface StoredAgent {
 }
 
 /**
+ * Safely parse agent metadata from the database.
+ * The metadata JSONB column may contain a string (double-encoded) or an object.
+ */
+function parseAgentMetadata(metadata: unknown): Record<string, unknown> {
+  if (!metadata) return {};
+  if (typeof metadata === 'string') {
+    try {
+      return JSON.parse(metadata);
+    } catch {
+      return {};
+    }
+  }
+  if (typeof metadata === 'object' && !Array.isArray(metadata)) {
+    // Check if it looks like a spread string (keys are "0", "1", "2"...)
+    const keys = Object.keys(metadata as Record<string, unknown>);
+    if (keys.length > 0 && keys[0] === '0' && keys[1] === '1') {
+      // Reconstruct the string from character spread and parse
+      try {
+        const str = keys.sort((a, b) => Number(a) - Number(b))
+          .map(k => (metadata as Record<string, unknown>)[k])
+          .join('');
+        return JSON.parse(str);
+      } catch {
+        return {};
+      }
+    }
+    return metadata as Record<string, unknown>;
+  }
+  return {};
+}
+
+/**
  * Store an agent in the database (upsert)
  */
 async function storeAgent(agent: StoredAgent): Promise<boolean> {
@@ -207,6 +239,9 @@ async function storeAgent(agent: StoredAgent): Promise<boolean> {
   }
 
   try {
+    // Ensure metadata is always stored as a proper JSON object (avoid double-encoding)
+    const metadataJson = JSON.stringify(parseAgentMetadata(agent.metadata));
+
     await sql`
       INSERT INTO agents (
         chain_id, agent_id, owner_address, metadata_uri,
@@ -215,7 +250,7 @@ async function storeAgent(agent: StoredAgent): Promise<boolean> {
       ) VALUES (
         ${agent.chain_id}, ${agent.agent_id}, ${agent.owner_address}, ${agent.metadata_uri || null},
         ${agent.meerkat_id || null}, ${agent.name || null}, ${agent.description || null}, ${agent.image || null},
-        ${agent.price_per_message || null}, ${agent.x402_support ?? true}, ${JSON.stringify(agent.metadata || {})}, CURRENT_TIMESTAMP
+        ${agent.price_per_message || null}, ${agent.x402_support ?? true}, ${metadataJson}, CURRENT_TIMESTAMP
       )
       ON CONFLICT (chain_id, agent_id) DO UPDATE SET
         owner_address = ${agent.owner_address},
@@ -226,7 +261,7 @@ async function storeAgent(agent: StoredAgent): Promise<boolean> {
         image = ${agent.image || null},
         price_per_message = ${agent.price_per_message || null},
         x402_support = ${agent.x402_support ?? true},
-        metadata = ${JSON.stringify(agent.metadata || {})},
+        metadata = ${metadataJson},
         updated_at = CURRENT_TIMESTAMP
     `;
     console.log(`[Database] Stored agent: chain=${agent.chain_id} agentId=${agent.agent_id} name=${agent.name}`);
@@ -1342,7 +1377,7 @@ app.get('/api/agents', async (c) => {
       meerkatId: agent.meerkat_id,
       pricePerMessage: agent.price_per_message,
       x402support: agent.x402_support,
-      ...(agent.metadata as Record<string, unknown> || {}),
+      ...parseAgentMetadata(agent.metadata),
     },
     isMeerkatAgent: agent.meerkat_id !== null && agent.meerkat_id >= 1 && agent.meerkat_id <= 100,
   }));
@@ -1386,7 +1421,7 @@ app.get('/api/agents/:chainId/:agentId', async (c) => {
       meerkatId: agent.meerkat_id,
       pricePerMessage: agent.price_per_message,
       x402support: agent.x402_support,
-      ...(agent.metadata as Record<string, unknown> || {}),
+      ...parseAgentMetadata(agent.metadata),
     },
     isMeerkatAgent: agent.meerkat_id !== null && agent.meerkat_id >= 1 && agent.meerkat_id <= 100,
   };
@@ -1424,7 +1459,7 @@ app.get('/api/agents/owner/:chainId/:address', async (c) => {
       meerkatId: agent.meerkat_id,
       pricePerMessage: agent.price_per_message,
       x402support: agent.x402_support,
-      ...(agent.metadata as Record<string, unknown> || {}),
+      ...parseAgentMetadata(agent.metadata),
     },
     isMeerkatAgent: agent.meerkat_id !== null && agent.meerkat_id >= 1 && agent.meerkat_id <= 100,
   }));
