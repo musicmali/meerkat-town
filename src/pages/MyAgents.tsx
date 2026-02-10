@@ -11,7 +11,7 @@ import {
 } from '../config/networks';
 import { OASF_SKILLS_TAXONOMY, OASF_DOMAINS_TAXONOMY, getItemNameFromSlug } from '../data/oasfTaxonomy';
 import { generateAgentMetadata, validateAgentMetadata, getMeerkatImageUrl, getServicesFromMetadata } from '../utils/generateAgentMetadata';
-import { uploadToIPFS, storeAgentInDatabase, storeAgentCard } from '../utils/pinata';
+import { uploadToIPFS, fetchFromIPFS, storeAgentInDatabase, storeAgentCard } from '../utils/pinata';
 import type { AgentFormData } from '../types/agentMetadata';
 import OASFSelector from '../components/OASFSelector';
 import TopBar from '../components/TopBar';
@@ -42,6 +42,7 @@ function MyAgents() {
 
     // Details panel state
     const [selectedAgent, setSelectedAgent] = useState<NetworkAgent | null>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
 
     // Edit form state
@@ -226,12 +227,29 @@ function MyAgents() {
         }
     };
 
-    // Open details for an agent
-    const handleShowDetails = (agent: NetworkAgent) => {
+    // Open details for an agent — fetch full metadata from IPFS
+    const handleShowDetails = async (agent: NetworkAgent) => {
         setSelectedAgent(agent);
         setIsEditMode(false);
         setUpdateStage('idle');
         setUpdateError('');
+
+        // Fetch full metadata from IPFS to get services/skills/domains
+        if (agent.metadataUri) {
+            setIsLoadingDetails(true);
+            try {
+                const ipfsMetadata = await fetchFromIPFS(agent.metadataUri);
+                // Merge IPFS metadata (source of truth) with the agent
+                setSelectedAgent(prev => prev && prev.agentId === agent.agentId ? {
+                    ...prev,
+                    metadata: ipfsMetadata,
+                } : prev);
+            } catch (err) {
+                console.warn('Failed to fetch full metadata from IPFS, using database metadata:', err);
+            } finally {
+                setIsLoadingDetails(false);
+            }
+        }
     };
 
     // Enter edit mode with current values pre-populated
@@ -383,7 +401,7 @@ function MyAgents() {
 
                 {/* Capabilities */}
                 <div className="agent-details-capabilities">
-                    <h3>Capabilities</h3>
+                    <h3>Capabilities {isLoadingDetails && <LoadingSpinner size="tiny" />}</h3>
                     <div className="capabilities-grid">
                         {mcpService && (
                             <div className="capability-item">
