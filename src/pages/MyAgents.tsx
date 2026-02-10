@@ -325,7 +325,7 @@ function MyAgents() {
                 await switchChainAsync({ chainId: selectedAgent.chainId });
             }
             setUpdateStage('onchain');
-            setAgentURI(selectedAgent.agentId, result.ipfsUri);
+            setAgentURI(selectedAgent.agentId, result.ipfsUri, selectedAgent.chainId);
             // The rest is handled by the useEffect watching isUpdateSuccess
 
         } catch (err) {
