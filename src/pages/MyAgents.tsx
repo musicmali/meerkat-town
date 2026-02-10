@@ -249,8 +249,10 @@ function MyAgents() {
         setEditIsFree(free);
         setEditPrice(free ? '0.001' : price);
 
-        setEditSkills(oasfService?.skills || []);
-        setEditDomains(oasfService?.domains || []);
+        // Skills/domains may be in OASF service (IPFS metadata) or top-level (database metadata)
+        const metaAny = meta as unknown as Record<string, unknown>;
+        setEditSkills(oasfService?.skills || (Array.isArray(metaAny.skills) ? metaAny.skills as string[] : []));
+        setEditDomains(oasfService?.domains || (Array.isArray(metaAny.domains) ? metaAny.domains as string[] : []));
 
         setIsEditMode(true);
         setUpdateStage('idle');
@@ -342,6 +344,10 @@ function MyAgents() {
         const mcpService = services.find(s => s.name === 'MCP');
         const a2aService = services.find(s => s.name === 'A2A');
         const oasfService = services.find(s => s.name === 'OASF');
+        // Skills/domains may be in OASF service (IPFS) or top-level (database)
+        const detailMetaAny = meta as unknown as Record<string, unknown>;
+        const displaySkills = oasfService?.skills || (Array.isArray(detailMetaAny.skills) ? detailMetaAny.skills as string[] : []);
+        const displayDomains = oasfService?.domains || (Array.isArray(detailMetaAny.domains) ? detailMetaAny.domains as string[] : []);
         const pricePerMessage = meta.pricePerMessage || 'Free';
         const isFree = pricePerMessage === 'Free' || pricePerMessage === '0';
         const x402Supported = isX402Supported(selectedAgent.chainId);
@@ -399,21 +405,21 @@ function MyAgents() {
                                 </div>
                             </div>
                         )}
-                        {oasfService?.skills && oasfService.skills.length > 0 && (
+                        {displaySkills.length > 0 && (
                             <div className="capability-item">
                                 <div className="capability-label">OASF Skills</div>
                                 <div className="capability-tags">
-                                    {getOASFNames(oasfService.skills, 'skills').map((name, i) => (
+                                    {getOASFNames(displaySkills, 'skills').map((name, i) => (
                                         <span key={i} className="capability-tag">{name}</span>
                                     ))}
                                 </div>
                             </div>
                         )}
-                        {oasfService?.domains && oasfService.domains.length > 0 && (
+                        {displayDomains.length > 0 && (
                             <div className="capability-item">
                                 <div className="capability-label">OASF Domains</div>
                                 <div className="capability-tags">
-                                    {getOASFNames(oasfService.domains, 'domains').map((name, i) => (
+                                    {getOASFNames(displayDomains, 'domains').map((name, i) => (
                                         <span key={i} className="capability-tag">{name}</span>
                                     ))}
                                 </div>
