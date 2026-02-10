@@ -281,12 +281,14 @@
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
+    margin: 0;
     border: 2px solid var(--border);
     border-radius: 4px;
     background: white;
     cursor: pointer;
     position: relative;
     flex-shrink: 0;
+    vertical-align: middle;
 }
 
 .oasf-checkbox:checked {
@@ -313,6 +315,7 @@
 .oasf-item-name {
     font-size: 0.8125rem;
     color: var(--text);
+    line-height: 18px;
 }
 
 .oasf-item.selected .oasf-item-name {
