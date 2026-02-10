@@ -45,6 +45,7 @@ function MyAgents() {
     // Details panel state
     const [selectedAgent, setSelectedAgent] = useState<NetworkAgent | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [showLightbox, setShowLightbox] = useState(false);
 
     // Edit form state
     const [editName, setEditName] = useState('');
@@ -380,7 +381,8 @@ function MyAgents() {
                         <img
                             src={`/meerkats/meerkat_${meerkatId.toString().padStart(3, '0')}.png`}
                             alt={meta.name}
-                            className="details-avatar"
+                            className="details-avatar clickable"
+                            onClick={() => setShowLightbox(true)}
                         />
                         <h2>{meta.name || `Meerkat Agent #${meerkatId}`}</h2>
                         <div className="details-agent-ids">
@@ -690,6 +692,18 @@ function MyAgents() {
                                 </button>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* Image Lightbox */}
+                {showLightbox && (
+                    <div className="lightbox-overlay" onClick={() => setShowLightbox(false)}>
+                        <img
+                            src={`/meerkats/meerkat_${meerkatId.toString().padStart(3, '0')}.png`}
+                            alt={meta.name}
+                            className="lightbox-image"
+                            onClick={(e) => e.stopPropagation()}
+                        />
                     </div>
                 )}
             </div>
