@@ -549,15 +549,16 @@ export function useSetAgentURI() {
         hash,
     });
 
-    const setAgentURI = useCallback((agentId: number, newURI: string) => {
-        const identityAddress = getContractAddress(chainId, 'identityRegistry');
+    const setAgentURI = useCallback((agentId: number, newURI: string, targetChainId?: number) => {
+        const effectiveChainId = targetChainId || chainId;
+        const identityAddress = getContractAddress(effectiveChainId, 'identityRegistry');
 
         writeContract({
             address: identityAddress,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'setAgentURI',
             args: [BigInt(agentId), newURI],
-            chainId,
+            chainId: effectiveChainId,
         });
     }, [writeContract, chainId]);
 
