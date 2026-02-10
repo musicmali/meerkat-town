@@ -55,6 +55,7 @@ function MyAgents() {
     // Update flow state
     const [updateStage, setUpdateStage] = useState<UpdateStage>('idle');
     const [updateError, setUpdateError] = useState('');
+    const [updatedIpfsUri, setUpdatedIpfsUri] = useState<string | null>(null);
 
     // On-chain update hook
     const {
@@ -135,6 +136,7 @@ function MyAgents() {
                         chainId: selectedAgent.chainId,
                         agentId: selectedAgent.agentId,
                         ownerAddress: address || '',
+                        metadataUri: updatedIpfsUri || undefined,
                         meerkatId,
                         name: editName,
                         description: editDescription,
@@ -161,7 +163,7 @@ function MyAgents() {
                     console.warn('Database update failed (non-critical):', err);
                 });
 
-                // Update the local agent data
+                // Update the local agent data (including new IPFS URI)
                 setAgentsByNetwork(prev => {
                     const updated = { ...prev };
                     const chainAgents = updated[selectedAgent.chainId];
@@ -170,6 +172,7 @@ function MyAgents() {
                             if (a.agentId === selectedAgent.agentId) {
                                 return {
                                     ...a,
+                                    metadataUri: updatedIpfsUri || a.metadataUri,
                                     metadata: a.metadata ? {
                                         ...a.metadata,
                                         name: editName,
@@ -187,6 +190,7 @@ function MyAgents() {
                 // Update selectedAgent too
                 setSelectedAgent(prev => prev ? {
                     ...prev,
+                    metadataUri: updatedIpfsUri || prev.metadataUri,
                     metadata: prev.metadata ? {
                         ...prev.metadata,
                         name: editName,
@@ -311,6 +315,7 @@ function MyAgents() {
             const meerkatId = selectedAgent.metadata.meerkatId || 1;
             const result = await uploadToIPFS(newMetadata, `meerkat-agent-${meerkatId}-updated`);
             console.log('Updated metadata uploaded to IPFS:', result.ipfsUri);
+            setUpdatedIpfsUri(result.ipfsUri);
 
             // Stage 3: Update on-chain
             setUpdateStage('onchain');
