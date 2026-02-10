@@ -184,7 +184,7 @@
    ============================================================================ */
 
 .agent-details-panel {
-    background: var(--bg-card);
+    background: #ffffff;
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
     padding: var(--space-6);
