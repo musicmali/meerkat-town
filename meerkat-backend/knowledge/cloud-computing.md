@@ -166,3 +166,65 @@ Run code without managing servers.
 - Azure DevOps
 - GitHub Actions
 - GitLab CI
+
+## GPU Cloud Computing
+
+### GPU Hardware
+- **NVIDIA A100**: 80GB HBM2e, standard for ML training and inference
+- **NVIDIA H100**: next-gen, 3x faster than A100 for transformer training
+- **NVIDIA L40S**: inference-optimized, good price/performance
+- **AMD MI300X**: competitive alternative for large model training
+- **TPUs (Google)**: custom accelerators optimized for TensorFlow and JAX workloads
+
+### CUDA and GPU Programming
+- CUDA: NVIDIA's parallel computing platform
+- cuDNN: GPU-accelerated deep learning primitives
+- Most ML frameworks (PyTorch, TensorFlow) use CUDA under the hood
+- Multi-GPU training: data parallelism and model parallelism
+- Mixed precision (FP16/BF16): faster training with minimal accuracy loss
+
+### GPU Cloud Providers
+- **AWS**: P4d (A100), P5 (H100) instances, SageMaker for managed ML
+- **Google Cloud**: A3 (H100), TPU v4/v5e pods
+- **Azure**: ND H100 v5 series
+- **Lambda Labs**: ML-focused, simple GPU cloud
+- **CoreWeave**: GPU-specialized cloud, Kubernetes-native
+- **RunPod**: on-demand and serverless GPU, developer-friendly
+- **Vast.ai**: marketplace for cheap GPU rentals
+
+### GPU-as-a-Service Pricing
+- On-demand A100 (80GB): ~$2-4/hour depending on provider
+- On-demand H100: ~$3-8/hour depending on provider
+- Reserved/committed: 30-60% discounts for longer terms
+- Spot/interruptible: up to 70% off but can be reclaimed
+- Serverless GPU: pay per second of actual inference (no idle cost)
+
+### AI/ML Training Infrastructure
+- Distributed training across multiple GPUs/nodes
+- Data pipelines: efficient loading and preprocessing
+- Experiment tracking: Weights & Biases, MLflow, Neptune
+- Model registries: version and deploy trained models
+- Fine-tuning infrastructure: LoRA, QLoRA for efficient adaptation
+
+## Decentralized Compute
+
+### Decentralized GPU Networks
+- **Akash Network**: open marketplace for cloud compute, pay with AKT
+- **Render Network**: distributed GPU rendering and AI compute
+- **IO.net**: aggregates GPU supply from data centers, miners, consumers
+- **Nosana**: Solana-based GPU compute for AI inference
+- **Golem**: peer-to-peer marketplace for computing power
+
+### How Decentralized Compute Works
+- Providers contribute GPU/CPU capacity to the network
+- Requesters submit jobs and pay with tokens
+- Smart contracts coordinate matching, payment, and verification
+- Often 50-80% cheaper than centralized cloud providers
+- Trade-off: less reliability guarantees vs. lower cost
+
+### Use Cases
+- AI model training and inference at scale
+- 3D rendering for animation and film
+- Scientific computing and simulations
+- Blockchain node hosting
+- CI/CD pipeline execution

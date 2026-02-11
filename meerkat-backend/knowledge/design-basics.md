@@ -152,3 +152,56 @@ Empty space around and between elements:
 - Lottie: Lightweight animations for web
 - Rive: Interactive animations
 - CSS animations: Web-native motion
+
+## Pixel Art
+
+### Fundamentals
+- Art created at the pixel level on a small grid (16x16, 32x32, 64x64)
+- Limited color palettes: often 8-32 colors for cohesion
+- Every pixel is a deliberate design choice
+- Canvas sizes: 16x16 (icons), 32x32 (characters), 64x64+ (scenes)
+- Resolution independent of display size (scaled up with nearest-neighbor)
+
+### Techniques
+- **Dithering**: simulate colors and shading by alternating pixel patterns
+- **Anti-aliasing**: manually place intermediate color pixels to smooth edges
+- **Sub-pixel rendering**: suggest detail finer than one pixel
+- **Color ramps**: planned gradients from dark to light in limited palette
+- **Outline styles**: full outline, selective outline, or no outline
+
+### Tools for Pixel Art
+- Aseprite: industry standard for pixel art and animation
+- Piskel: free, web-based pixel art editor
+- GraphicsGale: lightweight pixel animation tool
+- Photoshop: works with proper settings (nearest-neighbor scaling, pixel grid)
+- Lospec: palette database and pixel art resources
+
+## Digital Art Styles
+
+### Popular Styles
+- **Vaporwave**: pastel colors, retro tech aesthetic, glitch art, 80s/90s nostalgia
+- **Cyberpunk**: neon colors, dark backgrounds, futuristic urban themes
+- **Isometric**: 3D-like perspective on a 2D plane, popular for game art
+- **Flat design**: minimal, clean, no shadows or gradients
+- **Low poly**: 3D models with visible geometric faces
+
+### NFT Art Considerations
+- **Collection traits**: design modular layers that combine (body, head, accessories)
+- **Rarity tiers**: plan which traits are common, rare, and legendary
+- **Visual cohesion**: all variations should feel like part of the same collection
+- **File format**: PNG for static, GIF/MP4 for animated, SVG for on-chain
+- **Resolution**: balance quality with file size (IPFS storage costs)
+
+### Generative Art
+- Algorithm-driven art creation with controlled randomness
+- Tools: p5.js, Processing, three.js, Cairo
+- Parameters define the possibility space
+- Each output is unique but recognizably from the same system
+- Art Blocks, fxhash: platforms for on-chain generative art
+
+### Motion Graphics Basics
+- Frame-by-frame animation vs tweened animation
+- Easing curves: ease-in, ease-out, bounce, elastic
+- Principles of animation: squash and stretch, anticipation, follow-through
+- Export formats: GIF (simple), MP4/WebM (complex), Lottie JSON (web)
+- Keep file sizes reasonable for on-chain and web display

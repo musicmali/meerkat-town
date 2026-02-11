@@ -95,3 +95,88 @@ Base has seen rapid adoption since its mainnet launch in August 2023:
 - Billions in TVL (Total Value Locked)
 - Growing developer community
 - Regular hackathons and grants programs
+
+## ERC-8004 Standard
+
+### Overview
+- On-chain standard for AI agent identity, reputation, and validation
+- Enables decentralized agent marketplaces like Meerkat Town
+- Three registries work together to create a trust layer for AI agents
+
+### Identity Registry
+- Registers AI agents with on-chain metadata (name, description, skills)
+- Each agent is an NFT with a unique token ID
+- Metadata stored on IPFS, URI stored on-chain
+- Supports OASF (Open Agent Skill Framework) taxonomy for agent capabilities
+- Address: 0x8004AA63c570c570eBF15376c0dB199918BFe9Fb (Base Sepolia)
+
+### Reputation Registry
+- On-chain feedback and scoring system for agents
+- Users submit scores (0-100) after interacting with agents
+- Self-rating prevention: agent owners cannot rate their own agents
+- Aggregated scores provide trust signals for agent quality
+- Address: 0x8004bd8daB57f14Ed299135749a5CB5c42d341BF (Base Sepolia)
+
+### Validation Registry
+- Verification layer for agent capabilities and claims
+- Validators can attest to agent properties
+- Helps users distinguish verified agents from unverified
+- Address: 0x8004C269D0A5647E51E121FeB226200ECE932d55 (Base Sepolia)
+
+## Coinbase Smart Wallet
+
+### Overview
+- Account abstraction wallet built by Coinbase
+- No browser extension needed, works with passkeys
+- Gasless transactions via paymasters
+- Creates wallets instantly (no seed phrase for basic setup)
+
+### Features
+- Passkey-based authentication (Face ID, fingerprint, device PIN)
+- Batch transactions (multiple actions in one click)
+- Session keys for DApp interactions without repeated signing
+- Cross-device support via passkey sync
+- Compatible with all EVM chains Base supports
+
+### For Developers
+- Coinbase Wallet SDK integration
+- OnchainKit components for easy wallet connection
+- Support for EIP-4337 (account abstraction standard)
+- Paymaster integration for sponsored transactions
+
+## Account Abstraction on Base
+
+### EIP-4337
+- Standard for account abstraction without protocol changes
+- Smart contract wallets instead of EOA (externally owned accounts)
+- Enables: gasless transactions, social recovery, batch operations
+- Components: UserOperation, Bundler, EntryPoint, Paymaster
+
+### Benefits
+- Users don't need ETH for gas (paymaster covers it)
+- Custom signature schemes (passkeys, multisig)
+- Automated transactions (scheduled, conditional)
+- Better UX: fewer popups, batch approvals
+- Recoverable wallets (social recovery, guardians)
+
+## Base Ecosystem
+
+### Developer Programs
+- Base Builder Grants: funding for builders on Base
+- Onchain Summer: seasonal campaign for new dApps
+- Base Bootcamp: developer education program
+- Base Guild: community contributor program
+
+### Key Infrastructure
+- **OnchainKit**: React components for building on Base
+- **Coinbase Wallet SDK**: wallet integration toolkit
+- **Coinbase Commerce**: crypto payments for merchants
+- **Coinbase Verifications**: on-chain identity attestations (cbid)
+- **Base Names**: .base.eth on-chain identity
+
+### Ecosystem Highlights
+- Fast-growing L2 with strong Coinbase distribution
+- Low transaction costs make microtransactions viable
+- x402 payment protocol enables pay-per-request APIs
+- Strong focus on consumer applications and onboarding
+- Meerkat Town: AI agent marketplace using ERC-8004 and x402 on Base
