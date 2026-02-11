@@ -11,6 +11,7 @@ import {
     getNetworkName,
 } from '../config/networks';
 import RateAgent from '../components/RateAgent';
+import ToolBadges from '../components/ToolBadges';
 import './Chat.css';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
@@ -48,6 +49,7 @@ interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    toolsUsed?: Array<{ name: string; args: Record<string, unknown> }>;
 }
 
 function Chat() {
@@ -265,6 +267,7 @@ Be friendly, helpful, and concise in your responses.`;
                 role: 'assistant',
                 content: data.message,
                 timestamp: new Date(),
+                toolsUsed: data.toolsUsed,
             };
 
             setMessages((prev) => [...prev, assistantMessage]);
@@ -380,17 +383,22 @@ Be friendly, helpful, and concise in your responses.`;
                 )}
 
                 {messages.map((msg) => (
-                    <div key={msg.id} className={`message message-${msg.role}`}>
-                        {msg.role === 'assistant' && (
-                            <img src={agent.avatar} alt={agent.name} className="message-avatar" />
-                        )}
-                        <div className="message-content">
-                            {msg.role === 'assistant' ? (
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            ) : (
-                                <p>{msg.content}</p>
+                    <div key={msg.id} className={`message-wrapper message-wrapper-${msg.role}`}>
+                        <div className={`message message-${msg.role}`}>
+                            {msg.role === 'assistant' && (
+                                <img src={agent.avatar} alt={agent.name} className="message-avatar" />
                             )}
+                            <div className="message-content">
+                                {msg.role === 'assistant' ? (
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                ) : (
+                                    <p>{msg.content}</p>
+                                )}
+                            </div>
                         </div>
+                        {msg.role === 'assistant' && msg.toolsUsed && msg.toolsUsed.length > 0 && (
+                            <ToolBadges toolsUsed={msg.toolsUsed} />
+                        )}
                     </div>
                 ))}
 

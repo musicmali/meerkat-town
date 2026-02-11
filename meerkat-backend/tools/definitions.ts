@@ -117,6 +117,85 @@ export const AGENT_TOOLS: ChatCompletionTool[] = [
         required: ['query']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_knowledge',
+      description: 'Search the Meerkat Town knowledge base for information about ERC-8004, x402 payments, OASF skills, agent registration, reputation, and the Meerkat ecosystem. Use this when users ask about Meerkat Town specifics, protocol details, or how things work.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query to look up in the knowledge base'
+          }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_agent_reputation',
+      description: 'Get the on-chain reputation score for a Meerkat agent by its agent ID. Use this when users ask about an agent\'s rating, reputation, feedback count, or want to compare agents.',
+      parameters: {
+        type: 'object',
+        properties: {
+          agentId: {
+            type: 'number',
+            description: 'The on-chain agent ID (integer)'
+          }
+        },
+        required: ['agentId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_agents',
+      description: 'List all minted Meerkat agents with their names, descriptions, and skills. Use this when users ask "who else is in Meerkat Town?", want to discover agents, or find agents with specific skills.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'execute_calculation',
+      description: 'Safely evaluate a mathematical expression. Use this for arithmetic, percentages, conversions, and any calculation. Supports: +, -, *, /, ^, sqrt, sin, cos, log, pi, e, unit conversions, and more.',
+      parameters: {
+        type: 'object',
+        properties: {
+          expression: {
+            type: 'string',
+            description: 'Mathematical expression to evaluate (e.g., "2^10", "sqrt(144)", "100 * 1.05^10", "sin(pi/4)")'
+          }
+        },
+        required: ['expression']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_defi_protocol_stats',
+      description: 'Get DeFi protocol statistics from DeFiLlama including TVL, chains, and recent changes. Use this when users ask about protocol TVL, DeFi stats, or want to compare protocols like Uniswap, Aave, Aerodrome, etc.',
+      parameters: {
+        type: 'object',
+        properties: {
+          slug: {
+            type: 'string',
+            description: 'DeFiLlama protocol slug (e.g., "uniswap", "aave", "aerodrome", "lido"). Use lowercase with hyphens for multi-word names.'
+          }
+        },
+        required: ['slug']
+      }
+    }
   }
 ];
 

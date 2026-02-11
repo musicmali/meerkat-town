@@ -254,15 +254,24 @@ input:checked+.slider:before {
     font-weight: 500;
 }
 
+/* Message Wrapper */
+.message-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 80%;
+}
+
+.message-wrapper-user {
+    align-self: flex-end;
+}
+
 /* Message */
 .message {
     display: flex;
     gap: var(--space-3);
-    max-width: 80%;
 }
 
 .message-user {
-    align-self: flex-end;
     flex-direction: row-reverse;
 }
 
@@ -520,7 +529,7 @@ input:checked+.slider:before {
         padding: var(--space-4);
     }
 
-    .message {
+    .message-wrapper {
         max-width: 90%;
     }
 

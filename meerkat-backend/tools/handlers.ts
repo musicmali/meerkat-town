@@ -6,6 +6,22 @@
 
 import { createPublicClient, http, formatEther, formatUnits } from 'viem';
 import { baseSepolia } from 'viem/chains';
+import { evaluate } from 'mathjs';
+import { retrieveContext, isRAGAvailable } from '../rag/retrieval';
+import { getAgentReputation } from '../src/contracts/client';
+
+// ============================================================================
+// DATABASE CONNECTION - Injected from index.ts for list_agents tool
+// ============================================================================
+let _sql: any = null;
+
+/**
+ * Inject the database connection from index.ts
+ * Must be called during server startup
+ */
+export function setDbConnection(sql: any): void {
+  _sql = sql;
+}
 
 // ============================================================================
 // PRICE CACHE - Avoid CoinGecko rate limits
@@ -75,6 +91,21 @@ export async function handleToolCall(
 
       case 'search_web':
         return await searchWeb(args.query as string);
+
+      case 'search_knowledge':
+        return await searchKnowledge(args.query as string);
+
+      case 'get_agent_reputation':
+        return await getReputation(args.agentId as number);
+
+      case 'list_agents':
+        return await listAgents();
+
+      case 'execute_calculation':
+        return await executeCalculation(args.expression as string);
+
+      case 'get_defi_protocol_stats':
+        return await getDefiProtocolStats(args.slug as string);
 
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
@@ -371,4 +402,256 @@ async function searchWeb(query: string): Promise<string> {
       error: `Web search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
   }
+}
+
+// ============================================================================
+// NEW TOOLS
+// ============================================================================
+
+/**
+ * Search the Meerkat Town knowledge base via RAG
+ */
+async function searchKnowledge(query: string): Promise<string> {
+  try {
+    const available = await isRAGAvailable();
+    if (!available) {
+      return JSON.stringify({ error: 'Knowledge base not available. PINECONE_API_KEY not configured.' });
+    }
+
+    console.log(`[Knowledge Search] Querying: ${query}`);
+
+    const context = await retrieveContext(query, {
+      topK: 3,
+      minScore: 0.6,
+    });
+
+    if (!context.content) {
+      return JSON.stringify({
+        query,
+        results: [],
+        message: 'No relevant information found in the knowledge base.',
+      });
+    }
+
+    console.log(`[Knowledge Search] Found ${context.sources.length} results`);
+
+    return JSON.stringify({
+      query,
+      results: context.sources.map((s, i) => ({
+        rank: i + 1,
+        title: s.title,
+        source: s.source,
+        relevance: `${s.relevance}%`,
+      })),
+      content: context.content,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Knowledge Search] Error:', error);
+    return JSON.stringify({
+      error: `Knowledge search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+/**
+ * Get on-chain reputation for a Meerkat agent
+ */
+async function getReputation(agentId: number): Promise<string> {
+  try {
+    if (!agentId || agentId < 1) {
+      return JSON.stringify({ error: 'Invalid agent ID. Must be a positive integer.' });
+    }
+
+    console.log(`[Reputation] Fetching for agent #${agentId}`);
+
+    const reputation = await getAgentReputation(agentId);
+
+    return JSON.stringify({
+      agentId,
+      averageScore: reputation.averageScore,
+      totalFeedback: reputation.totalFeedback,
+      network: 'Base Sepolia',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Reputation] Error:', error);
+    return JSON.stringify({
+      error: `Failed to fetch reputation: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+/**
+ * List all minted Meerkat agents from the database
+ */
+async function listAgents(): Promise<string> {
+  try {
+    if (!_sql) {
+      return JSON.stringify({ error: 'Database not available.' });
+    }
+
+    console.log('[List Agents] Fetching all agents');
+
+    const agents = await _sql`
+      SELECT meerkat_id, name, description, skills
+      FROM agent_cards
+      ORDER BY meerkat_id ASC
+    `;
+
+    const formatted = agents.map((a: any) => {
+      let skills = a.skills;
+      if (typeof skills === 'string') {
+        try { skills = JSON.parse(skills); } catch { skills = []; }
+      }
+      const skillNames = Array.isArray(skills)
+        ? skills.map((s: any) => s.name || s.id || 'Unknown').slice(0, 5)
+        : [];
+
+      return {
+        meerkatId: a.meerkat_id,
+        name: a.name,
+        description: a.description?.substring(0, 150),
+        skills: skillNames,
+      };
+    });
+
+    console.log(`[List Agents] Found ${formatted.length} agents`);
+
+    return JSON.stringify({
+      agents: formatted,
+      total: formatted.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[List Agents] Error:', error);
+    return JSON.stringify({
+      error: `Failed to list agents: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+/**
+ * Safely evaluate a mathematical expression using mathjs
+ */
+async function executeCalculation(expression: string): Promise<string> {
+  try {
+    if (!expression || expression.trim().length === 0) {
+      return JSON.stringify({ error: 'Expression is required.' });
+    }
+
+    console.log(`[Calculation] Evaluating: ${expression}`);
+
+    const result = evaluate(expression);
+
+    return JSON.stringify({
+      expression,
+      result: typeof result === 'object' ? result.toString() : result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return JSON.stringify({
+      error: `Calculation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      expression,
+    });
+  }
+}
+
+// ============================================================================
+// DEFI CACHE - Avoid excessive DeFiLlama requests
+// ============================================================================
+interface CachedDefi {
+  data: string;
+  timestamp: number;
+}
+
+const defiCache = new Map<string, CachedDefi>();
+const DEFI_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get DeFi protocol stats from DeFiLlama (free API)
+ */
+async function getDefiProtocolStats(slug: string): Promise<string> {
+  try {
+    const normalizedSlug = slug.toLowerCase().trim();
+
+    // Check cache
+    const cached = defiCache.get(normalizedSlug);
+    if (cached && Date.now() - cached.timestamp < DEFI_CACHE_TTL) {
+      console.log(`[DeFi Cache] HIT for ${normalizedSlug}`);
+      return cached.data;
+    }
+
+    console.log(`[DeFi] Fetching stats for: ${normalizedSlug}`);
+
+    const response = await fetch(`https://api.llama.fi/protocol/${normalizedSlug}`, {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return JSON.stringify({
+          error: `Protocol "${slug}" not found on DeFiLlama. Try using the exact slug (e.g., "uniswap", "aave-v3", "aerodrome").`
+        });
+      }
+      return JSON.stringify({ error: `DeFiLlama API error: ${response.status}` });
+    }
+
+    const data = await response.json() as {
+      name?: string;
+      tvl?: Array<{ date: number; totalLiquidityUSD: number }>;
+      chains?: string[];
+      change_1d?: number;
+      change_7d?: number;
+      currentChainTvls?: Record<string, number>;
+      category?: string;
+      url?: string;
+    };
+
+    // Get latest TVL from the tvl array
+    const tvlArray = data.tvl;
+    const latestTvl = tvlArray && tvlArray.length > 0
+      ? tvlArray[tvlArray.length - 1]!.totalLiquidityUSD
+      : null;
+
+    // Sum up current chain TVLs (excluding staking/pool2 variants)
+    let totalTvl = 0;
+    if (data.currentChainTvls) {
+      for (const [key, value] of Object.entries(data.currentChainTvls)) {
+        if (!key.includes('-') && typeof value === 'number') {
+          totalTvl += value;
+        }
+      }
+    }
+
+    const result = JSON.stringify({
+      name: data.name || slug,
+      slug: normalizedSlug,
+      tvl: totalTvl || latestTvl,
+      tvl_formatted: formatUSD(totalTvl || latestTvl || 0),
+      chains: data.chains?.slice(0, 10) || [],
+      change_1d: data.change_1d ? `${data.change_1d > 0 ? '+' : ''}${data.change_1d.toFixed(2)}%` : null,
+      change_7d: data.change_7d ? `${data.change_7d > 0 ? '+' : ''}${data.change_7d.toFixed(2)}%` : null,
+      category: data.category || null,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Cache the result
+    defiCache.set(normalizedSlug, { data: result, timestamp: Date.now() });
+    console.log(`[DeFi Cache] STORED ${normalizedSlug}`);
+
+    return result;
+  } catch (error) {
+    console.error('[DeFi] Error:', error);
+    return JSON.stringify({
+      error: `Failed to fetch DeFi stats: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+function formatUSD(amount: number): string {
+  if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`;
+  if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`;
+  if (amount >= 1e3) return `$${(amount / 1e3).toFixed(2)}K`;
+  return `$${amount.toFixed(2)}`;
 }

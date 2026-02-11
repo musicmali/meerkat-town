@@ -18,7 +18,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, http } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import postgres from 'postgres';
-import { AGENT_TOOLS, handleToolCall, getToolDescriptions } from './tools';
+import { AGENT_TOOLS, handleToolCall, getToolDescriptions, setDbConnection, convertToMCPTools } from './tools';
 import { retrieveContext, formatContextForPrompt, isRAGAvailable, ingestFromDirectory, getIndexStats } from './rag';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -36,6 +36,9 @@ config();
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const sql = DATABASE_URL ? postgres(DATABASE_URL) : null;
+
+// Inject DB connection into tool handlers for list_agents tool
+if (sql) setDbConnection(sql);
 
 // Whitelisted IPs for testing (bypass 1-mint-per-IP limit)
 const WHITELISTED_IPS = [
@@ -738,8 +741,16 @@ type ChatMessage = {
 };
 
 /**
+ * Result from chatWithTools including tool usage info
+ */
+interface ChatWithToolsResult {
+  message: string;
+  toolsUsed: Array<{ name: string; args: Record<string, unknown> }>;
+}
+
+/**
  * Chat with an agent using OpenAI function calling
- * Handles tool calls automatically and returns the final response
+ * Handles tool calls automatically and returns the final response with tool usage info
  */
 async function chatWithTools(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
@@ -749,8 +760,11 @@ async function chatWithTools(
     temperature?: number;
     maxToolCalls?: number;
   } = {}
-): Promise<string> {
+): Promise<ChatWithToolsResult> {
   const { maxTokens = 1000, temperature = 0.7, maxToolCalls = 5 } = options;
+
+  // Track which tools were called
+  const toolsUsed: Array<{ name: string; args: Record<string, unknown> }> = [];
 
   // Build messages array with system prompt
   const allMessages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string }> = [
@@ -775,7 +789,7 @@ async function chatWithTools(
 
     // If no tool calls, return the response directly
     if (!message.tool_calls || message.tool_calls.length === 0) {
-      return message.content || '';
+      return { message: message.content || '', toolsUsed };
     }
 
     // Process tool calls
@@ -798,6 +812,9 @@ async function chatWithTools(
       const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
 
       console.log(`[Function Calling] Executing: ${toolName}`, toolArgs);
+
+      // Track tool usage
+      toolsUsed.push({ name: toolName, args: toolArgs });
 
       // Execute the tool
       const result = await handleToolCall(toolName, toolArgs);
@@ -823,7 +840,7 @@ async function chatWithTools(
     temperature,
   });
 
-  return finalResponse.choices[0].message.content || '';
+  return { message: finalResponse.choices[0].message.content || '', toolsUsed };
 }
 
 // ============================================================================
@@ -843,7 +860,7 @@ async function chatWithRAG(
     maxToolCalls?: number;
     useRAG?: boolean;
   } = {}
-): Promise<string> {
+): Promise<ChatWithToolsResult> {
   const { useRAG = true, ...chatOptions } = options;
 
   let enhancedPrompt = systemPrompt;
@@ -1769,7 +1786,7 @@ app.post('/agents/bob', async (c) => {
     history.push({ role: 'user', content: message });
 
     // Call OpenAI with RAG-enhanced context and function calling
-    const reply = await chatWithRAG(history, BOB_SYSTEM_PROMPT, {
+    const { message: reply, toolsUsed } = await chatWithRAG(history, BOB_SYSTEM_PROMPT, {
       maxTokens: 1000,
       temperature: 0.7,
       useRAG: true
@@ -1787,6 +1804,7 @@ app.post('/agents/bob', async (c) => {
       agent: 'bob',
       message: reply,
       sessionId,
+      toolsUsed,
       payment: {
         charged: PRICE_PER_REQUEST,
         networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK]
@@ -1823,7 +1841,7 @@ app.post('/agents/ana', async (c) => {
 
     // Call OpenAI with RAG-enhanced context and function calling
     // Ana uses RAG less aggressively (writing assistant may not need crypto knowledge as often)
-    const reply = await chatWithRAG(history, ANA_SYSTEM_PROMPT, {
+    const { message: reply, toolsUsed } = await chatWithRAG(history, ANA_SYSTEM_PROMPT, {
       maxTokens: 1000,
       temperature: 0.8,
       useRAG: true
@@ -1841,6 +1859,7 @@ app.post('/agents/ana', async (c) => {
       agent: 'ana',
       message: reply,
       sessionId,
+      toolsUsed,
       payment: {
         charged: PRICE_PER_REQUEST,
         networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK]
@@ -1896,7 +1915,7 @@ Use these tools when relevant to provide accurate, real-time information.`;
     history.push({ role: 'user', content: message });
 
     // Call OpenAI with RAG-enhanced context and function calling
-    const reply = await chatWithRAG(history, prompt, {
+    const { message: reply, toolsUsed } = await chatWithRAG(history, prompt, {
       maxTokens: 1000,
       temperature: 0.7,
       useRAG: true
@@ -1914,6 +1933,7 @@ Use these tools when relevant to provide accurate, real-time information.`;
       agent: agentId,
       message: reply,
       sessionId,
+      toolsUsed,
       payment: {
         charged: PRICE_PER_REQUEST,
         networks: [BASE_MAINNET_NETWORK, BASE_SEPOLIA_NETWORK]
@@ -1945,7 +1965,7 @@ app.post('/demo/bob', async (c) => {
     }
 
     const demoPrompt = BOB_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
-    const reply = await chatWithRAG(
+    const { message: reply, toolsUsed } = await chatWithRAG(
       [{ role: 'user', content: message }],
       demoPrompt,
       { maxTokens: 500, maxToolCalls: 2, useRAG: true }
@@ -1954,6 +1974,7 @@ app.post('/demo/bob', async (c) => {
     return c.json({
       agent: 'bob',
       message: reply,
+      toolsUsed,
       demo: true
     });
 
@@ -1976,7 +1997,7 @@ app.post('/demo/ana', async (c) => {
     }
 
     const demoPrompt = ANA_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
-    const reply = await chatWithRAG(
+    const { message: reply, toolsUsed } = await chatWithRAG(
       [{ role: 'user', content: message }],
       demoPrompt,
       { maxTokens: 500, maxToolCalls: 2, useRAG: true }
@@ -1985,6 +2006,7 @@ app.post('/demo/ana', async (c) => {
     return c.json({
       agent: 'ana',
       message: reply,
+      toolsUsed,
       demo: true
     });
 
@@ -2022,7 +2044,7 @@ You have access to real-time tools:
     const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
     const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
 
-    const reply = await chatWithRAG(
+    const { message: reply, toolsUsed } = await chatWithRAG(
       [{ role: 'user', content: message }],
       prompt,
       { maxTokens: 500, maxToolCalls: 2, useRAG: true }
@@ -2031,6 +2053,7 @@ You have access to real-time tools:
     return c.json({
       agent: agentId,
       message: reply,
+      toolsUsed,
       demo: true
     });
 
@@ -2049,7 +2072,7 @@ You have access to real-time tools:
 
 const MCP_VERSION = '2025-06-18';
 
-// Agent tools definition - tools each meerkat agent can expose
+// Agent tools definition - tools each meerkat agent can expose via MCP
 const getAgentTools = (agentId: string) => [
   {
     name: 'chat',
@@ -2079,6 +2102,8 @@ const getAgentTools = (agentId: string) => [
       properties: {},
     },
   },
+  // Bridge all shared tools (crypto prices, wallet, DeFi, etc.) into MCP
+  ...convertToMCPTools(AGENT_TOOLS),
 ];
 
 // Agent prompts definition
@@ -2225,7 +2250,7 @@ app.get('/mcp/:agentId', async (c) => {
     capabilities: {
       tools: true,
       prompts: true,
-      resources: false,
+      resources: true,
     },
     tools: getAgentTools(agentId).map(t => t.name),
     prompts: getAgentPrompts(agentId).map(p => p.name),
@@ -2361,14 +2386,27 @@ app.post('/mcp/:agentId', async (c) => {
           });
         }
 
-        return c.json({
-          jsonrpc: '2.0',
-          id,
-          result: {
-            content: [{ type: 'text', text: `Unknown tool: ${toolName}` }],
-            isError: true,
-          },
-        });
+        // Delegate all other tools to the shared tool handler
+        try {
+          const toolResult = await handleToolCall(toolName, toolArgs || {});
+          return c.json({
+            jsonrpc: '2.0',
+            id,
+            result: {
+              content: [{ type: 'text', text: toolResult }],
+              isError: false,
+            },
+          });
+        } catch (toolError: any) {
+          return c.json({
+            jsonrpc: '2.0',
+            id,
+            result: {
+              content: [{ type: 'text', text: `Tool error: ${toolError.message}` }],
+              isError: true,
+            },
+          });
+        }
       }
 
       // ============ PROMPTS ============
@@ -2402,6 +2440,142 @@ app.post('/mcp/:agentId', async (c) => {
             description: prompt.description,
             messages: [
               { role: 'user', content: { type: 'text', text: `Run the ${promptName} prompt` } },
+            ],
+          },
+        });
+      }
+
+      // ============ RESOURCES ============
+      case 'resources/list': {
+        const resources = [
+          {
+            uri: `meerkat://${agentId}/metadata`,
+            name: `${agentId} Metadata`,
+            description: `Full agent metadata including name, description, skills, and OASF domains`,
+            mimeType: 'application/json',
+          },
+          {
+            uri: `meerkat://${agentId}/reputation`,
+            name: `${agentId} Reputation`,
+            description: `On-chain reputation score and feedback summary`,
+            mimeType: 'application/json',
+          },
+          {
+            uri: `meerkat://${agentId}/knowledge`,
+            name: `${agentId} Knowledge Base`,
+            description: `Description of the agent's searchable knowledge base topics`,
+            mimeType: 'application/json',
+          },
+        ];
+
+        return c.json({
+          jsonrpc: '2.0',
+          id,
+          result: { resources },
+        });
+      }
+
+      case 'resources/read': {
+        const { uri } = params || {};
+
+        if (!uri) {
+          return c.json({
+            jsonrpc: '2.0',
+            error: { code: -32602, message: 'uri is required' },
+            id,
+          });
+        }
+
+        // Parse meerkat://agentId/resource
+        const uriMatch = (uri as string).match(/^meerkat:\/\/([^/]+)\/(.+)$/);
+        if (!uriMatch) {
+          return c.json({
+            jsonrpc: '2.0',
+            error: { code: -32602, message: `Invalid resource URI: ${uri}` },
+            id,
+          });
+        }
+
+        const resourceAgentId = uriMatch[1]!;
+        const resourceType = uriMatch[2]!;
+        let resourceContent: string;
+
+        switch (resourceType) {
+          case 'metadata': {
+            // Try to get from DB for minted agents
+            const meerkatNum = parseInt(resourceAgentId.replace('meerkat-', ''));
+            let metadata: any = { agentId: resourceAgentId, type: 'legacy' };
+
+            if (!isNaN(meerkatNum)) {
+              const card = await getAgentCard(meerkatNum);
+              if (card) {
+                metadata = {
+                  agentId: resourceAgentId,
+                  meerkatId: card.meerkat_id,
+                  name: card.name,
+                  description: card.description,
+                  skills: card.skills,
+                  price: card.price,
+                };
+              }
+            } else {
+              // Legacy agent
+              metadata = {
+                agentId: resourceAgentId,
+                name: resourceAgentId === 'bob' ? 'Bob' : resourceAgentId === 'ana' ? 'Ana' : resourceAgentId,
+                type: 'legacy',
+              };
+            }
+            resourceContent = JSON.stringify(metadata);
+            break;
+          }
+          case 'reputation': {
+            const repNum = parseInt(resourceAgentId.replace('meerkat-', ''));
+            if (!isNaN(repNum)) {
+              try {
+                const { getAgentReputation } = await import('./src/contracts/client');
+                const rep = await getAgentReputation(repNum);
+                resourceContent = JSON.stringify({
+                  agentId: repNum,
+                  averageScore: rep.averageScore,
+                  totalFeedback: rep.totalFeedback,
+                  network: 'Base Sepolia',
+                });
+              } catch {
+                resourceContent = JSON.stringify({ error: 'Could not fetch reputation' });
+              }
+            } else {
+              resourceContent = JSON.stringify({ error: 'Reputation not available for legacy agents' });
+            }
+            break;
+          }
+          case 'knowledge': {
+            resourceContent = JSON.stringify({
+              description: 'Meerkat Town knowledge base covering ERC-8004 agent registration, x402 micropayments, OASF skills taxonomy, reputation system, and the Base network ecosystem.',
+              searchable: true,
+              tool: 'search_knowledge',
+              topics: ['ERC-8004', 'x402 payments', 'OASF skills', 'agent registration', 'reputation', 'Base network', 'DeFi'],
+            });
+            break;
+          }
+          default:
+            return c.json({
+              jsonrpc: '2.0',
+              error: { code: -32602, message: `Unknown resource type: ${resourceType}` },
+              id,
+            });
+        }
+
+        return c.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            contents: [
+              {
+                uri,
+                mimeType: 'application/json',
+                text: resourceContent,
+              },
             ],
           },
         });

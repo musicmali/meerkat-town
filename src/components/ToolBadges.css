@@ -1,0 +1,37 @@
+/* ============================================================================
+   TOOL BADGES - Shows which tools an agent used for a response
+   ============================================================================ */
+
+.tool-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    padding-left: 48px; /* Align with message content (avatar width + gap) */
+}
+
+.tool-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--bg-warm, #FFF7ED);
+    border: 1px solid var(--border-light, #E5E7EB);
+    border-radius: var(--radius-full, 9999px);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6B7280);
+    line-height: 1.4;
+}
+
+.tool-badge-icon {
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .tool-badges {
+        padding-left: 0;
+    }
+}
