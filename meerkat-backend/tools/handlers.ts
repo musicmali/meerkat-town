@@ -110,6 +110,23 @@ export async function handleToolCall(
       case 'get_defi_protocol_stats':
         return await getDefiProtocolStats(args.slug as string);
 
+      case 'get_token_holders':
+        return await getTokenHolders(args.address as string);
+
+      case 'get_trending_tokens':
+        return await getTrendingTokens();
+
+      case 'swap_quote':
+        return await getSwapQuote(
+          args.tokenIn as string,
+          args.tokenOut as string,
+          args.amount as string,
+          args.slippage as number | undefined
+        );
+
+      case 'get_portfolio':
+        return await getPortfolio(args.address as string);
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
     }
@@ -734,4 +751,342 @@ function formatUSD(amount: number): string {
   if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`;
   if (amount >= 1e3) return `$${(amount / 1e3).toFixed(2)}K`;
   return `$${amount.toFixed(2)}`;
+}
+
+// ============================================================================
+// BLOCKSCOUT / DEXSCREENER / ODOS CACHE
+// ============================================================================
+interface CachedGeneric {
+  data: string;
+  timestamp: number;
+}
+
+const genericCache = new Map<string, CachedGeneric>();
+
+function getCached(key: string, ttlMs: number): string | null {
+  const cached = genericCache.get(key);
+  if (cached && Date.now() - cached.timestamp < ttlMs) {
+    console.log(`[Cache] HIT for ${key}`);
+    return cached.data;
+  }
+  return null;
+}
+
+function setCache(key: string, data: string): void {
+  genericCache.set(key, { data, timestamp: Date.now() });
+}
+
+// ============================================================================
+// get_token_holders — Blockscout (Base mainnet, no auth)
+// ============================================================================
+async function getTokenHolders(address: string): Promise<string> {
+  try {
+    if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return JSON.stringify({ error: 'Invalid token contract address format' });
+    }
+
+    const cacheKey = `holders:${address.toLowerCase()}`;
+    const cached = getCached(cacheKey, 5 * 60 * 1000); // 5 min
+    if (cached) return cached;
+
+    console.log(`[Token Holders] Fetching for ${address}`);
+
+    const response = await fetch(
+      `https://base.blockscout.com/api/v2/tokens/${address}/holders`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      return JSON.stringify({ error: `Blockscout API error: ${response.status}` });
+    }
+
+    const data = await response.json() as {
+      items?: Array<{
+        address: { hash: string };
+        value: string;
+      }>;
+      next_page_params?: unknown;
+    };
+
+    const holders = (data.items || []).slice(0, 10).map((h, i) => ({
+      rank: i + 1,
+      address: h.address?.hash,
+      balance: h.value,
+    }));
+
+    const result = JSON.stringify({
+      token: address,
+      top_holders: holders,
+      holders_shown: holders.length,
+      network: 'Base',
+      timestamp: new Date().toISOString(),
+    });
+
+    setCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return JSON.stringify({
+      error: `Failed to fetch token holders: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+// ============================================================================
+// get_trending_tokens — DexScreener token boosts (no auth)
+// ============================================================================
+async function getTrendingTokens(): Promise<string> {
+  try {
+    const cacheKey = 'trending:base';
+    const cached = getCached(cacheKey, 2 * 60 * 1000); // 2 min
+    if (cached) return cached;
+
+    console.log('[Trending Tokens] Fetching from DexScreener');
+
+    const response = await fetch(
+      'https://api.dexscreener.com/token-boosts/top/v1',
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      return JSON.stringify({ error: `DexScreener API error: ${response.status}` });
+    }
+
+    const data = await response.json() as Array<{
+      chainId?: string;
+      tokenAddress?: string;
+      description?: string;
+      url?: string;
+      amount?: number;
+    }>;
+
+    // Filter for Base chain only
+    const baseTokens = (Array.isArray(data) ? data : [])
+      .filter((t) => t.chainId === 'base')
+      .slice(0, 10);
+
+    if (baseTokens.length === 0) {
+      return JSON.stringify({
+        trending: [],
+        message: 'No trending tokens found on Base right now.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Enrich with price data: batch lookup addresses
+    const addresses = baseTokens.map(t => t.tokenAddress).filter(Boolean);
+    let pairData: Record<string, any> = {};
+
+    if (addresses.length > 0) {
+      try {
+        const priceResp = await fetch(
+          `https://api.dexscreener.com/tokens/v1/base/${addresses.join(',')}`,
+          { headers: { 'Accept': 'application/json' } }
+        );
+        if (priceResp.ok) {
+          const pairs = await priceResp.json() as any[];
+          for (const pair of (Array.isArray(pairs) ? pairs : [])) {
+            const addr = pair.baseToken?.address?.toLowerCase();
+            if (addr && !pairData[addr]) {
+              pairData[addr] = pair;
+            }
+          }
+        }
+      } catch { /* price enrichment is best-effort */ }
+    }
+
+    const trending = baseTokens.map((t, i) => {
+      const pair = pairData[t.tokenAddress?.toLowerCase() || ''];
+      return {
+        rank: i + 1,
+        token_address: t.tokenAddress,
+        symbol: pair?.baseToken?.symbol || null,
+        name: pair?.baseToken?.name || null,
+        price_usd: pair?.priceUsd || null,
+        price_change_24h: pair?.priceChange?.h24 || null,
+        volume_24h: pair?.volume?.h24 || null,
+        liquidity_usd: pair?.liquidity?.usd || null,
+        boost_amount: t.amount,
+        url: t.url,
+      };
+    });
+
+    const result = JSON.stringify({
+      trending,
+      count: trending.length,
+      network: 'Base',
+      timestamp: new Date().toISOString(),
+    });
+
+    setCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return JSON.stringify({
+      error: `Failed to fetch trending tokens: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+// ============================================================================
+// swap_quote — Odos DEX aggregator (no auth for quotes)
+// ============================================================================
+
+// Known token decimals on Base for common tokens
+const BASE_TOKEN_DECIMALS: Record<string, number> = {
+  '0x4200000000000000000000000000000000000006': 18, // WETH
+  '0x833589fcd6edb6e08f4c7c32d4f71b1566469c3d': 6,  // USDC
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': 18, // DAI
+  '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca': 6,  // USDbC
+  '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22': 18, // cbETH
+};
+
+async function getSwapQuote(
+  tokenIn: string,
+  tokenOut: string,
+  amount: string,
+  slippage?: number
+): Promise<string> {
+  try {
+    if (!tokenIn.match(/^0x[a-fA-F0-9]{40}$/) || !tokenOut.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return JSON.stringify({ error: 'Invalid token address format. Must be 0x... (40 hex chars).' });
+    }
+
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      return JSON.stringify({ error: 'Invalid amount. Must be a positive number.' });
+    }
+
+    // Determine input token decimals
+    const decimals = BASE_TOKEN_DECIMALS[tokenIn.toLowerCase()] ?? 18;
+    const amountRaw = BigInt(Math.round(amountNum * 10 ** decimals)).toString();
+
+    console.log(`[Swap Quote] ${amount} ${tokenIn} → ${tokenOut} (slippage: ${slippage ?? 0.5}%)`);
+
+    const response = await fetch('https://api.odos.xyz/sor/quote/v2', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        chainId: 8453, // Base mainnet
+        inputTokens: [{ tokenAddress: tokenIn, amount: amountRaw }],
+        outputTokens: [{ tokenAddress: tokenOut, proportion: 1 }],
+        slippageLimitPercent: slippage ?? 0.5,
+        userAddr: '0x0000000000000000000000000000000000000000',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Swap Quote] Odos error: ${response.status}`, errorText);
+      return JSON.stringify({ error: `Odos API error: ${response.status}. The token pair may not have liquidity.` });
+    }
+
+    const data = await response.json() as {
+      outAmounts?: string[];
+      outValues?: number[];
+      gasEstimate?: number;
+      gasEstimateValue?: number;
+      priceImpact?: number;
+      percentDiff?: number;
+      netOutValue?: number;
+      inValues?: number[];
+    };
+
+    // Determine output token decimals
+    const outDecimals = BASE_TOKEN_DECIMALS[tokenOut.toLowerCase()] ?? 18;
+    const outAmount = data.outAmounts?.[0]
+      ? (Number(BigInt(data.outAmounts[0])) / 10 ** outDecimals).toFixed(outDecimals <= 8 ? outDecimals : 8)
+      : null;
+
+    const inValue = data.inValues?.[0] ?? amountNum;
+    const outValue = data.outValues?.[0] ?? null;
+
+    const result = JSON.stringify({
+      input: { token: tokenIn, amount, amount_raw: amountRaw },
+      output: { token: tokenOut, amount: outAmount, amount_raw: data.outAmounts?.[0] },
+      exchange_rate: outAmount && amountNum ? `1 input = ${(parseFloat(outAmount) / amountNum).toFixed(6)} output` : null,
+      price_impact: data.priceImpact != null ? `${data.priceImpact.toFixed(4)}%` : null,
+      gas_estimate: data.gasEstimate ?? null,
+      gas_cost_usd: data.gasEstimateValue != null ? `$${data.gasEstimateValue.toFixed(4)}` : null,
+      input_value_usd: inValue ? `$${inValue.toFixed(2)}` : null,
+      output_value_usd: outValue ? `$${outValue.toFixed(2)}` : null,
+      slippage_percent: slippage ?? 0.5,
+      network: 'Base',
+      source: 'Odos DEX Aggregator',
+      timestamp: new Date().toISOString(),
+    });
+
+    return result;
+  } catch (error) {
+    return JSON.stringify({
+      error: `Failed to get swap quote: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+// ============================================================================
+// get_portfolio — Blockscout (Base mainnet, no auth)
+// ============================================================================
+async function getPortfolio(address: string): Promise<string> {
+  try {
+    if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return JSON.stringify({ error: 'Invalid wallet address format' });
+    }
+
+    const cacheKey = `portfolio:${address.toLowerCase()}`;
+    const cached = getCached(cacheKey, 2 * 60 * 1000); // 2 min
+    if (cached) return cached;
+
+    console.log(`[Portfolio] Fetching tokens for ${address}`);
+
+    const response = await fetch(
+      `https://base.blockscout.com/api/v2/addresses/${address}/tokens?type=ERC-20`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      return JSON.stringify({ error: `Blockscout API error: ${response.status}` });
+    }
+
+    const data = await response.json() as {
+      items?: Array<{
+        token: {
+          address: string;
+          name: string;
+          symbol: string;
+          decimals: string;
+        };
+        value: string;
+      }>;
+    };
+
+    const tokens = (data.items || []).map((item) => {
+      const decimals = parseInt(item.token.decimals) || 18;
+      const rawBalance = BigInt(item.value || '0');
+      const balance = Number(rawBalance) / 10 ** decimals;
+
+      return {
+        name: item.token.name,
+        symbol: item.token.symbol,
+        token_address: item.token.address,
+        balance: balance.toFixed(Math.min(decimals, 8)),
+      };
+    });
+
+    const result = JSON.stringify({
+      wallet: address,
+      tokens,
+      token_count: tokens.length,
+      network: 'Base',
+      timestamp: new Date().toISOString(),
+    });
+
+    setCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return JSON.stringify({
+      error: `Failed to fetch portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
 }

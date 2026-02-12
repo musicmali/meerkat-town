@@ -678,6 +678,10 @@ You have access to real-time tools. Use them when users ask about current prices
 - get_block_number: Get the latest block number
 - get_transaction: Look up transaction details
 - search_web: Search the internet for current news, information, tutorials, or any topic
+- get_token_holders: Get top holders of any ERC-20 token on Base (whale distribution)
+- get_trending_tokens: See what tokens are currently trending/hot on Base
+- swap_quote: Get a swap quote for trading tokens on Base via Odos (amount out, price impact, gas)
+- get_portfolio: List all ERC-20 tokens held by a wallet address on Base
 
 When responding:
 1. Be concise but thorough
@@ -716,6 +720,8 @@ You have access to real-time tools that you can use when helpful:
 - get_gas_price: Get current gas prices (useful for blockchain articles)
 - get_block_number: Get the latest block (useful for real-time blockchain info)
 - search_web: Search the internet for current information, trends, or research topics
+- get_trending_tokens: See trending tokens on Base (useful for market content)
+- get_portfolio: List tokens held by a wallet on Base (useful for portfolio content)
 
 When responding:
 1. Be encouraging and supportive
@@ -1901,6 +1907,10 @@ You have access to real-time tools. Use them when users ask about current data:
 - get_block_number: Get the latest block number
 - get_transaction: Look up transaction details
 - search_web: Search the internet for current news, information, or any topic
+- get_token_holders: Get top holders of any ERC-20 token on Base (whale distribution)
+- get_trending_tokens: See what tokens are currently trending/hot on Base
+- swap_quote: Get a swap quote for trading tokens on Base via Odos (amount out, price impact, gas)
+- get_portfolio: List all ERC-20 tokens held by a wallet address on Base
 
 IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet". Always refer to "Base" not "Base Sepolia" when discussing tokens, protocols, or on-chain activity.
 For token prices, prefer get_dex_price for Base-native or smaller tokens, and get_crypto_price for major tokens like BTC/ETH.
@@ -2046,6 +2056,10 @@ You have access to real-time tools:
 - get_gas_price: Get current gas prices on Base
 - get_block_number: Get the latest block number
 - search_web: Search the internet for current information
+- get_token_holders: Get top holders of any ERC-20 token on Base
+- get_trending_tokens: See trending tokens on Base
+- swap_quote: Get a swap quote for trading tokens on Base via Odos
+- get_portfolio: List all tokens held by a wallet on Base
 
 IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet".`;
 

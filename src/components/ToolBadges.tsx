@@ -23,6 +23,10 @@ const TOOL_LABELS: Record<string, { label: string; icon: string }> = {
     list_agents: { label: 'Agent List', icon: '🐾' },
     execute_calculation: { label: 'Calculation', icon: '🧮' },
     get_defi_protocol_stats: { label: 'DeFi Stats', icon: '📊' },
+    get_token_holders: { label: 'Token Holders', icon: '🐋' },
+    get_trending_tokens: { label: 'Trending', icon: '🔥' },
+    swap_quote: { label: 'Swap Quote', icon: '🔄' },
+    get_portfolio: { label: 'Portfolio', icon: '💼' },
 };
 
 function ToolBadges({ toolsUsed }: ToolBadgesProps) {

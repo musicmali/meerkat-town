@@ -213,6 +213,80 @@ export const AGENT_TOOLS: ChatCompletionTool[] = [
         required: ['slug']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_token_holders',
+      description: 'Get top holders of an ERC-20 token on Base mainnet via Blockscout. Use this when users ask who holds a token, top wallets, whale distribution, or holder count.',
+      parameters: {
+        type: 'object',
+        properties: {
+          address: {
+            type: 'string',
+            description: 'Token contract address on Base (0x...). Common: USDC 0x833589fCD6eDb6E08f4c7C32D4f71b1566469c3d, WETH 0x4200000000000000000000000000000000000006'
+          }
+        },
+        required: ['address']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_trending_tokens',
+      description: 'Get currently trending/boosted tokens on Base from DexScreener. Use this when users ask what tokens are trending, hot, or popular on Base right now.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'swap_quote',
+      description: 'Get a swap quote for trading tokens on Base via Odos DEX aggregator. Use this when users want to know how much they\'d get for swapping tokens, exchange rates, or price impact. Common addresses: WETH 0x4200000000000000000000000000000000000006, USDC 0x833589fCD6eDb6E08f4c7C32D4f71b1566469c3d',
+      parameters: {
+        type: 'object',
+        properties: {
+          tokenIn: {
+            type: 'string',
+            description: 'Input token contract address on Base (0x...)'
+          },
+          tokenOut: {
+            type: 'string',
+            description: 'Output token contract address on Base (0x...)'
+          },
+          amount: {
+            type: 'string',
+            description: 'Amount of input token in human-readable units (e.g., "1" for 1 ETH, "100" for 100 USDC)'
+          },
+          slippage: {
+            type: 'number',
+            description: 'Slippage tolerance in percent (default 0.5). E.g., 0.5 for 0.5%'
+          }
+        },
+        required: ['tokenIn', 'tokenOut', 'amount']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_portfolio',
+      description: 'Get all ERC-20 tokens held by a wallet address on Base mainnet via Blockscout. Use this when users ask what tokens a wallet holds, portfolio contents, or token balances for an address.',
+      parameters: {
+        type: 'object',
+        properties: {
+          address: {
+            type: 'string',
+            description: 'Wallet address on Base (0x...)'
+          }
+        },
+        required: ['address']
+      }
+    }
   }
 ];
 
