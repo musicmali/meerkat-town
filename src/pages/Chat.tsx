@@ -390,7 +390,7 @@ Be friendly, helpful, and concise in your responses.`;
                             )}
                             <div className="message-content">
                                 {msg.role === 'assistant' ? (
-                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    <ReactMarkdown components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{msg.content}</ReactMarkdown>
                                 ) : (
                                     <p>{msg.content}</p>
                                 )}

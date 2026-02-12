@@ -360,6 +360,15 @@ input:checked+.slider:before {
     font-weight: 600;
 }
 
+.message-content a {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.message-content a:hover {
+    opacity: 0.8;
+}
+
 .message-content blockquote {
     border-left: 3px solid var(--primary);
     margin: 0.5rem 0;
