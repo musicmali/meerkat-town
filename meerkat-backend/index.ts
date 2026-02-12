@@ -671,8 +671,8 @@ Your expertise:
 TOOLS AVAILABLE:
 You have access to real-time tools. Use them when users ask about current prices, balances, blockchain data, or need current information:
 - get_crypto_price: Look up current cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
-- get_wallet_balance: Check ETH balance on Base Sepolia
-- get_gas_price: Get current gas prices on Base Sepolia
+- get_wallet_balance: Check ETH balance on Base
+- get_gas_price: Get current gas prices on Base
 - get_token_info: Get ERC-20 token details
 - get_block_number: Get the latest block number
 - get_transaction: Look up transaction details
@@ -687,7 +687,7 @@ When responding:
 6. Warn about risks appropriately
 7. Never give financial advice - always add disclaimers
 
-You work on Base Sepolia (testnet) and love talking about the Base ecosystem.`;
+You are an expert on the Base ecosystem (Coinbase's L2 on Ethereum). When users ask about tokens, protocols, or activity "on Base", they mean Base mainnet unless they explicitly say "Base Sepolia" or "testnet".`;
 
 /**
  * ANA - The Writing Assistant Meerkat
@@ -1893,12 +1893,14 @@ app.post('/agents/:agentId', async (c) => {
 TOOLS AVAILABLE:
 You have access to real-time tools. Use them when users ask about current data:
 - get_crypto_price: Look up cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
-- get_wallet_balance: Check ETH balance on Base Sepolia
-- get_gas_price: Get current gas prices on Base Sepolia
+- get_wallet_balance: Check ETH balance on Base
+- get_gas_price: Get current gas prices on Base
 - get_token_info: Get ERC-20 token details
 - get_block_number: Get the latest block number
 - get_transaction: Look up transaction details
 - search_web: Search the internet for current news, information, or any topic
+
+IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet". Always refer to "Base" not "Base Sepolia" when discussing tokens, protocols, or on-chain activity.
 
 Use these tools when relevant to provide accurate, real-time information.`;
 
@@ -2036,10 +2038,12 @@ app.post('/demo/:agentId', async (c) => {
 TOOLS AVAILABLE:
 You have access to real-time tools:
 - get_crypto_price: Look up cryptocurrency prices
-- get_wallet_balance: Check ETH balance on Base Sepolia
-- get_gas_price: Get current gas prices
+- get_wallet_balance: Check ETH balance on Base
+- get_gas_price: Get current gas prices on Base
 - get_block_number: Get the latest block number
-- search_web: Search the internet for current information`;
+- search_web: Search the internet for current information
+
+IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet".
 
     const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
     const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
