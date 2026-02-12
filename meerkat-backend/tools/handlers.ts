@@ -779,43 +779,99 @@ function setCache(key: string, data: string): void {
 // ============================================================================
 // get_token_holders — Blockscout (Base mainnet, no auth)
 // ============================================================================
+
+/**
+ * Resolve a token name/symbol to a Base contract address via DexScreener
+ */
+async function resolveTokenAddress(query: string): Promise<string | null> {
+  try {
+    const resp = await fetch(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json() as { pairs?: Array<{ chainId?: string; baseToken?: { address?: string } }> };
+    const basePair = data.pairs?.find(p => p.chainId === 'base');
+    return basePair?.baseToken?.address || null;
+  } catch {
+    return null;
+  }
+}
+
 async function getTokenHolders(address: string): Promise<string> {
   try {
-    if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return JSON.stringify({ error: 'Invalid token contract address format' });
+    let tokenAddress = address.trim();
+
+    // If not a valid address, try to resolve name/symbol via DexScreener
+    if (!tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      console.log(`[Token Holders] "${tokenAddress}" is not an address, resolving via DexScreener...`);
+      const resolved = await resolveTokenAddress(tokenAddress);
+      if (!resolved) {
+        return JSON.stringify({ error: `Could not find a Base token matching "${address}". Try providing the contract address directly.` });
+      }
+      tokenAddress = resolved;
+      console.log(`[Token Holders] Resolved to ${tokenAddress}`);
     }
 
-    const cacheKey = `holders:${address.toLowerCase()}`;
+    const cacheKey = `holders:${tokenAddress.toLowerCase()}`;
     const cached = getCached(cacheKey, 5 * 60 * 1000); // 5 min
     if (cached) return cached;
 
-    console.log(`[Token Holders] Fetching for ${address}`);
+    console.log(`[Token Holders] Fetching for ${tokenAddress}`);
 
-    const response = await fetch(
-      `https://base.blockscout.com/api/v2/tokens/${address}/holders`,
-      { headers: { 'Accept': 'application/json' } }
-    );
+    // Fetch token info (for decimals + name) and holders in parallel
+    const [tokenResp, holdersResp] = await Promise.all([
+      fetch(`https://base.blockscout.com/api/v2/tokens/${tokenAddress}`, {
+        headers: { 'Accept': 'application/json' }
+      }),
+      fetch(`https://base.blockscout.com/api/v2/tokens/${tokenAddress}/holders`, {
+        headers: { 'Accept': 'application/json' }
+      }),
+    ]);
 
-    if (!response.ok) {
-      return JSON.stringify({ error: `Blockscout API error: ${response.status}` });
+    if (!holdersResp.ok) {
+      return JSON.stringify({ error: `Blockscout API error: ${holdersResp.status}` });
     }
 
-    const data = await response.json() as {
+    // Parse token info for decimals
+    let tokenName = tokenAddress;
+    let tokenSymbol = '';
+    let decimals = 18;
+    if (tokenResp.ok) {
+      const tokenData = await tokenResp.json() as {
+        name?: string;
+        symbol?: string;
+        decimals?: string;
+        holders?: string;
+        total_supply?: string;
+      };
+      tokenName = tokenData.name || tokenAddress;
+      tokenSymbol = tokenData.symbol || '';
+      decimals = parseInt(tokenData.decimals || '18') || 18;
+    }
+
+    const holdersData = await holdersResp.json() as {
       items?: Array<{
-        address: { hash: string };
+        address: { hash: string; name?: string };
         value: string;
       }>;
-      next_page_params?: unknown;
     };
 
-    const holders = (data.items || []).slice(0, 10).map((h, i) => ({
-      rank: i + 1,
-      address: h.address?.hash,
-      balance: h.value,
-    }));
+    const holders = (holdersData.items || []).slice(0, 10).map((h, i) => {
+      const rawBalance = BigInt(h.value || '0');
+      const balance = Number(rawBalance) / 10 ** decimals;
+      return {
+        rank: i + 1,
+        address: h.address?.hash,
+        label: h.address?.name || null,
+        balance: balance.toLocaleString('en-US', { maximumFractionDigits: 2 }),
+      };
+    });
 
     const result = JSON.stringify({
-      token: address,
+      token: tokenAddress,
+      name: tokenName,
+      symbol: tokenSymbol,
       top_holders: holders,
       holders_shown: holders.length,
       network: 'Base',

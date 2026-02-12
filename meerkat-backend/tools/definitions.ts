@@ -218,13 +218,13 @@ export const AGENT_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'get_token_holders',
-      description: 'Get top holders of an ERC-20 token on Base mainnet via Blockscout. Use this when users ask who holds a token, top wallets, whale distribution, or holder count.',
+      description: 'Get top holders of an ERC-20 token on Base mainnet via Blockscout. Use this when users ask who holds a token, top wallets, whale distribution, or holder count. Accepts token name, symbol, or contract address.',
       parameters: {
         type: 'object',
         properties: {
           address: {
             type: 'string',
-            description: 'Token contract address on Base (0x...). Common: USDC 0x833589fCD6eDb6E08f4c7C32D4f71b1566469c3d, WETH 0x4200000000000000000000000000000000000006'
+            description: 'Token name, symbol, or contract address (e.g., "USDC", "REPPO", "0x833589fCD6eDb6E08f4c7C32D4f71b1566469c3d")'
           }
         },
         required: ['address']
