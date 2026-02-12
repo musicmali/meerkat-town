@@ -84,10 +84,15 @@ async function initDatabase() {
         price_per_message VARCHAR(50),
         x402_support BOOLEAN DEFAULT true,
         metadata JSONB,
+        full_metadata JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(chain_id, agent_id)
       )
+    `;
+    // Add full_metadata column if it doesn't exist (for existing databases)
+    await sql`
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS full_metadata JSONB
     `;
     console.log('[Database] agents table ready');
 
@@ -196,6 +201,7 @@ interface StoredAgent {
   price_per_message?: string;
   x402_support?: boolean;
   metadata?: Record<string, unknown>;
+  full_metadata?: Record<string, unknown>;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -285,7 +291,7 @@ async function getAgentsByChain(chainId: number): Promise<StoredAgent[]> {
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
       FROM agents
       WHERE chain_id = ${chainId}
       ORDER BY agent_id DESC
@@ -307,7 +313,7 @@ async function getAgent(chainId: number, agentId: number): Promise<StoredAgent |
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
       FROM agents
       WHERE chain_id = ${chainId} AND agent_id = ${agentId}
     `;
@@ -328,7 +334,7 @@ async function getAgentsByOwner(chainId: number, ownerAddress: string): Promise<
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
       FROM agents
       WHERE chain_id = ${chainId} AND LOWER(owner_address) = LOWER(${ownerAddress})
       ORDER BY agent_id DESC
@@ -350,7 +356,7 @@ async function getAgentByMeerkatId(meerkatId: number): Promise<StoredAgent | nul
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
       FROM agents
       WHERE meerkat_id = ${meerkatId}
       ORDER BY updated_at DESC
@@ -360,6 +366,26 @@ async function getAgentByMeerkatId(meerkatId: number): Promise<StoredAgent | nul
   } catch (error) {
     console.error('[Database] Failed to get agent by meerkat ID:', error);
     return null;
+  }
+}
+
+/**
+ * Store full IPFS metadata for an agent (cache in DB)
+ */
+async function storeFullMetadata(chainId: number, agentId: number, fullMetadata: Record<string, unknown>): Promise<boolean> {
+  if (!sql) return false;
+
+  try {
+    await sql`
+      UPDATE agents
+      SET full_metadata = ${JSON.stringify(fullMetadata)}, updated_at = CURRENT_TIMESTAMP
+      WHERE chain_id = ${chainId} AND agent_id = ${agentId}
+    `;
+    console.log(`[Database] Stored full_metadata for agent ${agentId} on chain ${chainId}`);
+    return true;
+  } catch (error) {
+    console.error('[Database] Failed to store full_metadata:', error);
+    return false;
   }
 }
 
@@ -2812,15 +2838,22 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
       return c.json({ error: 'Invalid meerkat ID (must be 1-100)' }, 400);
     }
 
-    // Try fetching from the agents table to get the on-chain agent ID
+    // Try fetching from the agents table
     const agent = await getAgentByMeerkatId(meerkatId);
 
     if (agent) {
-      // Fetch the full metadata from IPFS via on-chain tokenURI
-      // The DB metadata column only has {skills, domains}, so we need IPFS for the complete data
+      // Check if we already have the full metadata cached in DB
+      const cached = parseAgentMetadata(agent.full_metadata);
+      if (cached && cached.name && cached.services) {
+        return c.json(cached);
+      }
+
+      // Not cached — fetch from IPFS via on-chain tokenURI
       try {
         const ipfsMetadata = await getAgentMetadata(String(agent.agent_id));
         if (ipfsMetadata) {
+          // Cache it in the database for future requests
+          storeFullMetadata(agent.chain_id, agent.agent_id, ipfsMetadata as unknown as Record<string, unknown>).catch(() => {});
           return c.json(ipfsMetadata);
         }
       } catch (error) {
