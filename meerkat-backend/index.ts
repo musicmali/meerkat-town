@@ -16,7 +16,7 @@ import OpenAI from 'openai';
 import { config } from 'dotenv';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, http } from 'viem';
-import { base, baseSepolia } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 import postgres from 'postgres';
 import { AGENT_TOOLS, handleToolCall, getToolDescriptions, setDbConnection, convertToMCPTools } from './tools';
 import { retrieveContext, formatContextForPrompt, isRAGAvailable, ingestFromDirectory, getIndexStats } from './rag';
@@ -84,15 +84,10 @@ async function initDatabase() {
         price_per_message VARCHAR(50),
         x402_support BOOLEAN DEFAULT true,
         metadata JSONB,
-        full_metadata JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(chain_id, agent_id)
       )
-    `;
-    // Add full_metadata column if it doesn't exist (for existing databases)
-    await sql`
-      ALTER TABLE agents ADD COLUMN IF NOT EXISTS full_metadata JSONB
     `;
     console.log('[Database] agents table ready');
 
@@ -201,7 +196,6 @@ interface StoredAgent {
   price_per_message?: string;
   x402_support?: boolean;
   metadata?: Record<string, unknown>;
-  full_metadata?: Record<string, unknown>;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -291,7 +285,7 @@ async function getAgentsByChain(chainId: number): Promise<StoredAgent[]> {
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, created_at, updated_at
       FROM agents
       WHERE chain_id = ${chainId}
       ORDER BY agent_id DESC
@@ -313,7 +307,7 @@ async function getAgent(chainId: number, agentId: number): Promise<StoredAgent |
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, created_at, updated_at
       FROM agents
       WHERE chain_id = ${chainId} AND agent_id = ${agentId}
     `;
@@ -334,7 +328,7 @@ async function getAgentsByOwner(chainId: number, ownerAddress: string): Promise<
     const result = await sql<StoredAgent[]>`
       SELECT chain_id, agent_id, owner_address, metadata_uri,
              meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
+             price_per_message, x402_support, metadata, created_at, updated_at
       FROM agents
       WHERE chain_id = ${chainId} AND LOWER(owner_address) = LOWER(${ownerAddress})
       ORDER BY agent_id DESC
@@ -343,49 +337,6 @@ async function getAgentsByOwner(chainId: number, ownerAddress: string): Promise<
   } catch (error) {
     console.error('[Database] Failed to get agents by owner:', error);
     return [];
-  }
-}
-
-/**
- * Get a single agent by meerkat ID (searches across all chains)
- */
-async function getAgentByMeerkatId(meerkatId: number): Promise<StoredAgent | null> {
-  if (!sql) return null;
-
-  try {
-    const result = await sql<StoredAgent[]>`
-      SELECT chain_id, agent_id, owner_address, metadata_uri,
-             meerkat_id, name, description, image,
-             price_per_message, x402_support, metadata, full_metadata, created_at, updated_at
-      FROM agents
-      WHERE meerkat_id = ${meerkatId}
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `;
-    return result[0] || null;
-  } catch (error) {
-    console.error('[Database] Failed to get agent by meerkat ID:', error);
-    return null;
-  }
-}
-
-/**
- * Store full IPFS metadata for an agent (cache in DB)
- */
-async function storeFullMetadata(chainId: number, agentId: number, fullMetadata: Record<string, unknown>): Promise<boolean> {
-  if (!sql) return false;
-
-  try {
-    await sql`
-      UPDATE agents
-      SET full_metadata = ${JSON.stringify(fullMetadata)}, updated_at = CURRENT_TIMESTAMP
-      WHERE chain_id = ${chainId} AND agent_id = ${agentId}
-    `;
-    console.log(`[Database] Stored full_metadata for agent ${agentId} on chain ${chainId}`);
-    return true;
-  } catch (error) {
-    console.error('[Database] Failed to store full_metadata:', error);
-    return false;
   }
 }
 
@@ -419,7 +370,6 @@ const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || 'XRfB1Htp32AuoMrXtblwO';
 // - Ethereum Mainnet: Alchemy (fast, reliable for production)
 // - Base Sepolia: Free public RPC (testnet, saves Alchemy credits)
 const ETH_MAINNET_RPC = `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-const BASE_MAINNET_RPC = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
 // Network configurations
@@ -431,14 +381,6 @@ const NETWORKS = {
     rpcUrl: ETH_MAINNET_RPC,
     x402Supported: false,
     deploymentBlock: 21887265n,  // Identity Registry deployment block
-  },
-  8453: {
-    chainId: 8453,
-    name: 'Base',
-    identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
-    rpcUrl: BASE_MAINNET_RPC,
-    x402Supported: true,
-    deploymentBlock: 25000000n,  // Approximate Identity Registry deployment block on Base
   },
   84532: {
     chainId: 84532,
@@ -456,14 +398,10 @@ const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4
 const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 // Create public clients for each network
-const publicClients: Record<number, ReturnType<typeof createPublicClient>> = {
+const publicClients = {
   1: createPublicClient({
     chain: { id: 1, name: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ETH_MAINNET_RPC] } } },
     transport: http(NETWORKS[1].rpcUrl),
-  }),
-  8453: createPublicClient({
-    chain: base,
-    transport: http(NETWORKS[8453].rpcUrl),
   }),
   84532: createPublicClient({
     chain: baseSepolia,
@@ -651,79 +589,6 @@ async function getAgentMetadata(agentId: string): Promise<AgentMetadataFromIPFS 
     metadataCache.set(agentId, { data: null, timestamp: Date.now() });
     return null;
   }
-}
-
-/**
- * Fetch agent metadata from any chain's Identity Registry + IPFS
- * Tries the specified chain's registry to get tokenURI, then fetches from IPFS
- */
-async function getAgentMetadataOnChain(chainId: number, agentId: string): Promise<AgentMetadataFromIPFS | null> {
-  const cacheKey = `${chainId}:${agentId}`;
-  const cached = metadataCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
-  }
-
-  const network = NETWORKS[chainId as keyof typeof NETWORKS];
-  const client = publicClients[chainId];
-  if (!network || !client) return null;
-
-  try {
-    const tokenUri = await client.readContract({
-      address: network.identityRegistry,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'tokenURI',
-      args: [BigInt(agentId)],
-    });
-
-    const metadata = await fetchMetadataFromIPFS(tokenUri as string);
-    metadataCache.set(cacheKey, { data: metadata, timestamp: Date.now() });
-    return metadata;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Find full IPFS metadata for a meerkat agent.
- * 1. Check DB agents table for cached full_metadata → return if populated
- * 2. If agent has metadata_uri in DB → fetch directly from IPFS (fast, no chain calls)
- * 3. Fallback: try getAgentMetadataOnChain with known chain + agent ID
- * 4. If not in DB at all → return null (no expensive block scanning)
- */
-async function findMeerkatMetadata(meerkatId: number): Promise<Record<string, unknown> | null> {
-  const agent = await getAgentByMeerkatId(meerkatId);
-  if (!agent) {
-    console.log(`[findMeerkatMetadata] meerkat-${meerkatId} not found in DB`);
-    return null;
-  }
-
-  // Check full_metadata cache first
-  const cached = parseAgentMetadata(agent.full_metadata);
-  if (cached && cached.name && cached.services) {
-    console.log(`[findMeerkatMetadata] Returning cached full_metadata for meerkat-${meerkatId}`);
-    return cached;
-  }
-
-  // Prefer fetching from IPFS via metadata_uri (fast, avoids chain/registry mismatch)
-  if (agent.metadata_uri) {
-    console.log(`[findMeerkatMetadata] Fetching from IPFS for meerkat-${meerkatId}: ${agent.metadata_uri}`);
-    const metadata = await fetchMetadataFromIPFS(agent.metadata_uri);
-    if (metadata) {
-      storeFullMetadata(agent.chain_id, agent.agent_id, metadata as unknown as Record<string, unknown>).catch(() => {});
-      return metadata as unknown as Record<string, unknown>;
-    }
-  }
-
-  // Fallback: try on-chain lookup with known chain + agent ID
-  console.log(`[findMeerkatMetadata] Fallback to on-chain for meerkat-${meerkatId} (chain=${agent.chain_id}, agentId=${agent.agent_id})`);
-  const metadata = await getAgentMetadataOnChain(agent.chain_id, String(agent.agent_id));
-  if (metadata) {
-    storeFullMetadata(agent.chain_id, agent.agent_id, metadata as unknown as Record<string, unknown>).catch(() => {});
-    return metadata as unknown as Record<string, unknown>;
-  }
-
-  return null;
 }
 
 /**
@@ -2863,12 +2728,12 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 /**
  * A2A Agent Card - Agent discovery endpoint
  * Returns agent metadata in A2A protocol compliant format
- * Serves at both /agent-card.json and /agent.json (standard A2A path)
+ * Spec: https://a2a-protocol.org/latest/specification/
  *
  * For legacy agents (bob, ana): Uses hardcoded metadata
  * For minted agents (numeric IDs): Fetches metadata from IPFS via Identity Registry
  */
-const agentCardHandler = async (c: any) => {
+app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
   const agentIdParam = c.req.param('agentId');
 
   // Check if this is a legacy agent (bob/ana) or a minted agent
@@ -2915,7 +2780,7 @@ const agentCardHandler = async (c: any) => {
     });
   }
 
-  // Minted agents: return actual registry metadata
+  // Minted agents: fetch from database by meerkat ID
   // Supports both "/agents/72" and "/agents/meerkat-72" formats
   if (isNumericId || isMeerkatFormat) {
     const meerkatId = parseInt(agentId);
@@ -2924,21 +2789,57 @@ const agentCardHandler = async (c: any) => {
       return c.json({ error: 'Invalid meerkat ID (must be 1-100)' }, 400);
     }
 
-    const metadata = await findMeerkatMetadata(meerkatId);
-    if (metadata) {
-      return c.json(metadata);
+    // Fetch from database
+    const card = await getAgentCard(meerkatId);
+
+    if (!card) {
+      return c.json({ error: 'Agent card not found. Agent may not be minted yet.' }, 404);
     }
 
-    return c.json({ error: 'Agent card not found. Agent may not be minted yet.' }, 404);
+    return c.json({
+      // Required A2A fields
+      name: card.name,
+      description: card.description,
+      url: `https://meerkat.up.railway.app/agents/meerkat-${meerkatId}`,
+      version: '1.0.0',
+      defaultInputModes: ['text'],
+      defaultOutputModes: ['text'],
+      authentication: {
+        schemes: ['x402'],
+        description: 'Payment via x402 USDC micropayments on Base network'
+      },
+      skills: card.skills,
+
+      // Optional but recommended fields
+      capabilities: {
+        streaming: false,
+        pushNotifications: false,
+        stateTransitionHistory: false
+      },
+      provider: {
+        organization: 'Meerkat Town',
+        url: 'https://meerkat.town'
+      },
+
+      // Custom extension for x402 payment details
+      x402: {
+        supported: true,
+        network: 'eip155:84532',
+        price: card.price,
+        currency: 'USDC'
+      },
+
+      // Meerkat Town specific extension
+      meerkat: {
+        id: meerkatId,
+        image: card.image
+      }
+    });
   }
 
   // Unknown agent type
   return c.json({ error: 'Invalid agent ID' }, 400);
-};
-
-// Register both paths: agent-card.json (legacy) and agent.json (A2A standard)
-app.get('/agents/:agentId/.well-known/agent-card.json', agentCardHandler);
-app.get('/agents/:agentId/.well-known/agent.json', agentCardHandler);
+});
 
 // ============================================================================
 // RAG ADMIN ENDPOINTS
