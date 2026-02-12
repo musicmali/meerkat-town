@@ -341,6 +341,29 @@ async function getAgentsByOwner(chainId: number, ownerAddress: string): Promise<
 }
 
 /**
+ * Get a single agent by meerkat ID (searches across all chains)
+ */
+async function getAgentByMeerkatId(meerkatId: number): Promise<StoredAgent | null> {
+  if (!sql) return null;
+
+  try {
+    const result = await sql<StoredAgent[]>`
+      SELECT chain_id, agent_id, owner_address, metadata_uri,
+             meerkat_id, name, description, image,
+             price_per_message, x402_support, metadata, created_at, updated_at
+      FROM agents
+      WHERE meerkat_id = ${meerkatId}
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `;
+    return result[0] || null;
+  } catch (error) {
+    console.error('[Database] Failed to get agent by meerkat ID:', error);
+    return null;
+  }
+}
+
+/**
  * Check if database has agents for a chain
  */
 async function hasAgentsInDatabase(chainId: number): Promise<boolean> {
@@ -2780,7 +2803,7 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
     });
   }
 
-  // Minted agents: fetch from database by meerkat ID
+  // Minted agents: return actual registry metadata
   // Supports both "/agents/72" and "/agents/meerkat-72" formats
   if (isNumericId || isMeerkatFormat) {
     const meerkatId = parseInt(agentId);
@@ -2789,52 +2812,29 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
       return c.json({ error: 'Invalid meerkat ID (must be 1-100)' }, 400);
     }
 
-    // Fetch from database
-    const card = await getAgentCard(meerkatId);
+    // Try fetching from the agents table (has full metadata JSONB)
+    const agent = await getAgentByMeerkatId(meerkatId);
 
-    if (!card) {
-      return c.json({ error: 'Agent card not found. Agent may not be minted yet.' }, 404);
+    if (agent) {
+      const fullMetadata = parseAgentMetadata(agent.metadata);
+
+      // If metadata has content, return it directly (it's the IPFS metadata)
+      if (fullMetadata && Object.keys(fullMetadata).length > 0) {
+        return c.json(fullMetadata);
+      }
+
+      // Fallback: if DB has agent but no metadata, fetch from IPFS via on-chain tokenURI
+      try {
+        const ipfsMetadata = await getAgentMetadata(String(agent.agent_id));
+        if (ipfsMetadata) {
+          return c.json(ipfsMetadata);
+        }
+      } catch (error) {
+        console.error(`[AgentCard] Failed to fetch IPFS metadata for meerkat-${meerkatId}:`, error);
+      }
     }
 
-    return c.json({
-      // Required A2A fields
-      name: card.name,
-      description: card.description,
-      url: `https://meerkat.up.railway.app/agents/meerkat-${meerkatId}`,
-      version: '1.0.0',
-      defaultInputModes: ['text'],
-      defaultOutputModes: ['text'],
-      authentication: {
-        schemes: ['x402'],
-        description: 'Payment via x402 USDC micropayments on Base network'
-      },
-      skills: card.skills,
-
-      // Optional but recommended fields
-      capabilities: {
-        streaming: false,
-        pushNotifications: false,
-        stateTransitionHistory: false
-      },
-      provider: {
-        organization: 'Meerkat Town',
-        url: 'https://meerkat.town'
-      },
-
-      // Custom extension for x402 payment details
-      x402: {
-        supported: true,
-        network: 'eip155:84532',
-        price: card.price,
-        currency: 'USDC'
-      },
-
-      // Meerkat Town specific extension
-      meerkat: {
-        id: meerkatId,
-        image: card.image
-      }
-    });
+    return c.json({ error: 'Agent card not found. Agent may not be minted yet.' }, 404);
   }
 
   // Unknown agent type
