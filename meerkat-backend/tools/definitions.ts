@@ -31,6 +31,23 @@ export const AGENT_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'get_dex_price',
+      description: 'Get real-time DEX price for any token from DexScreener. Best for tokens on Base, smaller tokens, memecoins, or any token not on major CEXs. Supports token names, symbols (e.g., "REPPO", "BRETT"), or contract addresses.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Token name, symbol, or contract address (e.g., "REPPO", "brett", "0x123...")'
+          }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_wallet_balance',
       description: 'Get ETH balance for a wallet address on Base Sepolia network. Use this when users want to check their wallet balance or any address balance.',
       parameters: {

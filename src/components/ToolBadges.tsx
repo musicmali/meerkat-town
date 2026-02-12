@@ -11,6 +11,7 @@ interface ToolBadgesProps {
 
 const TOOL_LABELS: Record<string, { label: string; icon: string }> = {
     get_crypto_price: { label: 'Crypto Price', icon: '📈' },
+    get_dex_price: { label: 'DEX Price', icon: '📈' },
     get_wallet_balance: { label: 'Wallet Balance', icon: '💰' },
     get_gas_price: { label: 'Gas Price', icon: '⛽' },
     get_token_info: { label: 'Token Info', icon: '🪙' },

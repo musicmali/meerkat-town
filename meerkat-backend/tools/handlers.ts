@@ -74,6 +74,9 @@ export async function handleToolCall(
       case 'get_crypto_price':
         return await getCryptoPrice(args.coinId as string);
 
+      case 'get_dex_price':
+        return await getDexPrice(args.query as string);
+
       case 'get_wallet_balance':
         return await getWalletBalance(args.address as string);
 
@@ -152,10 +155,9 @@ async function getCryptoPrice(coinId: string): Promise<string> {
     const data = await response.json() as Record<string, { usd: number; usd_24h_change?: number; usd_market_cap?: number }>;
 
     if (!data[normalizedId]) {
-      // Try a search if exact match failed
-      return JSON.stringify({
-        error: `Price not found for "${coinId}". Try using the full CoinGecko ID (e.g., "bitcoin", "ethereum", "usd-coin").`
-      });
+      // CoinGecko miss — fall back to DexScreener for DEX-traded tokens
+      console.log(`[Price] CoinGecko miss for "${coinId}", trying DexScreener...`);
+      return await getDexPrice(coinId);
     }
 
     const priceData = data[normalizedId];
@@ -174,6 +176,84 @@ async function getCryptoPrice(coinId: string): Promise<string> {
   } catch (error) {
     return JSON.stringify({
       error: `Failed to fetch price: ${error instanceof Error ? error.message : 'Unknown error'}`
+    });
+  }
+}
+
+/**
+ * Get token price from DexScreener (real-time DEX data)
+ * Supports token names, symbols, or contract addresses
+ * Prioritizes Base chain results
+ */
+async function getDexPrice(query: string): Promise<string> {
+  try {
+    const normalizedQuery = query.trim();
+
+    // Check cache
+    const cacheKey = `dex:${normalizedQuery.toLowerCase()}`;
+    const cached = getCachedPrice(cacheKey);
+    if (cached) return cached;
+
+    let apiUrl: string;
+
+    // If it looks like a contract address, use the token endpoint
+    if (normalizedQuery.match(/^0x[a-fA-F0-9]{40}$/)) {
+      apiUrl = `https://api.dexscreener.com/tokens/v1/base/${normalizedQuery}`;
+    } else {
+      // Otherwise search by name/symbol
+      apiUrl = `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(normalizedQuery)}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      return JSON.stringify({ error: `DexScreener API error: ${response.status}` });
+    }
+
+    const data = await response.json() as any;
+
+    // Extract pairs array (different response shape for token vs search endpoints)
+    const pairs = data.pairs || data || [];
+
+    if (!pairs.length) {
+      return JSON.stringify({
+        error: `Token "${query}" not found on DexScreener. Try using the contract address for more accurate results.`
+      });
+    }
+
+    // Prefer Base chain pairs, then sort by liquidity
+    const sorted = [...pairs].sort((a: any, b: any) => {
+      const aIsBase = a.chainId === 'base' ? 1 : 0;
+      const bIsBase = b.chainId === 'base' ? 1 : 0;
+      if (aIsBase !== bIsBase) return bIsBase - aIsBase;
+      return (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0);
+    });
+
+    const best = sorted[0];
+    const result = JSON.stringify({
+      token: best.baseToken?.symbol || query,
+      name: best.baseToken?.name || query,
+      chain: best.chainId,
+      dex: best.dexId,
+      price_usd: best.priceUsd,
+      price_change_24h: best.priceChange?.h24,
+      volume_24h: best.volume?.h24,
+      liquidity_usd: best.liquidity?.usd,
+      market_cap: best.marketCap || best.fdv,
+      pair_address: best.pairAddress,
+      token_address: best.baseToken?.address,
+      url: best.url,
+      source: 'DexScreener (real-time DEX data)',
+      timestamp: new Date().toISOString()
+    });
+
+    setCachedPrice(cacheKey, result);
+    return result;
+  } catch (error) {
+    return JSON.stringify({
+      error: `Failed to fetch DEX price: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
   }
 }

@@ -670,7 +670,8 @@ Your expertise:
 
 TOOLS AVAILABLE:
 You have access to real-time tools. Use them when users ask about current prices, balances, blockchain data, or need current information:
-- get_crypto_price: Look up current cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
+- get_crypto_price: Look up major cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum"). Falls back to DexScreener if not found.
+- get_dex_price: Get real-time DEX price for any token — best for Base tokens, memecoins, and smaller tokens. Use token name, symbol, or contract address.
 - get_wallet_balance: Check ETH balance on Base
 - get_gas_price: Get current gas prices on Base
 - get_token_info: Get ERC-20 token details
@@ -1892,7 +1893,8 @@ app.post('/agents/:agentId', async (c) => {
 
 TOOLS AVAILABLE:
 You have access to real-time tools. Use them when users ask about current data:
-- get_crypto_price: Look up cryptocurrency prices (use CoinGecko IDs like "bitcoin", "ethereum")
+- get_crypto_price: Look up major cryptocurrency prices (CoinGecko IDs like "bitcoin", "ethereum"). Falls back to DexScreener if not found.
+- get_dex_price: Get real-time DEX price for any token — best for Base tokens, memecoins, and smaller tokens. Use token name, symbol, or contract address.
 - get_wallet_balance: Check ETH balance on Base
 - get_gas_price: Get current gas prices on Base
 - get_token_info: Get ERC-20 token details
@@ -1901,6 +1903,7 @@ You have access to real-time tools. Use them when users ask about current data:
 - search_web: Search the internet for current news, information, or any topic
 
 IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet". Always refer to "Base" not "Base Sepolia" when discussing tokens, protocols, or on-chain activity.
+For token prices, prefer get_dex_price for Base-native or smaller tokens, and get_crypto_price for major tokens like BTC/ETH.
 
 Use these tools when relevant to provide accurate, real-time information.`;
 
@@ -2037,7 +2040,8 @@ app.post('/demo/:agentId', async (c) => {
 
 TOOLS AVAILABLE:
 You have access to real-time tools:
-- get_crypto_price: Look up cryptocurrency prices
+- get_crypto_price: Look up major cryptocurrency prices. Falls back to DexScreener if not found.
+- get_dex_price: Real-time DEX price for any token (name, symbol, or contract address)
 - get_wallet_balance: Check ETH balance on Base
 - get_gas_price: Get current gas prices on Base
 - get_block_number: Get the latest block number
