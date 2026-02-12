@@ -16,7 +16,7 @@ import OpenAI from 'openai';
 import { config } from 'dotenv';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, http } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { base, baseSepolia } from 'viem/chains';
 import postgres from 'postgres';
 import { AGENT_TOOLS, handleToolCall, getToolDescriptions, setDbConnection, convertToMCPTools } from './tools';
 import { retrieveContext, formatContextForPrompt, isRAGAvailable, ingestFromDirectory, getIndexStats } from './rag';
@@ -419,6 +419,7 @@ const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || 'XRfB1Htp32AuoMrXtblwO';
 // - Ethereum Mainnet: Alchemy (fast, reliable for production)
 // - Base Sepolia: Free public RPC (testnet, saves Alchemy credits)
 const ETH_MAINNET_RPC = `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+const BASE_MAINNET_RPC = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
 // Network configurations
@@ -430,6 +431,14 @@ const NETWORKS = {
     rpcUrl: ETH_MAINNET_RPC,
     x402Supported: false,
     deploymentBlock: 21887265n,  // Identity Registry deployment block
+  },
+  8453: {
+    chainId: 8453,
+    name: 'Base',
+    identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
+    rpcUrl: BASE_MAINNET_RPC,
+    x402Supported: true,
+    deploymentBlock: 0n,
   },
   84532: {
     chainId: 84532,
@@ -447,10 +456,14 @@ const TRANSFER_EVENT_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4
 const ZERO_ADDRESS_TOPIC = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 // Create public clients for each network
-const publicClients = {
+const publicClients: Record<number, ReturnType<typeof createPublicClient>> = {
   1: createPublicClient({
     chain: { id: 1, name: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [ETH_MAINNET_RPC] } } },
     transport: http(NETWORKS[1].rpcUrl),
+  }),
+  8453: createPublicClient({
+    chain: base,
+    transport: http(NETWORKS[8453].rpcUrl),
   }),
   84532: createPublicClient({
     chain: baseSepolia,
@@ -638,6 +651,97 @@ async function getAgentMetadata(agentId: string): Promise<AgentMetadataFromIPFS 
     metadataCache.set(agentId, { data: null, timestamp: Date.now() });
     return null;
   }
+}
+
+/**
+ * Fetch agent metadata from any chain's Identity Registry + IPFS
+ * Tries the specified chain's registry to get tokenURI, then fetches from IPFS
+ */
+async function getAgentMetadataOnChain(chainId: number, agentId: string): Promise<AgentMetadataFromIPFS | null> {
+  const cacheKey = `${chainId}:${agentId}`;
+  const cached = metadataCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const network = NETWORKS[chainId as keyof typeof NETWORKS];
+  const client = publicClients[chainId];
+  if (!network || !client) return null;
+
+  try {
+    const tokenUri = await client.readContract({
+      address: network.identityRegistry,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'tokenURI',
+      args: [BigInt(agentId)],
+    });
+
+    const metadata = await fetchMetadataFromIPFS(tokenUri as string);
+    metadataCache.set(cacheKey, { data: metadata, timestamp: Date.now() });
+    return metadata;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find full IPFS metadata for a meerkat agent by scanning all chains.
+ * 1. Check DB agents table for known agent_id → fetch IPFS
+ * 2. If not in DB, scan each chain's registry for matching meerkatId
+ */
+async function findMeerkatMetadata(meerkatId: number): Promise<Record<string, unknown> | null> {
+  // Step 1: Check DB
+  const agent = await getAgentByMeerkatId(meerkatId);
+  if (agent) {
+    // Check full_metadata cache first
+    const cached = parseAgentMetadata(agent.full_metadata);
+    if (cached && cached.name && cached.services) {
+      return cached;
+    }
+    // Fetch from IPFS using known chain + agent ID
+    const metadata = await getAgentMetadataOnChain(agent.chain_id, String(agent.agent_id));
+    if (metadata) {
+      storeFullMetadata(agent.chain_id, agent.agent_id, metadata as unknown as Record<string, unknown>).catch(() => {});
+      return metadata as unknown as Record<string, unknown>;
+    }
+  }
+
+  // Step 2: Not in DB — scan each chain's registry
+  // Try all chains, check recent token IDs for matching meerkatId
+  const chainIds = [8453, 1, 84532]; // Base mainnet first (most likely)
+
+  for (const chainId of chainIds) {
+    const network = NETWORKS[chainId as keyof typeof NETWORKS];
+    const client = publicClients[chainId];
+    if (!network || !client) continue;
+
+    try {
+      // Get latest block for scanning
+      const latestBlock = await client.getBlockNumber();
+      const tokenIds = await fetchMintedTokenIds(
+        client,
+        network.identityRegistry,
+        network.deploymentBlock,
+        latestBlock,
+        500
+      );
+
+      // Check each token's metadata for matching meerkatId
+      for (const tokenId of tokenIds) {
+        const metadata = await getAgentMetadataOnChain(chainId, String(tokenId));
+        if (metadata && metadata.meerkatId === meerkatId) {
+          console.log(`[findMeerkatMetadata] Found meerkat-${meerkatId} as token ${tokenId} on chain ${chainId}`);
+          // Cache in DB for future lookups
+          storeFullMetadata(chainId, tokenId, metadata as unknown as Record<string, unknown>).catch(() => {});
+          return metadata as unknown as Record<string, unknown>;
+        }
+      }
+    } catch (error) {
+      console.error(`[findMeerkatMetadata] Error scanning chain ${chainId}:`, error);
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -2838,27 +2942,9 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
       return c.json({ error: 'Invalid meerkat ID (must be 1-100)' }, 400);
     }
 
-    // Try fetching from the agents table
-    const agent = await getAgentByMeerkatId(meerkatId);
-
-    if (agent) {
-      // Check if we already have the full metadata cached in DB
-      const cached = parseAgentMetadata(agent.full_metadata);
-      if (cached && cached.name && cached.services) {
-        return c.json(cached);
-      }
-
-      // Not cached — fetch from IPFS via on-chain tokenURI
-      try {
-        const ipfsMetadata = await getAgentMetadata(String(agent.agent_id));
-        if (ipfsMetadata) {
-          // Cache it in the database for future requests
-          storeFullMetadata(agent.chain_id, agent.agent_id, ipfsMetadata as unknown as Record<string, unknown>).catch(() => {});
-          return c.json(ipfsMetadata);
-        }
-      } catch (error) {
-        console.error(`[AgentCard] Failed to fetch IPFS metadata for meerkat-${meerkatId}:`, error);
-      }
+    const metadata = await findMeerkatMetadata(meerkatId);
+    if (metadata) {
+      return c.json(metadata);
     }
 
     return c.json({ error: 'Agent card not found. Agent may not be minted yet.' }, 404);
