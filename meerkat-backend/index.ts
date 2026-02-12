@@ -438,7 +438,7 @@ const NETWORKS = {
     identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as const,
     rpcUrl: BASE_MAINNET_RPC,
     x402Supported: true,
-    deploymentBlock: 0n,
+    deploymentBlock: 25000000n,  // Approximate Identity Registry deployment block on Base
   },
   84532: {
     chainId: 84532,
@@ -685,60 +685,42 @@ async function getAgentMetadataOnChain(chainId: number, agentId: string): Promis
 }
 
 /**
- * Find full IPFS metadata for a meerkat agent by scanning all chains.
- * 1. Check DB agents table for known agent_id → fetch IPFS
- * 2. If not in DB, scan each chain's registry for matching meerkatId
+ * Find full IPFS metadata for a meerkat agent.
+ * 1. Check DB agents table for cached full_metadata → return if populated
+ * 2. If agent has metadata_uri in DB → fetch directly from IPFS (fast, no chain calls)
+ * 3. Fallback: try getAgentMetadataOnChain with known chain + agent ID
+ * 4. If not in DB at all → return null (no expensive block scanning)
  */
 async function findMeerkatMetadata(meerkatId: number): Promise<Record<string, unknown> | null> {
-  // Step 1: Check DB
   const agent = await getAgentByMeerkatId(meerkatId);
-  if (agent) {
-    // Check full_metadata cache first
-    const cached = parseAgentMetadata(agent.full_metadata);
-    if (cached && cached.name && cached.services) {
-      return cached;
-    }
-    // Fetch from IPFS using known chain + agent ID
-    const metadata = await getAgentMetadataOnChain(agent.chain_id, String(agent.agent_id));
+  if (!agent) {
+    console.log(`[findMeerkatMetadata] meerkat-${meerkatId} not found in DB`);
+    return null;
+  }
+
+  // Check full_metadata cache first
+  const cached = parseAgentMetadata(agent.full_metadata);
+  if (cached && cached.name && cached.services) {
+    console.log(`[findMeerkatMetadata] Returning cached full_metadata for meerkat-${meerkatId}`);
+    return cached;
+  }
+
+  // Prefer fetching from IPFS via metadata_uri (fast, avoids chain/registry mismatch)
+  if (agent.metadata_uri) {
+    console.log(`[findMeerkatMetadata] Fetching from IPFS for meerkat-${meerkatId}: ${agent.metadata_uri}`);
+    const metadata = await fetchMetadataFromIPFS(agent.metadata_uri);
     if (metadata) {
       storeFullMetadata(agent.chain_id, agent.agent_id, metadata as unknown as Record<string, unknown>).catch(() => {});
       return metadata as unknown as Record<string, unknown>;
     }
   }
 
-  // Step 2: Not in DB — scan each chain's registry
-  // Try all chains, check recent token IDs for matching meerkatId
-  const chainIds = [8453, 1, 84532]; // Base mainnet first (most likely)
-
-  for (const chainId of chainIds) {
-    const network = NETWORKS[chainId as keyof typeof NETWORKS];
-    const client = publicClients[chainId];
-    if (!network || !client) continue;
-
-    try {
-      // Get latest block for scanning
-      const latestBlock = await client.getBlockNumber();
-      const tokenIds = await fetchMintedTokenIds(
-        client,
-        network.identityRegistry,
-        network.deploymentBlock,
-        latestBlock,
-        500
-      );
-
-      // Check each token's metadata for matching meerkatId
-      for (const tokenId of tokenIds) {
-        const metadata = await getAgentMetadataOnChain(chainId, String(tokenId));
-        if (metadata && metadata.meerkatId === meerkatId) {
-          console.log(`[findMeerkatMetadata] Found meerkat-${meerkatId} as token ${tokenId} on chain ${chainId}`);
-          // Cache in DB for future lookups
-          storeFullMetadata(chainId, tokenId, metadata as unknown as Record<string, unknown>).catch(() => {});
-          return metadata as unknown as Record<string, unknown>;
-        }
-      }
-    } catch (error) {
-      console.error(`[findMeerkatMetadata] Error scanning chain ${chainId}:`, error);
-    }
+  // Fallback: try on-chain lookup with known chain + agent ID
+  console.log(`[findMeerkatMetadata] Fallback to on-chain for meerkat-${meerkatId} (chain=${agent.chain_id}, agentId=${agent.agent_id})`);
+  const metadata = await getAgentMetadataOnChain(agent.chain_id, String(agent.agent_id));
+  if (metadata) {
+    storeFullMetadata(agent.chain_id, agent.agent_id, metadata as unknown as Record<string, unknown>).catch(() => {});
+    return metadata as unknown as Record<string, unknown>;
   }
 
   return null;
