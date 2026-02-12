@@ -2812,18 +2812,12 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
       return c.json({ error: 'Invalid meerkat ID (must be 1-100)' }, 400);
     }
 
-    // Try fetching from the agents table (has full metadata JSONB)
+    // Try fetching from the agents table to get the on-chain agent ID
     const agent = await getAgentByMeerkatId(meerkatId);
 
     if (agent) {
-      const fullMetadata = parseAgentMetadata(agent.metadata);
-
-      // If metadata has content, return it directly (it's the IPFS metadata)
-      if (fullMetadata && Object.keys(fullMetadata).length > 0) {
-        return c.json(fullMetadata);
-      }
-
-      // Fallback: if DB has agent but no metadata, fetch from IPFS via on-chain tokenURI
+      // Fetch the full metadata from IPFS via on-chain tokenURI
+      // The DB metadata column only has {skills, domains}, so we need IPFS for the complete data
       try {
         const ipfsMetadata = await getAgentMetadata(String(agent.agent_id));
         if (ipfsMetadata) {
