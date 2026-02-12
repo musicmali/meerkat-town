@@ -2043,7 +2043,7 @@ You have access to real-time tools:
 - get_block_number: Get the latest block number
 - search_web: Search the internet for current information
 
-IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet".
+IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unless they explicitly say "Base Sepolia" or "testnet".`;
 
     const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
     const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
