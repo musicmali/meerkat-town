@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { createPublicClient, http, formatEther, formatUnits } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import { evaluate } from 'mathjs';
 import { retrieveContext, isRAGAvailable } from '../rag/retrieval';
 import { getAgentReputation } from '../src/contracts/client';
@@ -48,10 +48,10 @@ function setCachedPrice(coinId: string, data: string): void {
   console.log(`[Price Cache] STORED ${coinId}`);
 }
 
-// Create a public client for Base Sepolia
+// Create a public client for Base mainnet (tools query real mainnet data)
 const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http('https://sepolia.base.org'),
+  chain: base,
+  transport: http('https://mainnet.base.org'),
 });
 
 // ERC-20 ABI for basic token info
@@ -276,7 +276,7 @@ async function getDexPrice(query: string): Promise<string> {
 }
 
 /**
- * Get wallet ETH balance on Base Sepolia
+ * Get wallet ETH balance on Base
  */
 async function getWalletBalance(address: string): Promise<string> {
   try {
@@ -293,7 +293,7 @@ async function getWalletBalance(address: string): Promise<string> {
       address,
       balance_eth: formatEther(balance),
       balance_wei: balance.toString(),
-      network: 'Base Sepolia',
+      network: 'Base',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -304,7 +304,7 @@ async function getWalletBalance(address: string): Promise<string> {
 }
 
 /**
- * Get current gas price on Base Sepolia
+ * Get current gas price on Base
  */
 async function getGasPrice(): Promise<string> {
   try {
@@ -313,7 +313,7 @@ async function getGasPrice(): Promise<string> {
     return JSON.stringify({
       gas_price_gwei: (Number(gasPrice) / 1e9).toFixed(4),
       gas_price_wei: gasPrice.toString(),
-      network: 'Base Sepolia',
+      network: 'Base',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -365,7 +365,7 @@ async function getTokenInfo(address: string): Promise<string> {
       symbol,
       decimals,
       totalSupply: formatUnits(totalSupply as bigint, decimals as number),
-      network: 'Base Sepolia',
+      network: 'Base',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -384,7 +384,7 @@ async function getBlockNumber(): Promise<string> {
 
     return JSON.stringify({
       block_number: blockNumber.toString(),
-      network: 'Base Sepolia',
+      network: 'Base',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -425,7 +425,7 @@ async function getTransaction(hash: string): Promise<string> {
       gas_price_gwei: tx.gasPrice ? (Number(tx.gasPrice) / 1e9).toFixed(4) : null,
       block_number: tx.blockNumber?.toString(),
       status: receipt?.status === 'success' ? 'confirmed' : receipt?.status === 'reverted' ? 'failed' : 'pending',
-      network: 'Base Sepolia',
+      network: 'Base',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -568,7 +568,7 @@ async function getReputation(agentId: number): Promise<string> {
       agentId,
       averageScore: reputation.averageScore,
       totalFeedback: reputation.totalFeedback,
-      network: 'Base Sepolia',
+      network: 'Base',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
