@@ -1993,7 +1993,7 @@ app.post('/demo/bob', async (c) => {
     const { message: reply, toolsUsed } = await chatWithRAG(
       history,
       demoPrompt,
-      { maxTokens: 1000, maxToolCalls: 2, useRAG: true }
+      { maxTokens: 1000, maxToolCalls: 4, useRAG: true }
     );
 
     // Add assistant response to history
@@ -2043,7 +2043,7 @@ app.post('/demo/ana', async (c) => {
     const { message: reply, toolsUsed } = await chatWithRAG(
       history,
       demoPrompt,
-      { maxTokens: 1000, maxToolCalls: 2, useRAG: true }
+      { maxTokens: 1000, maxToolCalls: 4, useRAG: true }
     );
 
     // Add assistant response to history
@@ -2116,7 +2116,7 @@ IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unl
     const { message: reply, toolsUsed } = await chatWithRAG(
       history,
       prompt,
-      { maxTokens: 1000, maxToolCalls: 2, useRAG: true }
+      { maxTokens: 1000, maxToolCalls: 4, useRAG: true }
     );
 
     // Add assistant response to history
