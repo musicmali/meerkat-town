@@ -1973,18 +1973,36 @@ Use these tools when relevant to provide accurate, real-time information.`;
 app.post('/demo/bob', async (c) => {
   try {
     const body = await c.req.json();
-    const { message } = body;
+    const { message, sessionId = 'demo' } = body;
 
     if (!message) {
       return c.json({ error: 'Message is required' }, 400);
     }
 
+    // Get or create conversation history
+    const historyKey = `demo-bob-${sessionId}`;
+    if (!conversationHistory.has(historyKey)) {
+      conversationHistory.set(historyKey, []);
+    }
+    const history = conversationHistory.get(historyKey)!;
+
+    // Add user message to history
+    history.push({ role: 'user', content: message });
+
     const demoPrompt = BOB_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
     const { message: reply, toolsUsed } = await chatWithRAG(
-      [{ role: 'user', content: message }],
+      history,
       demoPrompt,
       { maxTokens: 500, maxToolCalls: 2, useRAG: true }
     );
+
+    // Add assistant response to history
+    history.push({ role: 'assistant', content: reply });
+
+    // Keep only last 20 messages
+    if (history.length > 20) {
+      history.splice(0, 2);
+    }
 
     return c.json({
       agent: 'bob',
@@ -2005,18 +2023,36 @@ app.post('/demo/bob', async (c) => {
 app.post('/demo/ana', async (c) => {
   try {
     const body = await c.req.json();
-    const { message } = body;
+    const { message, sessionId = 'demo' } = body;
 
     if (!message) {
       return c.json({ error: 'Message is required' }, 400);
     }
 
+    // Get or create conversation history
+    const historyKey = `demo-ana-${sessionId}`;
+    if (!conversationHistory.has(historyKey)) {
+      conversationHistory.set(historyKey, []);
+    }
+    const history = conversationHistory.get(historyKey)!;
+
+    // Add user message to history
+    history.push({ role: 'user', content: message });
+
     const demoPrompt = ANA_SYSTEM_PROMPT + '\n\nThis is a FREE demo. Keep responses short but helpful.';
     const { message: reply, toolsUsed } = await chatWithRAG(
-      [{ role: 'user', content: message }],
+      history,
       demoPrompt,
       { maxTokens: 500, maxToolCalls: 2, useRAG: true }
     );
+
+    // Add assistant response to history
+    history.push({ role: 'assistant', content: reply });
+
+    // Keep only last 20 messages
+    if (history.length > 20) {
+      history.splice(0, 2);
+    }
 
     return c.json({
       agent: 'ana',
@@ -2066,11 +2102,30 @@ IMPORTANT: When users mention "Base", they mean Base mainnet (Coinbase's L2) unl
     const basePrompt = systemPrompt || `You are Meerkat Agent #${agentId}, a helpful AI assistant.`;
     const prompt = basePrompt + toolsInfo + '\n\nThis is a FREE demo. Keep responses short but helpful.';
 
+    // Get or create conversation history
+    const sessionId = body.sessionId || 'demo';
+    const historyKey = `demo-${agentId}-${sessionId}`;
+    if (!conversationHistory.has(historyKey)) {
+      conversationHistory.set(historyKey, []);
+    }
+    const history = conversationHistory.get(historyKey)!;
+
+    // Add user message to history
+    history.push({ role: 'user', content: message });
+
     const { message: reply, toolsUsed } = await chatWithRAG(
-      [{ role: 'user', content: message }],
+      history,
       prompt,
       { maxTokens: 500, maxToolCalls: 2, useRAG: true }
     );
+
+    // Add assistant response to history
+    history.push({ role: 'assistant', content: reply });
+
+    // Keep only last 20 messages
+    if (history.length > 20) {
+      history.splice(0, 2);
+    }
 
     return c.json({
       agent: agentId,
