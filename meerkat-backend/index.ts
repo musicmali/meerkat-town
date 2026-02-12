@@ -2726,6 +2726,32 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 });
 
 /**
+ * Root A2A Agent Card - Platform-level discovery endpoint
+ * Returns Meerkat Town platform metadata in A2A protocol compliant format
+ */
+app.get('/.well-known/agent-card.json', (c) => {
+  return c.json({
+    name: 'Meerkat Town',
+    description: 'Meerkat Town is a Web3 platform where you can mint, own, and interact with Meerkat AI agents. Each Meerkat is a unique NFT following the ERC-8004 standard (Trustless Agents), enabling verifiable on-chain identity and reputation.',
+    url: 'https://meerkat.up.railway.app',
+    version: '1.0.0',
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    authentication: {
+      schemes: ['x402'],
+      description: 'Payment via x402 USDC micropayments on Base network'
+    },
+    skills: [
+      { id: 'ai_chat', name: 'AI Chat', description: 'Chat with AI-powered Meerkat agents on various topics', tags: ['chat', 'ai', 'conversation'] },
+      { id: 'agent_marketplace', name: 'Agent Marketplace', description: 'Discover, mint, and interact with unique AI agents as NFTs', tags: ['nft', 'marketplace', 'web3'] }
+    ],
+    capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
+    provider: { organization: 'Meerkat Town', url: 'https://meerkat.town' },
+    x402: { supported: true, network: 'eip155:84532', price: '$0.001', currency: 'USDC' }
+  });
+});
+
+/**
  * A2A Agent Card - Agent discovery endpoint
  * Returns agent metadata in A2A protocol compliant format
  * Spec: https://a2a-protocol.org/latest/specification/
