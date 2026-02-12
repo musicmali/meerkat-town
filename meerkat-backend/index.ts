@@ -2881,12 +2881,12 @@ app.get('/.well-known/agent-registration.json', async (c) => {
 /**
  * A2A Agent Card - Agent discovery endpoint
  * Returns agent metadata in A2A protocol compliant format
- * Spec: https://a2a-protocol.org/latest/specification/
+ * Serves at both /agent-card.json and /agent.json (standard A2A path)
  *
  * For legacy agents (bob, ana): Uses hardcoded metadata
  * For minted agents (numeric IDs): Fetches metadata from IPFS via Identity Registry
  */
-app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
+const agentCardHandler = async (c: any) => {
   const agentIdParam = c.req.param('agentId');
 
   // Check if this is a legacy agent (bob/ana) or a minted agent
@@ -2952,7 +2952,11 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
 
   // Unknown agent type
   return c.json({ error: 'Invalid agent ID' }, 400);
-});
+};
+
+// Register both paths: agent-card.json (legacy) and agent.json (A2A standard)
+app.get('/agents/:agentId/.well-known/agent-card.json', agentCardHandler);
+app.get('/agents/:agentId/.well-known/agent.json', agentCardHandler);
 
 // ============================================================================
 // RAG ADMIN ENDPOINTS
