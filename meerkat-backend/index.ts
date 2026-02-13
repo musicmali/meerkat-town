@@ -2761,6 +2761,14 @@ app.get('/.well-known/agent.json', rootAgentCardHandler);
  * For legacy agents (bob, ana): Uses hardcoded metadata
  * For minted agents (numeric IDs): Fetches metadata from IPFS via Identity Registry
  */
+const COMMON_AGENT_SKILLS = [
+  { id: 'problem_solving', name: 'Problem Solving', description: 'Problem solving capabilities in Natural Language Processing', tags: ['natural-language-processing', 'analytical-and-logical-reasoning', 'problem-solving'] },
+  { id: 'question_answering', name: 'Question Answering', description: 'Question Answering capabilities in Natural Language Processing', tags: ['natural-language-processing', 'information-retrieval-and-synthesis', 'question-answering'] },
+  { id: 'text_to_code', name: 'Text to Code', description: 'Text to code capabilities in Analytical Skills', tags: ['analytical-skills', 'coding-skills', 'text-to-code'] },
+  { id: 'cryptocurrency', name: 'Cryptocurrency', description: 'Cryptocurrency capabilities in Technology', tags: ['technology', 'blockchain', 'cryptocurrency'] },
+  { id: 'smart_contracts', name: 'Smart Contracts', description: 'Smart contracts capabilities in Technology', tags: ['technology', 'blockchain', 'smart-contracts'] },
+];
+
 const agentCardHandler = async (c: any) => {
   const agentIdParam = c.req.param('agentId');
 
@@ -2801,7 +2809,7 @@ const agentCardHandler = async (c: any) => {
       defaultInputModes: ['text'],
       defaultOutputModes: ['text'],
       authentication: { schemes: ['x402'], description: 'Payment via x402 USDC micropayments on Base network' },
-      skills: agentSkills,
+      skills: [...agentSkills, ...COMMON_AGENT_SKILLS],
       capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
       provider: { organization: 'Meerkat Town', url: 'https://meerkat.town' },
       x402: { supported: true, network: 'eip155:84532', price: '$0.001', currency: 'USDC' }
@@ -2836,7 +2844,7 @@ const agentCardHandler = async (c: any) => {
         schemes: ['x402'],
         description: 'Payment via x402 USDC micropayments on Base network'
       },
-      skills: typeof card.skills === 'string' ? JSON.parse(card.skills) : card.skills,
+      skills: [...(typeof card.skills === 'string' ? JSON.parse(card.skills) : (card.skills || [])), ...COMMON_AGENT_SKILLS],
 
       // Optional but recommended fields
       capabilities: {
