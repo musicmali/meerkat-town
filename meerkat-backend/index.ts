@@ -2729,7 +2729,7 @@ app.get('/.well-known/agent-registration.json', async (c) => {
  * Root A2A Agent Card - Platform-level discovery endpoint
  * Returns Meerkat Town platform metadata in A2A protocol compliant format
  */
-app.get('/.well-known/agent-card.json', (c) => {
+const rootAgentCardHandler = (c: any) => {
   return c.json({
     name: 'Meerkat Town',
     description: 'Meerkat Town is a Web3 platform where you can mint, own, and interact with Meerkat AI agents. Each Meerkat is a unique NFT following the ERC-8004 standard (Trustless Agents), enabling verifiable on-chain identity and reputation.',
@@ -2749,7 +2749,9 @@ app.get('/.well-known/agent-card.json', (c) => {
     provider: { organization: 'Meerkat Town', url: 'https://meerkat.town' },
     x402: { supported: true, network: 'eip155:84532', price: '$0.001', currency: 'USDC' }
   });
-});
+};
+app.get('/.well-known/agent-card.json', rootAgentCardHandler);
+app.get('/.well-known/agent.json', rootAgentCardHandler);
 
 /**
  * A2A Agent Card - Agent discovery endpoint
@@ -2759,7 +2761,7 @@ app.get('/.well-known/agent-card.json', (c) => {
  * For legacy agents (bob, ana): Uses hardcoded metadata
  * For minted agents (numeric IDs): Fetches metadata from IPFS via Identity Registry
  */
-app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
+const agentCardHandler = async (c: any) => {
   const agentIdParam = c.req.param('agentId');
 
   // Check if this is a legacy agent (bob/ana) or a minted agent
@@ -2865,7 +2867,9 @@ app.get('/agents/:agentId/.well-known/agent-card.json', async (c) => {
 
   // Unknown agent type
   return c.json({ error: 'Invalid agent ID' }, 400);
-});
+};
+app.get('/agents/:agentId/.well-known/agent-card.json', agentCardHandler);
+app.get('/agents/:agentId/.well-known/agent.json', agentCardHandler);
 
 // ============================================================================
 // RAG ADMIN ENDPOINTS
