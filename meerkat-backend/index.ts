@@ -2591,7 +2591,7 @@ app.post('/mcp/:agentId', async (c) => {
                   meerkatId: card.meerkat_id,
                   name: card.name,
                   description: card.description,
-                  skills: card.skills,
+                  skills: typeof card.skills === 'string' ? JSON.parse(card.skills) : card.skills,
                   price: card.price,
                 };
               }
@@ -2836,7 +2836,7 @@ const agentCardHandler = async (c: any) => {
         schemes: ['x402'],
         description: 'Payment via x402 USDC micropayments on Base network'
       },
-      skills: card.skills,
+      skills: typeof card.skills === 'string' ? JSON.parse(card.skills) : card.skills,
 
       // Optional but recommended fields
       capabilities: {
